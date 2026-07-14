@@ -1,0 +1,28 @@
+meta {
+  name: Levels
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/map/levels
+  body: none
+  auth: none
+}
+
+params:query {
+  min: 50.82,4.40
+  max: 50.87,4.32
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  **GET** `/api/v1/map/levels`
+  
+  Get all available levels for a map section
+  
+  operationId: levels
+}

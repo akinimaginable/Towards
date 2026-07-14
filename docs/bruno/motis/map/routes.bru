@@ -1,0 +1,33 @@
+meta {
+  name: Routes
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/experimental/map/routes
+  body: none
+  auth: none
+}
+
+params:query {
+  zoom: 12
+  min: 50.82,4.40
+  max: 50.87,4.32
+  ~language: fr
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  **GET** `/api/experimental/map/routes`
+  
+  Given an area frame (box defined by the top-right and bottom-left corners),
+  it returns all routes and their respective shapes that operate within this area.
+  Routes are filtered by zoom level. On low zoom levels, only long distance trains will be shown
+  while on high zoom levels, also metros, buses and trams will be returned.
+  
+  operationId: routes
+}

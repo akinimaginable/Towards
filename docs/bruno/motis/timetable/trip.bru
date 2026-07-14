@@ -1,0 +1,31 @@
+meta {
+  name: Trip
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v6/trip
+  body: none
+  auth: none
+}
+
+params:query {
+  tripId: trip-id
+  ~withScheduledSkippedStops: false
+  ~detailedLegs: true
+  ~joinInterlinedLegs: true
+  ~language: fr
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  **GET** `/api/v6/trip`
+  
+  Get a trip as itinerary
+  
+  operationId: trip
+}

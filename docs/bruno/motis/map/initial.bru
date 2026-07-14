@@ -1,0 +1,23 @@
+meta {
+  name: Initial
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/map/initial
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  **GET** `/api/v1/map/initial`
+  
+  initial location to view the map at after loading based on where public transport should be visible
+  
+  operationId: initial
+}

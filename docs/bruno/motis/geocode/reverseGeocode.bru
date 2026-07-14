@@ -1,0 +1,29 @@
+meta {
+  name: Reverse Geocode
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/reverse-geocode
+  body: none
+  auth: none
+}
+
+params:query {
+  place: 50.8458,4.3571
+  ~type: ADDRESS,STOP
+  ~numResults: 5
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  **GET** `/api/v1/reverse-geocode`
+  
+  Translate coordinates to the closest address(es)/places/stops.
+  
+  operationId: reverseGeocode
+}

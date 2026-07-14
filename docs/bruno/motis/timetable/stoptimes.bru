@@ -1,0 +1,41 @@
+meta {
+  name: Stoptimes
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v6/stoptimes
+  body: none
+  auth: none
+}
+
+params:query {
+  ~stopId: 8814001
+  ~center: 50.8458,4.3571
+  ~time: 2026-06-25T10:00:00+02:00
+  ~arriveBy: false
+  ~direction: EARLIER
+  ~window: 3600
+  ~mode: TRANSIT
+  ~n: 5
+  ~radius: 500
+  ~exactRadius: false
+  ~fetchStops: false
+  ~pageCursor: string
+  ~withScheduledSkippedStops: false
+  ~language: fr
+  ~withAlerts: true
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  **GET** `/api/v6/stoptimes`
+  
+  Get the next N departures or arrivals of a stop sorted by time
+  
+  operationId: stoptimes
+}

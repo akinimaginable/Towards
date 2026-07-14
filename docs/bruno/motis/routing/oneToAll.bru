@@ -1,0 +1,48 @@
+meta {
+  name: One To All
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/v6/one-to-all
+  body: none
+  auth: none
+}
+
+params:query {
+  one: 50.8458,4.3571
+  ~time: 2026-06-25T10:00:00+02:00
+  maxTravelTime: 90
+  ~arriveBy: false
+  ~maxTransfers: 0
+  ~minTransferTime: 0
+  ~additionalTransferTime: 0
+  ~transferTimeFactor: 1.0
+  ~maxMatchingDistance: 25
+  ~useRoutedTransfers: false
+  ~pedestrianProfile: FOOT
+  ~pedestrianSpeed: 1.0
+  ~cyclingSpeed: 1.0
+  ~elevationCosts: NONE
+  ~transitModes: TRANSIT
+  ~preTransitModes: WALK
+  ~postTransitModes: WALK
+  ~requireBikeTransport: false
+  ~requireCarTransport: false
+  ~maxPreTransitTime: 900
+  ~maxPostTransitTime: 900
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  **GET** `/api/v6/one-to-all`
+  
+  Computes all reachable locations from a given stop within a set duration.
+  Each result entry will contain the fastest travel duration and the number of connections used.
+  
+  operationId: oneToAll
+}

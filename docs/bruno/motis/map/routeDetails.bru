@@ -1,0 +1,29 @@
+meta {
+  name: Route Details
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/experimental/map/route-details
+  body: none
+  auth: none
+}
+
+params:query {
+  routeIdx: 0
+  ~language: fr
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  **GET** `/api/experimental/map/route-details`
+  
+  Returns the full data for a single route, including all stops and
+  polyline segments.
+  
+  operationId: routeDetails
+}
