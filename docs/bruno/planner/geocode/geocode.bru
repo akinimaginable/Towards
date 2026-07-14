@@ -1,0 +1,33 @@
+meta {
+  name: Geocode
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/geocode?text=Gare Centrale, Bruxelles
+  body: none
+  auth: none
+}
+
+params:query {
+  text: Gare Centrale, Bruxelles
+  ~language: fr
+  ~type: ADDRESS,STOP
+  ~mode: WALK
+  ~place: 50.8458,4.3571
+  ~placeBias: 1
+  ~numResults: 5
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  **GET** `/api/v1/geocode`
+  
+  Autocompletion & geocoding that resolves user input addresses including coordinates
+  
+  operationId: geocode
+}

@@ -1,0 +1,25 @@
+meta {
+  name: Service Health
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/healthz
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  **GET** `/healthz`
+  
+  Service liveness check
+  
+  Returns OK without calling the upstream MOTIS instance. Use this endpoint for load balancer and orchestrator health checks.
+  
+  operationId: serviceHealth
+}

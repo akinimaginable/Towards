@@ -1,0 +1,52 @@
+meta {
+  name: Refresh Itinerary Post (POST)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v5/refresh-itinerary
+  body: json
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}
+
+body:json {
+  {
+    "id": {
+      "legs": [
+        {
+          "displayName": "string",
+          "tripId": "trip-id",
+          "fromId": "string",
+          "fromLat": 1.0,
+          "fromLon": 1.0,
+          "toId": "string",
+          "toLat": 1.0,
+          "toLon": 1.0,
+          "schedStart": 0,
+          "schedEnd": 0,
+          "mode": "WALK",
+          "scheduled": false
+        }
+      ]
+    }
+  }
+}
+
+docs {
+  **POST** `/api/v5/refresh-itinerary`
+  
+  Reconstruct an itinerary from a protobuf-JSON itinerary identifier.
+  
+  Experimental (API might change without prior notice and without API version bump).
+  Only supports walking at start/end or station-to-station itineraries.
+  
+  All `RefreshItineraryPostBody` fields mirror the parameters of the
+  `plan` endpoint - see the `plan` endpoint for their descriptions.
+  
+  operationId: refreshItineraryPost
+}

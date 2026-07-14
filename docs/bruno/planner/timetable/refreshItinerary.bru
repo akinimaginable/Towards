@@ -1,0 +1,46 @@
+meta {
+  name: Refresh Itinerary
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v5/refresh-itinerary
+  body: none
+  auth: none
+}
+
+params:query {
+  itineraryId: itinerary-id
+  ~requireDisplayNameMatch: true
+  ~joinInterlinedLegs: true
+  ~detailedTransfers: false
+  ~detailedLegs: true
+  ~withFares: false
+  ~withScheduledSkippedStops: false
+  ~numLegAlternatives: 0
+  ~transitModes: TRANSIT
+  ~pedestrianProfile: FOOT
+  ~useRoutedTransfers: false
+  ~requireBikeTransport: false
+  ~requireCarTransport: false
+  ~language: fr
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  **GET** `/api/v5/refresh-itinerary`
+  
+  Reconstruct an itinerary from an itinerary ID.
+  
+  Experimental (API might change without prior notice and without API version bump).
+  Only supports walking at start/end or station-to-station itineraries.
+  
+  All parameters mirror those of the `plan` endpoint - see the `plan`
+  endpoint for their descriptions.
+  
+  operationId: refreshItinerary
+}

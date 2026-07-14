@@ -1,0 +1,27 @@
+meta {
+  name: Transfers
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/debug/transfers
+  body: none
+  auth: none
+}
+
+params:query {
+  id: 8814001
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  **GET** `/api/debug/transfers`
+  
+  Prints all transfers of a timetable location (track, bus stop, etc.)
+  
+  operationId: transfers
+}

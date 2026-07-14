@@ -1,0 +1,89 @@
+meta {
+  name: Plan
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/v6/plan
+  body: none
+  auth: none
+}
+
+params:query {
+  fromPlace: 50.8356,4.3364
+  toPlace: 50.8467,4.3525
+  ~radius: 1.0
+  ~via: 
+  ~viaMinimumStay: 0,0
+  ~time: 2026-06-25T10:00:00+02:00
+  ~maxTransfers: 0
+  ~maxTravelTime: 90
+  ~minTransferTime: 0
+  ~additionalTransferTime: 0
+  ~transferTimeFactor: 1.0
+  ~maxMatchingDistance: 25
+  ~pedestrianProfile: FOOT
+  ~pedestrianSpeed: 1.0
+  ~cyclingSpeed: 1.0
+  ~elevationCosts: NONE
+  ~useRoutedTransfers: false
+  ~detailedTransfers: false
+  ~detailedLegs: true
+  ~joinInterlinedLegs: true
+  ~transitModes: TRANSIT
+  ~directModes: WALK
+  ~preTransitModes: WALK
+  ~postTransitModes: WALK
+  ~directRentalFormFactors: BICYCLE
+  ~preTransitRentalFormFactors: BICYCLE
+  ~postTransitRentalFormFactors: BICYCLE
+  ~directRentalPropulsionTypes: HUMAN
+  ~preTransitRentalPropulsionTypes: HUMAN
+  ~postTransitRentalPropulsionTypes: HUMAN
+  ~directRentalProviders: string
+  ~directRentalProviderGroups: string
+  ~preTransitRentalProviders: string
+  ~preTransitRentalProviderGroups: string
+  ~postTransitRentalProviders: string
+  ~postTransitRentalProviderGroups: string
+  ~ignoreDirectRentalReturnConstraints: false
+  ~ignorePreTransitRentalReturnConstraints: false
+  ~ignorePostTransitRentalReturnConstraints: false
+  ~numItineraries: 5
+  ~maxItineraries: 0
+  ~pageCursor: string
+  ~timetableView: true
+  ~arriveBy: false
+  ~searchWindow: 900
+  ~requireBikeTransport: false
+  ~requireCarTransport: false
+  ~maxPreTransitTime: 900
+  ~maxPostTransitTime: 900
+  ~maxDirectTime: 1800
+  ~fastestDirectFactor: 1.0
+  ~timeout: 0
+  ~passengers: 0
+  ~luggage: 0
+  ~slowDirect: false
+  ~fastestSlowDirectFactor: 3.0
+  ~withFares: false
+  ~numLegAlternatives: 0
+  ~withScheduledSkippedStops: false
+  ~language: fr
+  ~algorithm: PONG
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  **GET** `/api/v6/plan`
+  
+  Brussels Midi → Grand Place (Belgium example).
+  
+  Computes optimal connections from one place to another.
+  
+  operationId: plan
+}

@@ -1,0 +1,36 @@
+meta {
+  name: Trips
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/v6/map/trips
+  body: none
+  auth: none
+}
+
+params:query {
+  zoom: 12
+  min: 50.82,4.40
+  max: 50.87,4.32
+  startTime: 2026-06-25T10:00:00+02:00
+  endTime: 2026-06-25T10:00:00+02:00
+  ~precision: 5
+  ~language: fr
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  **GET** `/api/v6/map/trips`
+  
+  Given a area frame (box defined by top right and bottom left corner) and a time frame,
+  it returns all trips and their respective shapes that operate in this area + time frame.
+  Trips are filtered by zoom level. On low zoom levels, only long distance trains will be shown
+  while on high zoom levels, also metros, buses and trams will be returned.
+  
+  operationId: trips
+}
