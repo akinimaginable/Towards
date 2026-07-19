@@ -1,0 +1,128 @@
+package org.etrange.towards.infrastructure.motis
+
+import org.etrange.towards.domain.model.Coordinate
+import org.etrange.towards.domain.model.EncodedPath
+import org.etrange.towards.domain.model.GeocodeResult
+import org.etrange.towards.domain.model.Itinerary
+import org.etrange.towards.domain.model.JourneyLeg
+import org.etrange.towards.domain.model.LocationKind
+import org.etrange.towards.domain.model.MapInitialView
+import org.etrange.towards.domain.model.MapTrip
+import org.etrange.towards.domain.model.Place
+import org.etrange.towards.domain.model.StopTime
+import org.etrange.towards.domain.model.StopTimes
+import org.etrange.towards.domain.model.TransportMode
+import org.etrange.towards.domain.model.TripPlan
+
+internal fun String.toDomainMode(): TransportMode = when (this) {
+    "METRO" -> TransportMode.SUBWAY
+    "AREAL_LIFT" -> TransportMode.AERIAL_LIFT
+    else -> TransportMode.entries.firstOrNull { it.name == this } ?: TransportMode.OTHER
+}
+
+internal fun MotisPlace.toDomain(): Place = Place(
+    id = stopId,
+    name = name,
+    coordinate = Coordinate(lat, lon, level),
+    parentId = parentId,
+    timezone = tz,
+    platform = track ?: scheduledTrack,
+    modes = modes.mapTo(linkedSetOf()) { it.toDomainMode() },
+)
+
+internal fun MotisEncodedPolyline.toDomain(): EncodedPath = EncodedPath(
+    points = points,
+    precision = precision,
+    length = length,
+)
+
+internal fun MotisLeg.toDomain(): JourneyLeg = JourneyLeg(
+    mode = mode.toDomainMode(),
+    from = from.toDomain(),
+    to = to.toDomain(),
+    startTime = startTime,
+    endTime = endTime,
+    scheduledStartTime = scheduledStartTime,
+    scheduledEndTime = scheduledEndTime,
+    durationSeconds = duration,
+    realTime = realTime,
+    routeId = routeId,
+    tripId = tripId,
+    displayName = displayName,
+    headsign = headsign,
+    agencyName = agencyName,
+    routeColor = routeColor,
+    routeTextColor = routeTextColor,
+    distanceMeters = distance,
+    geometry = legGeometry?.toDomain(),
+    cancelled = cancelled,
+    intermediateStops = intermediateStops.map { it.toDomain() },
+)
+
+internal fun MotisItinerary.toDomain(): Itinerary = Itinerary(
+    id = id,
+    durationSeconds = duration,
+    startTime = startTime,
+    endTime = endTime,
+    transfers = transfers,
+    legs = legs.map { it.toDomain() },
+)
+
+internal fun MotisPlanResponse.toDomain(): TripPlan = TripPlan(
+    from = from.toDomain(),
+    to = to.toDomain(),
+    direct = direct.map { it.toDomain() },
+    itineraries = itineraries.map { it.toDomain() },
+    previousPageCursor = previousPageCursor.ifBlank { null },
+    nextPageCursor = nextPageCursor.ifBlank { null },
+)
+
+internal fun MotisStopTime.toDomain(): StopTime = StopTime(
+    place = place.toDomain(),
+    mode = mode.toDomainMode(),
+    time = place.departure ?: place.arrival,
+    scheduledTime = place.scheduledDeparture ?: place.scheduledArrival,
+    realTime = realTime,
+    headsign = headsign,
+    tripId = tripId,
+    routeId = routeId,
+    displayName = displayName,
+    cancelled = cancelled || tripCancelled,
+)
+
+internal fun MotisStopTimesResponse.toDomain(): StopTimes = StopTimes(
+    place = place.toDomain(),
+    events = stopTimes.map { it.toDomain() },
+    previousPageCursor = previousPageCursor.ifBlank { null },
+    nextPageCursor = nextPageCursor.ifBlank { null },
+)
+
+internal fun MotisMatch.toDomain(): GeocodeResult = GeocodeResult(
+    id = id,
+    kind = LocationKind.entries.firstOrNull { it.name == type } ?: LocationKind.PLACE,
+    name = name,
+    coordinate = Coordinate(lat, lon, level),
+    country = country,
+    postalCode = zip,
+    street = street,
+    houseNumber = houseNumber,
+    modes = modes.mapTo(linkedSetOf()) { it.toDomainMode() },
+)
+
+internal fun MotisTripSegment.toDomain(): MapTrip = MapTrip(
+    tripIds = trips.map { it.tripId },
+    mode = mode.toDomainMode(),
+    from = from.toDomain(),
+    to = to.toDomain(),
+    departure = departure,
+    arrival = arrival,
+    polyline = polyline,
+    routeColor = routeColor,
+)
+
+internal fun MotisInitialResponse.toDomain(): MapInitialView = MapInitialView(
+    center = Coordinate(lat, lon),
+    zoom = zoom,
+    motisVersion = serverConfig.motisVersion,
+    streetRoutingAvailable = serverConfig.hasStreetRouting,
+)
