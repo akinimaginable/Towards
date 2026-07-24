@@ -1,0 +1,11 @@
+meta {
+  name: Search Brussels Central
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/geocode?text=Bruxelles-Central&language=fr,nl&types=STOP&bias=50.8453,4.3570&limit=10
+  body: none
+  auth: none
+}

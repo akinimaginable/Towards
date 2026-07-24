@@ -1,0 +1,11 @@
+meta {
+  name: Brussels Map Trips
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/map/trips?min=50.80,4.25&max=50.92,4.50&zoom=12&startTime=2026-07-24T08:00:00%2B02:00&endTime=2026-07-24T09:00:00%2B02:00&precision=5&language=fr,nl
+  body: none
+  auth: none
+}

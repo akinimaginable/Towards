@@ -1,0 +1,11 @@
+meta {
+  name: Reverse Geocode Grand Place
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/reverse-geocode?place=50.8467,4.3525&types=ADDRESS,PLACE,STOP&limit=5
+  body: none
+  auth: none
+}

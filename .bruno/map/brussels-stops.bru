@@ -1,0 +1,11 @@
+meta {
+  name: Brussels Map Stops
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/map/stops?min=50.80,4.25&max=50.92,4.50&grouped=true&modes=RAIL,TRAM,BUS&language=fr,nl
+  body: none
+  auth: none
+}

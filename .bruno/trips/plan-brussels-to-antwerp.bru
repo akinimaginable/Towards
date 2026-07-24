@@ -1,0 +1,15 @@
+meta {
+  name: Plan Brussels to Antwerp
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/trips/plan?from=50.8453,4.3570&to=51.2172,4.4211&time=2026-07-24T08:00:00%2B02:00&transitModes=RAIL,TRANSIT&directModes=WALK&language=nl,fr
+  body: none
+  auth: none
+}
+
+headers {
+  X-Request-ID: bruno-belgium-plan
+}
