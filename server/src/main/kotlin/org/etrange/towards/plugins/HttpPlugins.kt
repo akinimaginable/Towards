@@ -52,6 +52,8 @@ fun Application.configureHttpPlugins(
     install(CallLogging) {
         level = Level.INFO
         mdc("correlationId") { call -> call.callId }
+        mdc("httpMethod") { call -> call.request.httpMethod.value }
+        mdc("path") { call -> call.request.path() }
         format { call ->
             "http_request method=${call.request.httpMethod.value} path=${call.request.path()} " +
                 "status=${call.response.status()?.value ?: 0} latency_ms=${call.processingTimeMillis()}"
