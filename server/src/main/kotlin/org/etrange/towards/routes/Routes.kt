@@ -6,6 +6,8 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.auth.authenticate
 import io.ktor.server.auth.principal
 import io.ktor.server.plugins.callid.callId
+import io.ktor.server.plugins.ratelimit.RateLimitName
+import io.ktor.server.plugins.ratelimit.rateLimit
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
@@ -31,6 +33,7 @@ import org.etrange.towards.domain.model.StopTimesRequest
 import org.etrange.towards.domain.model.TransportMode
 import org.etrange.towards.domain.model.TripLookupRequest
 import org.etrange.towards.domain.model.TripPlanningRequest
+import org.etrange.towards.plugins.API_RATE_LIMIT
 import org.etrange.towards.plugins.DummyPrincipal
 
 fun Application.configureRoutes(
@@ -49,7 +52,8 @@ fun Application.configureRoutes(
         }
 
         authenticate("dummy") {
-            route("/api/v1") {
+            rateLimit(RateLimitName(API_RATE_LIMIT)) {
+                route("/api/v1") {
                 get("/trips/plan") {
                     val request = TripPlanningRequest(
                         from = call.requiredQuery("from").toLocationReference(),
@@ -188,6 +192,7 @@ fun Application.configureRoutes(
                         )
                     }
                 }
+            }
             }
         }
     }

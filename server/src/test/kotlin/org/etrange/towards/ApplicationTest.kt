@@ -42,9 +42,44 @@ class ApplicationTest {
         assertTrue(response.bodyAsText().contains("INVALID_REQUEST"))
         assertTrue(response.bodyAsText().contains("belgium-test-1"))
     }
+
+    @Test
+    fun rateLimiterReturnsJsonTooManyRequests() = testApplication {
+        environment {
+            config = testConfig(
+                "towards.rateLimit.requests" to "2",
+                "towards.rateLimit.periodSeconds" to "60",
+            )
+        }
+        application {
+            module()
+        }
+
+        repeat(2) {
+            val allowed = client.get("/api/v1/geocode") {
+                parameter("text", "Bruxelles-Central")
+            }
+            assertTrue(
+                allowed.status == HttpStatusCode.OK ||
+                    allowed.status == HttpStatusCode.BadGateway ||
+                    allowed.status == HttpStatusCode.ServiceUnavailable,
+                "expected success or upstream failure, got ${allowed.status}",
+            )
+        }
+
+        val limited = client.get("/api/v1/geocode") {
+            parameter("text", "Bruxelles-Central")
+            header(HttpHeaders.XRequestId, "belgium-rate-limit")
+        }
+
+        assertEquals(HttpStatusCode.TooManyRequests, limited.status)
+        assertTrue(limited.bodyAsText().contains("RATE_LIMIT_EXCEEDED"))
+        assertTrue(limited.bodyAsText().contains("belgium-rate-limit"))
+        assertNotNull(limited.headers[HttpHeaders.RetryAfter])
+    }
 }
 
-private fun testConfig() = MapApplicationConfig(
+private fun testConfig(vararg overrides: Pair<String, String>) = MapApplicationConfig(
     "towards.motis.baseUrl" to "http://127.0.0.1:1",
     "towards.motis.requestTimeoutMillis" to "100",
     "towards.database.enabled" to "false",
@@ -54,4 +89,5 @@ private fun testConfig() = MapApplicationConfig(
     "towards.rateLimit.requests" to "120",
     "towards.rateLimit.periodSeconds" to "60",
     "towards.authentication.dummyUserId" to "00000000-0000-0000-0000-000000000001",
+    *overrides,
 )

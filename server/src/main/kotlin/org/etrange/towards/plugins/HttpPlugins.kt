@@ -15,6 +15,7 @@ import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.calllogging.processingTimeMillis
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.ratelimit.RateLimit
+import io.ktor.server.plugins.ratelimit.RateLimitName
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.httpMethod
 import io.ktor.server.request.path
@@ -34,6 +35,8 @@ import org.etrange.towards.domain.model.UserId
 import org.slf4j.event.Level
 import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
+
+const val API_RATE_LIMIT = "api"
 
 fun Application.configureHttpPlugins(
     config: AppConfig,
@@ -77,11 +80,15 @@ fun Application.configureHttpPlugins(
     }
 
     install(RateLimit) {
-        global {
+        register(RateLimitName(API_RATE_LIMIT)) {
             rateLimiter(
                 limit = config.rateLimit.requests,
                 refillPeriod = config.rateLimit.periodSeconds.seconds,
             )
+            requestKey { call ->
+                call.principal<DummyPrincipal>()?.userId?.value
+                    ?: call.request.local.remoteHost
+            }
         }
     }
 
@@ -90,6 +97,16 @@ fun Application.configureHttpPlugins(
     }
 
     install(StatusPages) {
+        status(HttpStatusCode.TooManyRequests) { call, status ->
+            call.respond(
+                status,
+                ErrorResponseDto(
+                    code = "RATE_LIMIT_EXCEEDED",
+                    message = "Too many requests. Please retry later.",
+                    correlationId = call.callId,
+                ),
+            )
+        }
         exception<ApiException> { call, cause ->
             auditService.recordSystemError(call, cause)
             call.respond(
