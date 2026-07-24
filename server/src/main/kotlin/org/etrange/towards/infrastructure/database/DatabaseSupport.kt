@@ -1,5 +1,7 @@
 package org.etrange.towards.infrastructure.database
 
+import com.zaxxer.hikari.HikariConfig
+import com.zaxxer.hikari.HikariDataSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import liquibase.Liquibase
@@ -14,7 +16,6 @@ import org.jetbrains.exposed.v1.javatime.timestampWithTimeZone
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import java.sql.DriverManager
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import kotlin.uuid.Uuid
@@ -34,19 +35,47 @@ object AuditLogTable : Table("audit_log") {
     override val primaryKey = PrimaryKey(id, name = "pk_audit_log")
 }
 
+class DatabaseResources(
+    val dataSource: HikariDataSource,
+    val database: Database,
+) : AutoCloseable {
+    override fun close() {
+        dataSource.close()
+    }
+}
+
 object DatabaseFactorySupport {
-    fun initialize(config: DatabaseConfig): Database {
-        runMigrations(config)
-        return Database.connect(
-            url = config.url,
-            driver = "org.postgresql.Driver",
-            user = config.user,
-            password = config.password,
+    fun initialize(config: DatabaseConfig): DatabaseResources {
+        val dataSource = createDataSource(config)
+        runMigrations(dataSource)
+        return DatabaseResources(
+            dataSource = dataSource,
+            database = Database.connect(dataSource),
         )
     }
 
-    private fun runMigrations(config: DatabaseConfig) {
-        DriverManager.getConnection(config.url, config.user, config.password).use { connection ->
+    private fun createDataSource(config: DatabaseConfig): HikariDataSource {
+        val hikariConfig = HikariConfig().apply {
+            jdbcUrl = config.url
+            username = config.user
+            password = config.password
+            driverClassName = "org.postgresql.Driver"
+            poolName = "towards-postgres"
+            maximumPoolSize = config.pool.maximumPoolSize
+            minimumIdle = config.pool.minimumIdle
+            connectionTimeout = config.pool.connectionTimeoutMillis
+            idleTimeout = config.pool.idleTimeoutMillis
+            maxLifetime = config.pool.maxLifetimeMillis
+            isAutoCommit = false
+            addDataSourceProperty("cachePrepStmts", "true")
+            addDataSourceProperty("prepStmtCacheSize", "250")
+            addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
+        }
+        return HikariDataSource(hikariConfig)
+    }
+
+    private fun runMigrations(dataSource: HikariDataSource) {
+        dataSource.connection.use { connection ->
             val database = DatabaseFactory.getInstance()
                 .findCorrectDatabaseImplementation(JdbcConnection(connection))
             Liquibase(

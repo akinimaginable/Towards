@@ -7,11 +7,20 @@ data class MotisConfig(
     val requestTimeoutMillis: Long,
 )
 
+data class DatabasePoolConfig(
+    val maximumPoolSize: Int,
+    val minimumIdle: Int,
+    val connectionTimeoutMillis: Long,
+    val idleTimeoutMillis: Long,
+    val maxLifetimeMillis: Long,
+)
+
 data class DatabaseConfig(
     val enabled: Boolean,
     val url: String,
     val user: String,
     val password: String,
+    val pool: DatabasePoolConfig,
 )
 
 data class RateLimitConfig(
@@ -34,6 +43,7 @@ data class AppConfig(
             val root = config.config("towards")
             val motis = root.config("motis")
             val database = root.config("database")
+            val pool = database.config("pool")
             val rateLimit = root.config("rateLimit")
             val authentication = root.config("authentication")
 
@@ -47,6 +57,13 @@ data class AppConfig(
                     url = database.property("url").getString(),
                     user = database.property("user").getString(),
                     password = database.property("password").getString(),
+                    pool = DatabasePoolConfig(
+                        maximumPoolSize = pool.property("maximumPoolSize").getString().toInt(),
+                        minimumIdle = pool.property("minimumIdle").getString().toInt(),
+                        connectionTimeoutMillis = pool.property("connectionTimeoutMillis").getString().toLong(),
+                        idleTimeoutMillis = pool.property("idleTimeoutMillis").getString().toLong(),
+                        maxLifetimeMillis = pool.property("maxLifetimeMillis").getString().toLong(),
+                    ),
                 ),
                 rateLimit = RateLimitConfig(
                     requests = rateLimit.property("requests").getString().toInt(),

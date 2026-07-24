@@ -34,6 +34,7 @@ dependencies {
     implementation(libs.exposed.javaTime)
     implementation(libs.liquibase.core)
     implementation(libs.postgresql)
+    implementation(libs.hikari)
     implementation(libs.micrometer.prometheus)
     testImplementation(libs.ktor.serverTestHost)
     testImplementation(libs.ktor.clientMock)

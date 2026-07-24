@@ -20,6 +20,7 @@ import org.etrange.towards.domain.port.TransitDataProvider
 import org.etrange.towards.domain.port.TripInformationProvider
 import org.etrange.towards.domain.port.TripPlanner
 import org.etrange.towards.infrastructure.database.DatabaseFactorySupport
+import org.etrange.towards.infrastructure.database.DatabaseResources
 import org.etrange.towards.infrastructure.database.ExposedAuditRepository
 import org.etrange.towards.infrastructure.motis.MotisClient
 import org.koin.dsl.module
@@ -58,9 +59,13 @@ fun applicationModule(config: AppConfig) = module {
     single<Geocoder> { get<MotisClient>() }
     single<TransitDataProvider> { get<MotisClient>() }
 
+    if (config.database.enabled) {
+        single { DatabaseFactorySupport.initialize(config.database) }
+    }
     single<AuditRepository> {
-        if (config.database.enabled) {
-            ExposedAuditRepository(DatabaseFactorySupport.initialize(config.database))
+        val resources = getOrNull<DatabaseResources>()
+        if (resources != null) {
+            ExposedAuditRepository(resources.database)
         } else {
             NoOpAuditRepository()
         }

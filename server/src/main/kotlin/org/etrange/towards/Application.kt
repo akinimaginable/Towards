@@ -7,6 +7,7 @@ import org.etrange.towards.application.AuditService
 import org.etrange.towards.application.MobilityService
 import org.etrange.towards.config.AppConfig
 import org.etrange.towards.di.applicationModule
+import org.etrange.towards.infrastructure.database.DatabaseResources
 import org.etrange.towards.plugins.configureHttpPlugins
 import org.etrange.towards.routes.configureRoutes
 import org.koin.ktor.ext.getKoin
@@ -32,5 +33,6 @@ fun Application.module() {
 
     monitor.subscribe(ApplicationStopped) {
         getKoin().get<HttpClient>().close()
+        getKoin().getOrNull<DatabaseResources>()?.close()
     }
 }
