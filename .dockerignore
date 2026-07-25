@@ -1,0 +1,17 @@
+# Build context hygiene for backend image builds
+.git
+.github
+.idea
+.bruno
+.cursor
+**/.gradle
+**/build
+**/bin
+app
+docs
+*.md
+*.iml
+local.properties
+.env
+.env.*
+!.env.example

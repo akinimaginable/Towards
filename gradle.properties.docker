@@ -1,0 +1,14 @@
+# Memory settings for Docker image builds.
+# Kotlin compiles in-process, so Gradle heap + Metaspace must fit the compiler.
+kotlin.code.style=official
+kotlin.daemon.enabled=false
+kotlin.compiler.execution.strategy=in-process
+
+org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=768m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+org.gradle.workers.max=1
+org.gradle.parallel=false
+org.gradle.configuration-cache=false
+org.gradle.caching=true
+org.gradle.daemon=false
+org.gradle.java.installations.auto-download=false
+org.gradle.java.installations.auto-detect=true
