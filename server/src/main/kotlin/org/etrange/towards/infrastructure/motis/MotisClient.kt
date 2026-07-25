@@ -63,12 +63,14 @@ class MotisClient(
             parameter("withScheduledSkippedStops", request.includeScheduledSkippedStops)
             request.language.takeIf { it.isNotEmpty() }?.let { parameter("language", it.joinToString(",")) }
         }.toDomain()
+            ?: throw NotFoundException("Trip is unavailable or uses unsupported transport modes")
 
     override suspend fun refreshItinerary(request: ItineraryRefreshRequest): Itinerary =
         get<MotisItinerary>("/api/v6/refresh-itinerary") {
             parameter("itineraryId", request.itineraryId)
             request.language.takeIf { it.isNotEmpty() }?.let { parameter("language", it.joinToString(",")) }
         }.toDomain()
+            ?: throw NotFoundException("Itinerary is unavailable or uses unsupported transport modes")
 
     override suspend fun getStopTimes(request: StopTimesRequest): StopTimes {
         if (request.stopId == null && request.center == null) {
@@ -129,7 +131,7 @@ class MotisClient(
             parameter("endTime", request.endTime)
             parameter("precision", request.precision)
             request.languages.takeIf { it.isNotEmpty() }?.let { parameter("language", it.joinToString(",")) }
-        }.map { it.toDomain() }
+        }.mapNotNull { it.toDomain() }
 
     override suspend fun getMapLevels(bounds: MapBounds): List<Double> =
         get("/api/v1/map/levels") {
