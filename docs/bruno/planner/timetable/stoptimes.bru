@@ -1,31 +1,25 @@
 meta {
-  name: Stoptimes
+  name: Stop Times
   type: http
-  seq: 4
+  seq: 1
 }
 
 get {
-  url: {{baseUrl}}/api/v6/stoptimes
+  url: {{baseUrl}}/api/v1/stop-times
   body: none
   auth: none
 }
 
 params:query {
-  ~stopId: 8814001
-  ~center: 50.8458,4.3571
-  ~time: 2026-06-25T10:00:00+02:00
+  ~stopId:
+  center: 50.8453,4.3570
+  radius: 300
+  ~time: 2026-07-24T08:00:00+02:00
   ~arriveBy: false
-  ~direction: EARLIER
-  ~window: 3600
-  ~mode: TRANSIT
-  ~n: 5
-  ~radius: 500
-  ~exactRadius: false
-  ~fetchStops: false
-  ~pageCursor: string
-  ~withScheduledSkippedStops: false
-  ~language: fr
-  ~withAlerts: true
+  modes: RAIL,TRANSIT
+  n: 10
+  ~pageCursor:
+  ~language: nl,fr
 }
 
 headers {
@@ -33,9 +27,7 @@ headers {
 }
 
 docs {
-  **GET** `/api/v6/stoptimes`
-  
-  Get the next N departures or arrivals of a stop sorted by time
-  
-  operationId: stoptimes
+  **GET** `/api/v1/stop-times`
+
+  Next departures/arrivals for a stop id or center+radius.
 }

@@ -1,7 +1,7 @@
 meta {
   name: Levels
   type: http
-  seq: 2
+  seq: 4
 }
 
 get {
@@ -11,8 +11,8 @@ get {
 }
 
 params:query {
-  min: 50.82,4.40
-  max: 50.87,4.32
+  min: 50.80,4.25
+  max: 50.92,4.50
 }
 
 headers {
@@ -21,8 +21,6 @@ headers {
 
 docs {
   **GET** `/api/v1/map/levels`
-  
-  Get all available levels for a map section
-  
-  operationId: levels
+
+  Available OSM levels for a map section.
 }

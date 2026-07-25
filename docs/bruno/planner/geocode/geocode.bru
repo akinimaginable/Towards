@@ -5,19 +5,18 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/api/v1/geocode?text=Gare Centrale, Bruxelles
+  url: {{baseUrl}}/api/v1/geocode
   body: none
   auth: none
 }
 
 params:query {
-  text: Gare Centrale, Bruxelles
-  ~language: fr
-  ~type: ADDRESS,STOP
-  ~mode: WALK
-  ~place: 50.8458,4.3571
-  ~placeBias: 1
-  ~numResults: 5
+  text: Bruxelles-Central
+  language: fr,nl
+  types: STOP
+  ~modes: RAIL,TRANSIT
+  bias: 50.8453,4.3570
+  limit: 10
 }
 
 headers {
@@ -26,8 +25,6 @@ headers {
 
 docs {
   **GET** `/api/v1/geocode`
-  
-  Autocompletion & geocoding that resolves user input addresses including coordinates
-  
-  operationId: geocode
+
+  Autocomplete / geocode text to places and stops.
 }

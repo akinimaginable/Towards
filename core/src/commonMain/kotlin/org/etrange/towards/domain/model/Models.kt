@@ -28,7 +28,6 @@ sealed interface LocationReference {
 enum class TransportMode {
     WALK,
     BIKE,
-    RENTAL,
     CAR,
     CAR_PARKING,
     CAR_DROPOFF,

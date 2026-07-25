@@ -1,21 +1,18 @@
 meta {
   name: Trip
   type: http
-  seq: 3
+  seq: 1
 }
 
 get {
-  url: {{baseUrl}}/api/v5/trip
+  url: {{baseUrl}}/api/v1/trips/{{tripId}}
   body: none
   auth: none
 }
 
 params:query {
-  tripId: trip-id
   ~withScheduledSkippedStops: false
-  ~detailedLegs: true
-  ~joinInterlinedLegs: true
-  ~language: fr
+  ~language: nl,fr
 }
 
 headers {
@@ -23,9 +20,7 @@ headers {
 }
 
 docs {
-  **GET** `/api/v5/trip`
-  
-  Get a trip as itinerary
-  
-  operationId: trip
+  **GET** `/api/v1/trips/{tripId}`
+
+  Get a trip as an itinerary.
 }

@@ -11,9 +11,9 @@ get {
 }
 
 params:query {
-  place: 50.8458,4.3571
-  ~type: ADDRESS,STOP
-  ~numResults: 5
+  place: 50.8467,4.3525
+  types: ADDRESS,PLACE,STOP
+  limit: 5
 }
 
 headers {
@@ -22,8 +22,6 @@ headers {
 
 docs {
   **GET** `/api/v1/reverse-geocode`
-  
-  Translate coordinates to the closest address(es)/places/stops.
-  
-  operationId: reverseGeocode
+
+  Resolve coordinates to nearby addresses, places, and stops.
 }
