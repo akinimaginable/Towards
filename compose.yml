@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:18
+    container_name: towards-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-towards}
+      POSTGRES_USER: ${POSTGRES_USER:-towards}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-towards}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - towards_pg_data:/var/lib/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: towards-backend:local
+    container_name: towards-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${BACKEND_PORT:-8081}:8081"
+    environment:
+      PORT: 8081
+      MOTIS_BASE_URL: ${MOTIS_BASE_URL:-https://api.transitous.org}
+      MOTIS_REQUEST_TIMEOUT_MS: ${MOTIS_REQUEST_TIMEOUT_MS:-15000}
+      DATABASE_ENABLED: ${DATABASE_ENABLED:-true}
+      DATABASE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-towards}
+      DATABASE_USER: ${POSTGRES_USER:-towards}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-towards}
+      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-10}
+      DATABASE_POOL_MIN_IDLE: ${DATABASE_POOL_MIN_IDLE:-2}
+      RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-120}
+      RATE_LIMIT_PERIOD_SECONDS: ${RATE_LIMIT_PERIOD_SECONDS:-60}
+      DUMMY_USER_ID: ${DUMMY_USER_ID:-00000000-0000-0000-0000-000000000001}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8081/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  towards_pg_data:
