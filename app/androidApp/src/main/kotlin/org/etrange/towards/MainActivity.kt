@@ -29,6 +29,8 @@ private fun AppAndroidLightPreview() {
             destination = "",
             onDestinationChange = {},
             onOpenSettings = {},
+            shortcuts = emptyList(),
+            onShortcutClick = { },
         )
     }
 }
@@ -41,6 +43,8 @@ private fun AppAndroidDarkPreview() {
             destination = "",
             onDestinationChange = {},
             onOpenSettings = {},
+            shortcuts = emptyList(),
+            onShortcutClick = {},
         )
     }
 }

@@ -15,6 +15,7 @@ import org.etrange.towards.navigation.HomeRoute
 import org.etrange.towards.navigation.SettingsRoute
 import org.etrange.towards.ui.home.HomeScreen
 import org.etrange.towards.ui.home.HomeViewModel
+import org.etrange.towards.ui.home.DestinationShortcutItem
 import org.etrange.towards.ui.settings.SettingsScreen
 import org.etrange.towards.ui.settings.SettingsViewModel
 import org.etrange.towards.ui.theme.ThemeMode
@@ -59,26 +60,40 @@ fun App(
     }
 }
 
-@Preview(name = "App · Light")
+@Preview
 @Composable
 private fun AppLightPreview() {
     TowardsPreview(themeMode = ThemeMode.Light) {
         HomeScreen(
-            destination = "",
+            destination = "Centraal Station",
+            shortcuts = listOf(
+                DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
+                DestinationShortcutItem(label = "Work", detail = "17 min"),
+                DestinationShortcutItem(label = "School", detail = "47 min"),
+                DestinationShortcutItem(label = "Grand Place", detail = "7 min"),
+            ),
             onDestinationChange = {},
+            onShortcutClick = {},
             onOpenSettings = {},
         )
     }
 }
 
-/*@Preview(name = "App · Dark")
+@Preview
 @Composable
 private fun AppDarkPreview() {
     TowardsPreview(themeMode = ThemeMode.Dark) {
         HomeScreen(
-            destination = "",
+            destination = "Centraal Station",
+            shortcuts = listOf(
+                DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
+                DestinationShortcutItem(label = "Work", detail = "17 min"),
+                DestinationShortcutItem(label = "School", detail = "47 min"),
+                DestinationShortcutItem(label = "Grand Place", detail = "7 min"),
+            ),
             onDestinationChange = {},
+            onShortcutClick = {},
             onOpenSettings = {},
         )
     }
-}*/
+}
