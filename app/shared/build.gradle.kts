@@ -48,6 +48,13 @@ kotlin {
             implementation(libs.compose.uiTooling)
             implementation(libs.androidx.core.ktx)
             implementation(libs.androidx.activity.compose)
+            implementation(libs.ktor.mp.client.okhttp)
+        }
+        iosMain.dependencies {
+            implementation(libs.ktor.mp.client.darwin)
+        }
+        jvmMain.dependencies {
+            implementation(libs.ktor.mp.client.cio)
         }
         commonMain.dependencies {
             api(project(":core"))
@@ -62,6 +69,9 @@ kotlin {
             implementation(libs.androidx.navigation.compose)
             implementation(libs.compose.material.icons.core)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.ktor.mp.client.core)
+            implementation(libs.ktor.mp.client.content.negotiation)
+            implementation(libs.ktor.mp.client.serialization.json)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

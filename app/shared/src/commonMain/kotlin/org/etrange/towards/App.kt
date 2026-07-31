@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -11,6 +12,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import org.etrange.towards.data.ApiConfig
+import org.etrange.towards.data.HttpGeocoder
+import org.etrange.towards.data.createHttpClient
+import org.etrange.towards.data.defaultApiBaseUrl
+import org.etrange.towards.domain.model.Coordinate
+import org.etrange.towards.domain.model.GeocodeResult
+import org.etrange.towards.domain.model.LocationKind
 import org.etrange.towards.navigation.HomeRoute
 import org.etrange.towards.navigation.SettingsRoute
 import org.etrange.towards.ui.home.HomeScreen
@@ -35,6 +43,12 @@ fun App(
 ) {
     val themeMode by settingsViewModel.themeMode.collectAsStateWithLifecycle()
     val navController = rememberNavController()
+    val geocoder = remember {
+        HttpGeocoder(
+            client = createHttpClient(),
+            config = ApiConfig(baseUrl = defaultApiBaseUrl()),
+        )
+    }
 
     TowardsTheme(themeMode = themeMode) {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -43,7 +57,7 @@ fun App(
                 startDestination = HomeRoute,
             ) {
                 composable<HomeRoute> {
-                    val homeViewModel: HomeViewModel = viewModel { HomeViewModel() }
+                    val homeViewModel: HomeViewModel = viewModel { HomeViewModel(geocoder) }
                     HomeScreen(
                         viewModel = homeViewModel,
                         onOpenSettings = { navController.navigate(SettingsRoute) },
@@ -72,8 +86,19 @@ private fun AppLightPreview() {
                 DestinationShortcutItem(label = "School", detail = "47 min"),
                 DestinationShortcutItem(label = "Grand Place", detail = "7 min"),
             ),
+            suggestions = listOf(
+                GeocodeResult(
+                    id = "stop:bru",
+                    kind = LocationKind.STOP,
+                    name = "Bruxelles-Central",
+                    coordinate = Coordinate(50.8453, 4.3570),
+                ),
+            ),
+            isLoading = false,
+            errorMessage = null,
             onDestinationChange = {},
             onShortcutClick = {},
+            onSuggestionClick = {},
             onOpenSettings = {},
         )
     }
@@ -91,8 +116,12 @@ private fun AppDarkPreview() {
                 DestinationShortcutItem(label = "School", detail = "47 min"),
                 DestinationShortcutItem(label = "Grand Place", detail = "7 min"),
             ),
+            suggestions = emptyList(),
+            isLoading = false,
+            errorMessage = null,
             onDestinationChange = {},
             onShortcutClick = {},
+            onSuggestionClick = {},
             onOpenSettings = {},
         )
     }

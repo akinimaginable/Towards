@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +45,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.etrange.towards.domain.model.Coordinate
+import org.etrange.towards.domain.model.GeocodeResult
+import org.etrange.towards.domain.model.LocationKind
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
 
@@ -53,11 +58,18 @@ fun HomeScreen(
 ) {
     val destination by viewModel.destination.collectAsStateWithLifecycle()
     val shortcuts by viewModel.shortcuts.collectAsStateWithLifecycle()
+    val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     HomeScreen(
         destination = destination,
         shortcuts = shortcuts,
+        suggestions = suggestions,
+        isLoading = isLoading,
+        errorMessage = errorMessage,
         onDestinationChange = viewModel::onDestinationChange,
         onShortcutClick = viewModel::onShortcutClick,
+        onSuggestionClick = viewModel::onSuggestionClick,
         onOpenSettings = onOpenSettings,
     )
 }
@@ -66,12 +78,14 @@ fun HomeScreen(
 fun HomeScreen(
     destination: String,
     shortcuts: List<DestinationShortcutItem>,
+    suggestions: List<GeocodeResult>,
+    isLoading: Boolean,
+    errorMessage: String?,
     onDestinationChange: (String) -> Unit,
     onShortcutClick: (DestinationShortcutItem) -> Unit,
+    onSuggestionClick: (GeocodeResult) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    val destinations = listOf("a", "b", "c", "d", "e", "f", "g")
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -165,6 +179,14 @@ fun HomeScreen(
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         },
+                        trailingIcon = {
+                            if (isLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            }
+                        },
                         singleLine = true,
                         shape = RoundedCornerShape(32.dp),
                         colors = TextFieldDefaults.colors(
@@ -178,9 +200,22 @@ fun HomeScreen(
                     )
                 }
 
-                items(destinations, key = { it }) { label ->
+                if (errorMessage != null) {
+                    item(key = "error") {
+                        Text(
+                            text = errorMessage,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+
+                items(suggestions, key = { it.id }) { result ->
                     Button(
-                        onClick = {},
+                        onClick = { onSuggestionClick(result) },
                         modifier = Modifier.padding(horizontal = 16.dp),
                         shape = RoundedCornerShape(32.dp),
                         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
@@ -190,17 +225,16 @@ fun HomeScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    label,
+                                    result.name,
                                     style = TextStyle(
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold,
                                     ),
                                 )
-                                Text("Centraal Station")
+                                Text(result.subtitle())
                             }
-                            Text("3 min", style = TextStyle(fontWeight = FontWeight.Bold))
                         }
                     }
                 }
@@ -208,6 +242,33 @@ fun HomeScreen(
         }
     }
 }
+
+private fun GeocodeResult.subtitle(): String {
+    val address = listOfNotNull(
+        listOfNotNull(street, houseNumber).joinToString(" ").ifBlank { null },
+        postalCode,
+        country,
+    ).joinToString(", ")
+    return address.ifBlank { kind.name.lowercase().replaceFirstChar { it.titlecase() } }
+}
+
+private fun previewSuggestions() = listOf(
+    GeocodeResult(
+        id = "stop:bru",
+        kind = LocationKind.STOP,
+        name = "Bruxelles-Central",
+        coordinate = Coordinate(50.8453, 4.3570),
+        country = "Belgium",
+    ),
+    GeocodeResult(
+        id = "place:gp",
+        kind = LocationKind.PLACE,
+        name = "Grand Place",
+        coordinate = Coordinate(50.8467, 4.3525),
+        street = "Grand Place",
+        country = "Belgium",
+    ),
+)
 
 @Preview
 @Composable
@@ -221,8 +282,12 @@ private fun HomeScreenLightPreview() {
                 DestinationShortcutItem(label = "School", detail = "47 min"),
                 DestinationShortcutItem(label = "Grand Place", detail = "7 min"),
             ),
+            suggestions = previewSuggestions(),
+            isLoading = false,
+            errorMessage = null,
             onDestinationChange = {},
             onShortcutClick = {},
+            onSuggestionClick = {},
             onOpenSettings = {},
         )
     }
@@ -235,21 +300,13 @@ private fun HomeScreenNoShortcutsLightPreview() {
         HomeScreen(
             destination = "Centraal Station",
             shortcuts = emptyList(),
+            suggestions = previewSuggestions(),
+            isLoading = true,
+            errorMessage = null,
             onDestinationChange = {},
             onShortcutClick = {},
+            onSuggestionClick = {},
             onOpenSettings = {},
         )
     }
 }
-
-/*@Preview
-@Composable
-private fun HomeScreenDarkPreview() {
-    TowardsPreview(themeMode = ThemeMode.Dark) {
-        HomeScreen(
-            destination = "Lisbon",
-            onDestinationChange = {},
-            onOpenSettings = {},
-        )
-    }
-}*/
