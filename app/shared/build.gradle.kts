@@ -18,6 +18,15 @@ kotlin {
             isStatic = true
         }
     }
+
+    swiftPMDependencies {
+        iosMinimumDeploymentTarget.set("15.0")
+        swiftPackage(
+            url = url("https://github.com/maplibre/maplibre-gl-native-distribution.git"),
+            version = exact(libs.versions.maplibre.ios.get()),
+            products = listOf(product("MapLibre")),
+        )
+    }
     
     jvm()
     
@@ -55,6 +64,14 @@ kotlin {
         }
         jvmMain.dependencies {
             implementation(libs.ktor.mp.client.cio)
+            val maplibreComposeVersion = libs.versions.maplibre.compose.get()
+            runtimeOnly("org.maplibre.compose:maplibre-native-bindings-jni:$maplibreComposeVersion") {
+                capabilities {
+                    requireCapability(
+                        "org.maplibre.compose:maplibre-native-bindings-jni-${maplibreDesktopTarget()}",
+                    )
+                }
+            }
         }
         commonMain.dependencies {
             api(project(":core"))
@@ -72,6 +89,7 @@ kotlin {
             implementation(libs.ktor.mp.client.core)
             implementation(libs.ktor.mp.client.content.negotiation)
             implementation(libs.ktor.mp.client.serialization.json)
+            implementation(libs.maplibre.compose)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -81,4 +99,21 @@ kotlin {
 
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
+}
+
+private fun maplibreDesktopTarget(): String {
+    val hostOs = when (val os = System.getProperty("os.name").lowercase()) {
+        "mac os x" -> "macos"
+        else -> os.split(" ").first()
+    }
+    val hostArch = when (val arch = System.getProperty("os.arch").lowercase()) {
+        "x86_64" -> "amd64"
+        "arm64" -> "aarch64"
+        else -> arch
+    }
+    val renderer = when (hostOs) {
+        "macos" -> "metal"
+        else -> "opengl"
+    }
+    return "$hostOs-$hostArch-$renderer"
 }
