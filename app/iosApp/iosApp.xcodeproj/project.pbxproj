@@ -6,30 +6,43 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		792903D2C0E16257F14FB713 = {
+			isa = PBXBuildFile;
+			productRef = 80939CD1A944F72D3E62ECB8;
+		};
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
-		19E240814AFBA950E2B17DDE /* Towards.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Towards.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		19E240814AFBA950E2B17DDE = {
+			isa = PBXFileReference;
+			explicitFileType = wrapper.application;
+			includeInIndex = 0;
+			path = Towards.app;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		4D1A09CE1E63190FA2AEA2C2 /* Exceptions for "iosApp" folder in "iosApp" target */ = {
+		4D1A09CE1E63190FA2AEA2C2 = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 202C7C78E3EB20C4FD3DA1D6 /* iosApp */;
+			target = 202C7C78E3EB20C4FD3DA1D6;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		5DE28CB74D5A9AC4A5E48A23 /* Configuration */ = {
+		5DE28CB74D5A9AC4A5E48A23 = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Configuration;
 			sourceTree = "<group>";
 		};
-		F635E683D24899AE10ABC576 /* iosApp */ = {
+		F635E683D24899AE10ABC576 = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				4D1A09CE1E63190FA2AEA2C2 /* Exceptions for "iosApp" folder in "iosApp" target */,
+				4D1A09CE1E63190FA2AEA2C2,
 			);
 			path = iosApp;
 			sourceTree = "<group>";
@@ -37,20 +50,21 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		842CA88F0F6AF0180E8CEC45 /* Frameworks */ = {
+		842CA88F0F6AF0180E8CEC45 = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				792903D2C0E16257F14FB713,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		420BF6EB4D7C0DDA593FEBDE /* Products */ = {
+		420BF6EB4D7C0DDA593FEBDE = {
 			isa = PBXGroup;
 			children = (
-				19E240814AFBA950E2B17DDE /* Towards.app */,
+				19E240814AFBA950E2B17DDE,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -58,42 +72,43 @@
 		7FB95E4A33DB3DAE5FD6838A = {
 			isa = PBXGroup;
 			children = (
-				5DE28CB74D5A9AC4A5E48A23 /* Configuration */,
-				F635E683D24899AE10ABC576 /* iosApp */,
-				420BF6EB4D7C0DDA593FEBDE /* Products */,
+				5DE28CB74D5A9AC4A5E48A23,
+				F635E683D24899AE10ABC576,
+				420BF6EB4D7C0DDA593FEBDE,
 			);
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		202C7C78E3EB20C4FD3DA1D6 /* iosApp */ = {
+		202C7C78E3EB20C4FD3DA1D6 = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 29C52410A1D2EDC3B565C9EB /* Build configuration list for PBXNativeTarget "iosApp" */;
+			buildConfigurationList = 29C52410A1D2EDC3B565C9EB;
 			buildPhases = (
-				9EB2994C2952CB9ADFA64BC9 /* Compile Kotlin Framework */,
-				A5F2E9BC0330900757D65DE7 /* Sources */,
-				842CA88F0F6AF0180E8CEC45 /* Frameworks */,
-				D169F0C217BA88518E67D091 /* Resources */,
+				9EB2994C2952CB9ADFA64BC9,
+				A5F2E9BC0330900757D65DE7,
+				842CA88F0F6AF0180E8CEC45,
+				D169F0C217BA88518E67D091,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				F635E683D24899AE10ABC576 /* iosApp */,
+				F635E683D24899AE10ABC576,
 			);
 			name = iosApp;
 			packageProductDependencies = (
+				80939CD1A944F72D3E62ECB8,
 			);
 			productName = iosApp;
-			productReference = 19E240814AFBA950E2B17DDE /* Towards.app */;
+			productReference = 19E240814AFBA950E2B17DDE;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		23FA134666AF8A1B9A608095 /* Project object */ = {
+		23FA134666AF8A1B9A608095 = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
@@ -105,7 +120,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 9886844D108A9FB31A326740 /* Build configuration list for PBXProject "iosApp" */;
+			buildConfigurationList = 9886844D108A9FB31A326740;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -114,18 +129,21 @@
 			);
 			mainGroup = 7FB95E4A33DB3DAE5FD6838A;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				17CBB745CC5331B7513A85B0,
+			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 420BF6EB4D7C0DDA593FEBDE /* Products */;
+			productRefGroup = 420BF6EB4D7C0DDA593FEBDE;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				202C7C78E3EB20C4FD3DA1D6 /* iosApp */,
+				202C7C78E3EB20C4FD3DA1D6,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		D169F0C217BA88518E67D091 /* Resources */ = {
+		D169F0C217BA88518E67D091 = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -135,7 +153,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		9EB2994C2952CB9ADFA64BC9 /* Compile Kotlin Framework */ = {
+		9EB2994C2952CB9ADFA64BC9 = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -157,7 +175,7 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		A5F2E9BC0330900757D65DE7 /* Sources */ = {
+		A5F2E9BC0330900757D65DE7 = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -167,9 +185,9 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		233EB6A6576AE1292604A4A1 /* Release */ = {
+		233EB6A6576AE1292604A4A1 = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReferenceAnchor = 5DE28CB74D5A9AC4A5E48A23 /* Configuration */;
+			baseConfigurationReferenceAnchor = 5DE28CB74D5A9AC4A5E48A23;
 			baseConfigurationReferenceRelativePath = Config.xcconfig;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -225,9 +243,9 @@
 			};
 			name = Release;
 		};
-		2BB3C0D9A379927E5219ABF7 /* Debug */ = {
+		2BB3C0D9A379927E5219ABF7 = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReferenceAnchor = 5DE28CB74D5A9AC4A5E48A23 /* Configuration */;
+			baseConfigurationReferenceAnchor = 5DE28CB74D5A9AC4A5E48A23;
 			baseConfigurationReferenceRelativePath = Config.xcconfig;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -290,7 +308,7 @@
 			};
 			name = Debug;
 		};
-		4231B660269AB4E9F75DE12E /* Debug */ = {
+		4231B660269AB4E9F75DE12E = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = arm64;
@@ -303,6 +321,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iosApp/Info.plist;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Towards uses your location to find nearby stops and improve destination search.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -312,6 +331,13 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				OTHER_LDFLAGS = (
+					"-framework",
+					Shared,
+					"-framework",
+					MapLibre,
+					"$(inherited)",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.etrange.Towards;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -319,7 +345,7 @@
 			};
 			name = Debug;
 		};
-		E0FC64E2E0CD2C8177B0C477 /* Release */ = {
+		E0FC64E2E0CD2C8177B0C477 = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = arm64;
@@ -332,6 +358,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iosApp/Info.plist;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Towards uses your location to find nearby stops and improve destination search.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -340,6 +367,13 @@
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"-framework",
+					Shared,
+					"-framework",
+					MapLibre,
+					"$(inherited)",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.etrange.Towards;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -351,25 +385,39 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		29C52410A1D2EDC3B565C9EB /* Build configuration list for PBXNativeTarget "iosApp" */ = {
+		29C52410A1D2EDC3B565C9EB = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				4231B660269AB4E9F75DE12E /* Debug */,
-				E0FC64E2E0CD2C8177B0C477 /* Release */,
+				4231B660269AB4E9F75DE12E,
+				E0FC64E2E0CD2C8177B0C477,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		9886844D108A9FB31A326740 /* Build configuration list for PBXProject "iosApp" */ = {
+		9886844D108A9FB31A326740 = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				2BB3C0D9A379927E5219ABF7 /* Debug */,
-				233EB6A6576AE1292604A4A1 /* Release */,
+				2BB3C0D9A379927E5219ABF7,
+				233EB6A6576AE1292604A4A1,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		17CBB745CC5331B7513A85B0 = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = KotlinMultiplatformLinkedPackage;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		80939CD1A944F72D3E62ECB8 = {
+			isa = XCSwiftPackageProductDependency;
+			productName = KotlinMultiplatformLinkedPackage;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = 23FA134666AF8A1B9A608095 /* Project object */;
+	rootObject = 23FA134666AF8A1B9A608095;
 }
