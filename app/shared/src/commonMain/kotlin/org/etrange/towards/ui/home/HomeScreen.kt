@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,11 +32,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -45,6 +49,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.etrange.towards.data.rememberLocationPermissionLauncher
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.LocationKind
@@ -60,16 +65,37 @@ fun HomeScreen(
     val shortcuts by viewModel.shortcuts.collectAsStateWithLifecycle()
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val isLocating by viewModel.isLocating.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    val selected by viewModel.selected.collectAsStateWithLifecycle()
+    val locationBias by viewModel.locationBias.collectAsStateWithLifecycle()
+    var pendingLocationRequest by remember { mutableStateOf(false) }
+    val requestLocationPermission = rememberLocationPermissionLauncher { granted ->
+        if (pendingLocationRequest) {
+            pendingLocationRequest = false
+            if (granted) {
+                viewModel.onUseCurrentLocation()
+            } else {
+                viewModel.onLocationPermissionDenied()
+            }
+        }
+    }
+
     HomeScreen(
         destination = destination,
         shortcuts = shortcuts,
         suggestions = suggestions,
         isLoading = isLoading,
+        isLocating = isLocating,
         errorMessage = errorMessage,
+        mapCenter = selected?.coordinate ?: locationBias,
         onDestinationChange = viewModel::onDestinationChange,
         onShortcutClick = viewModel::onShortcutClick,
         onSuggestionClick = viewModel::onSuggestionClick,
+        onUseCurrentLocation = {
+            pendingLocationRequest = true
+            requestLocationPermission()
+        },
         onOpenSettings = onOpenSettings,
     )
 }
@@ -80,16 +106,20 @@ fun HomeScreen(
     shortcuts: List<DestinationShortcutItem>,
     suggestions: List<GeocodeResult>,
     isLoading: Boolean,
+    isLocating: Boolean,
     errorMessage: String?,
+    mapCenter: Coordinate? = null,
     onDestinationChange: (String) -> Unit,
     onShortcutClick: (DestinationShortcutItem) -> Unit,
     onSuggestionClick: (GeocodeResult) -> Unit,
+    onUseCurrentLocation: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                title = { Text("Towards", fontWeight = FontWeight.Bold) },
+                title = { Text("", fontWeight = FontWeight.Bold) },
                 actions = {
                     IconButton(onClick = onOpenSettings) {
                         Icon(
@@ -98,115 +128,150 @@ fun HomeScreen(
                         )
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent,
+                ),
             )
         },
     ) { innerPadding ->
         val layoutDirection = LocalLayoutDirection.current
+        val topPadding = innerPadding.calculateTopPadding()
 
-        BoxWithConstraints(
-            modifier = Modifier.padding(
-                    start = innerPadding.calculateStartPadding(layoutDirection),
-                    top = innerPadding.calculateTopPadding(),
-                    end = innerPadding.calculateEndPadding(layoutDirection),
-                ).fillMaxSize()
-        ) {
-            val halfScreenHeight = maxHeight / 3
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val mapPeekHeight = maxHeight / 3
+            val shortcutsHeight = 48.dp
+            val searchHeight = 56.dp
+            val sectionSpacing = 4.dp
+            val overlayHeight = shortcutsHeight + sectionSpacing + searchHeight
+            val mapHeight = topPadding + mapPeekHeight + overlayHeight
+            val horizontalPadding = innerPadding.calculateStartPadding(layoutDirection)
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                contentPadding = PaddingValues(bottom = 16.dp),
+            HomeMap(
+                center = mapCenter,
+                contentPadding = PaddingValues(
+                    top = topPadding,
+                    bottom = overlayHeight,
+                ),
+                modifier = Modifier.fillMaxWidth().height(mapHeight).align(Alignment.TopCenter),
+            )
+
+            Column(
+                modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth()
+                    .padding(top = topPadding + mapPeekHeight).padding(
+                        start = horizontalPadding,
+                        end = innerPadding.calculateEndPadding(layoutDirection),
+                    ),
+                verticalArrangement = Arrangement.spacedBy(sectionSpacing),
             ) {
-                // Placeholder for future map / upper content; scrolls away continuously.
-                item(key = "half_screen_spacer") {
-                    Spacer(modifier = Modifier.height(halfScreenHeight))
-                }
-
-                item(key = "shortcuts") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(shortcutsHeight)
+                        .horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Button(
+                        onClick = onUseCurrentLocation,
+                        enabled = !isLocating,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                        contentPadding = PaddingValues(horizontal = 14.dp),
                     ) {
-                        for (shortcut in shortcuts) {
-                            DestinationShortcut(
-                                label = shortcut.label,
-                                detail = shortcut.detail,
-                                onClick = { onShortcutClick(shortcut) },
-                                highlightDetail = shortcut.highlightDetail,
+                        if (isLocating) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
                             )
+                        } else {
+                            Text("My location")
                         }
+                    }
 
-                        Button(
-                            onClick = { },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                contentColor = MaterialTheme.colorScheme.onSurface,
-                            ),
-                            contentPadding = PaddingValues(start = 8.dp, end = 14.dp),
+                    for (shortcut in shortcuts) {
+                        DestinationShortcut(
+                            label = shortcut.label,
+                            detail = shortcut.detail,
+                            onClick = { onShortcutClick(shortcut) },
+                            highlightDetail = shortcut.highlightDetail,
+                        )
+                    }
+
+                    Button(
+                        onClick = { },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                        contentPadding = PaddingValues(start = 8.dp, end = 14.dp),
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "",
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text("Add shortcut")
-                            }
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text("Add shortcut")
                         }
                     }
                 }
 
-                item(key = "destination_field") {
-                    TextField(
-                        value = destination,
-                        onValueChange = onDestinationChange,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-                        placeholder = {
-                            Text(
-                                text = "Towards",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                TextField(
+                    value = destination,
+                    onValueChange = onDestinationChange,
+                    modifier = Modifier.fillMaxWidth().height(searchHeight)
+                        .padding(horizontal = 12.dp),
+                    placeholder = {
+                        Text(
+                            text = "Search here",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Search,
+                            contentDescription = "Search",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    trailingIcon = {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
                             )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.Search,
-                                contentDescription = "Search",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        },
-                        trailingIcon = {
-                            if (isLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                )
-                            }
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(32.dp),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                            disabledIndicatorColor = Color.Transparent,
-                            cursorColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(32.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        disabledIndicatorColor = Color.Transparent,
+                        cursorColor = MaterialTheme.colorScheme.primary,
+                    ),
+                )
+            }
 
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(top = mapHeight),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                contentPadding = PaddingValues(
+                    start = innerPadding.calculateStartPadding(layoutDirection),
+                    end = innerPadding.calculateEndPadding(layoutDirection),
+                ),
+            ) {
                 if (errorMessage != null) {
                     item(key = "error") {
                         Text(
                             text = errorMessage,
                             color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier
-                                .fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth()
                                 .padding(horizontal = 24.dp, vertical = 4.dp),
                             style = MaterialTheme.typography.bodyMedium,
                         )
@@ -216,8 +281,7 @@ fun HomeScreen(
                 items(suggestions, key = { it.id }) { result ->
                     Button(
                         onClick = { onSuggestionClick(result) },
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        shape = RoundedCornerShape(32.dp),
+                        shape = RectangleShape,
                         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
                     ) {
                         Row(
@@ -268,6 +332,14 @@ private fun previewSuggestions() = listOf(
         street = "Grand Place",
         country = "Belgium",
     ),
+    GeocodeResult(
+        id = "place:gp",
+        kind = LocationKind.PLACE,
+        name = "Grand Place",
+        coordinate = Coordinate(50.8467, 4.3525),
+        street = "Grand Place",
+        country = "Belgium",
+    ),
 )
 
 @Preview
@@ -284,10 +356,12 @@ private fun HomeScreenLightPreview() {
             ),
             suggestions = previewSuggestions(),
             isLoading = false,
+            isLocating = false,
             errorMessage = null,
             onDestinationChange = {},
             onShortcutClick = {},
             onSuggestionClick = {},
+            onUseCurrentLocation = {},
             onOpenSettings = {},
         )
     }
@@ -302,10 +376,12 @@ private fun HomeScreenNoShortcutsLightPreview() {
             shortcuts = emptyList(),
             suggestions = previewSuggestions(),
             isLoading = true,
+            isLocating = true,
             errorMessage = null,
             onDestinationChange = {},
             onShortcutClick = {},
             onSuggestionClick = {},
+            onUseCurrentLocation = {},
             onOpenSettings = {},
         )
     }
