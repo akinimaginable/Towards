@@ -1,3 +1,3 @@
 package org.etrange.towards.data
 
-actual fun defaultApiBaseUrl(): String = "http://127.0.0.1:8081"
+actual fun defaultApiBaseUrl(): String = "http://192.168.1.169:8081"
