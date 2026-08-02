@@ -16,6 +16,7 @@ import org.etrange.towards.data.ApiConfig
 import org.etrange.towards.data.HttpGeocoder
 import org.etrange.towards.data.createHttpClient
 import org.etrange.towards.data.defaultApiBaseUrl
+import org.etrange.towards.data.rememberLocationProvider
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.LocationKind
@@ -49,6 +50,7 @@ fun App(
             config = ApiConfig(baseUrl = defaultApiBaseUrl()),
         )
     }
+    val locationProvider = rememberLocationProvider()
 
     TowardsTheme(themeMode = themeMode) {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -57,7 +59,9 @@ fun App(
                 startDestination = HomeRoute,
             ) {
                 composable<HomeRoute> {
-                    val homeViewModel: HomeViewModel = viewModel { HomeViewModel(geocoder) }
+                    val homeViewModel: HomeViewModel = viewModel {
+                        HomeViewModel(geocoder, locationProvider)
+                    }
                     HomeScreen(
                         viewModel = homeViewModel,
                         onOpenSettings = { navController.navigate(SettingsRoute) },
@@ -95,10 +99,12 @@ private fun AppLightPreview() {
                 ),
             ),
             isLoading = false,
+            isLocating = false,
             errorMessage = null,
             onDestinationChange = {},
             onShortcutClick = {},
             onSuggestionClick = {},
+            onUseCurrentLocation = {},
             onOpenSettings = {},
         )
     }
@@ -118,10 +124,12 @@ private fun AppDarkPreview() {
             ),
             suggestions = emptyList(),
             isLoading = false,
+            isLocating = false,
             errorMessage = null,
             onDestinationChange = {},
             onShortcutClick = {},
             onSuggestionClick = {},
+            onUseCurrentLocation = {},
             onOpenSettings = {},
         )
     }

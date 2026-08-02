@@ -6,6 +6,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
+import org.etrange.towards.domain.model.Coordinate
+import org.etrange.towards.domain.model.GeocodeResult
+import org.etrange.towards.domain.model.LocationKind
 import org.etrange.towards.ui.home.HomeScreen
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
@@ -27,10 +30,16 @@ private fun AppAndroidLightPreview() {
     TowardsPreview(themeMode = ThemeMode.Light) {
         HomeScreen(
             destination = "",
-            onDestinationChange = {},
-            onOpenSettings = {},
             shortcuts = emptyList(),
-            onShortcutClick = { },
+            suggestions = emptyList(),
+            isLoading = false,
+            isLocating = false,
+            errorMessage = null,
+            onDestinationChange = {},
+            onShortcutClick = {},
+            onSuggestionClick = {},
+            onUseCurrentLocation = {},
+            onOpenSettings = {},
         )
     }
 }
@@ -41,10 +50,23 @@ private fun AppAndroidDarkPreview() {
     TowardsPreview(themeMode = ThemeMode.Dark) {
         HomeScreen(
             destination = "",
-            onDestinationChange = {},
-            onOpenSettings = {},
             shortcuts = emptyList(),
+            suggestions = listOf(
+                GeocodeResult(
+                    id = "stop:preview",
+                    kind = LocationKind.STOP,
+                    name = "Preview stop",
+                    coordinate = Coordinate(50.8453, 4.3570),
+                ),
+            ),
+            isLoading = false,
+            isLocating = false,
+            errorMessage = null,
+            onDestinationChange = {},
             onShortcutClick = {},
+            onSuggestionClick = {},
+            onUseCurrentLocation = {},
+            onOpenSettings = {},
         )
     }
 }
