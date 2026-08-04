@@ -33,9 +33,11 @@ interface Geocoder {
     suspend fun reverseGeocode(request: ReverseGeocodeRequest): List<GeocodeResult>
 }
 
-interface TransitDataProvider {
+interface TimetableProvider {
     suspend fun getStopTimes(request: StopTimesRequest): StopTimes
+}
 
+interface MapDataProvider {
     suspend fun getInitialMapView(): MapInitialView
 
     suspend fun getMapStops(request: MapStopsRequest): List<Place>
@@ -44,3 +46,5 @@ interface TransitDataProvider {
 
     suspend fun getMapLevels(bounds: MapBounds): List<Double>
 }
+
+interface TransitDataProvider : TimetableProvider, MapDataProvider

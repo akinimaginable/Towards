@@ -12,19 +12,22 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
 import org.etrange.towards.data.ApiConfig
 import org.etrange.towards.data.HttpGeocoder
+import org.etrange.towards.data.HttpTimetableProvider
 import org.etrange.towards.data.createHttpClient
 import org.etrange.towards.data.defaultApiBaseUrl
 import org.etrange.towards.data.rememberLocationProvider
-import org.etrange.towards.domain.model.Coordinate
-import org.etrange.towards.domain.model.GeocodeResult
-import org.etrange.towards.domain.model.LocationKind
+import org.etrange.towards.domain.model.TransportMode
 import org.etrange.towards.navigation.HomeRoute
 import org.etrange.towards.navigation.SettingsRoute
+import org.etrange.towards.ui.home.DestinationShortcutItem
 import org.etrange.towards.ui.home.HomeScreen
 import org.etrange.towards.ui.home.HomeViewModel
-import org.etrange.towards.ui.home.DestinationShortcutItem
+import org.etrange.towards.ui.home.NearbyDeparture
+import org.etrange.towards.ui.home.NearbyStop
 import org.etrange.towards.ui.settings.SettingsScreen
 import org.etrange.towards.ui.settings.SettingsViewModel
 import org.etrange.towards.ui.theme.ThemeMode
@@ -44,10 +47,18 @@ fun App(
 ) {
     val themeMode by settingsViewModel.themeMode.collectAsStateWithLifecycle()
     val navController = rememberNavController()
+    val apiConfig = remember { ApiConfig(baseUrl = defaultApiBaseUrl()) }
+    val httpClient = remember { createHttpClient() }
     val geocoder = remember {
         HttpGeocoder(
-            client = createHttpClient(),
-            config = ApiConfig(baseUrl = defaultApiBaseUrl()),
+            client = httpClient,
+            config = apiConfig,
+        )
+    }
+    val timetableProvider = remember {
+        HttpTimetableProvider(
+            client = httpClient,
+            config = apiConfig,
         )
     }
     val locationProvider = rememberLocationProvider()
@@ -60,7 +71,7 @@ fun App(
             ) {
                 composable<HomeRoute> {
                     val homeViewModel: HomeViewModel = viewModel {
-                        HomeViewModel(geocoder, locationProvider)
+                        HomeViewModel(geocoder, locationProvider, timetableProvider)
                     }
                     HomeScreen(
                         viewModel = homeViewModel,
@@ -83,24 +94,20 @@ fun App(
 private fun AppLightPreview() {
     TowardsPreview(themeMode = ThemeMode.Light) {
         HomeScreen(
-            destination = "Centraal Station",
+            destination = "",
             shortcuts = listOf(
                 DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
                 DestinationShortcutItem(label = "Work", detail = "17 min"),
                 DestinationShortcutItem(label = "School", detail = "47 min"),
                 DestinationShortcutItem(label = "Grand Place", detail = "7 min"),
             ),
-            suggestions = listOf(
-                GeocodeResult(
-                    id = "stop:bru",
-                    kind = LocationKind.STOP,
-                    name = "Bruxelles-Central",
-                    coordinate = Coordinate(50.8453, 4.3570),
-                ),
-            ),
+            suggestions = emptyList(),
             isLoading = false,
             isLocating = false,
             errorMessage = null,
+            nearbyStops = previewNearbyStops(),
+            isLoadingNearby = false,
+            nearbyMessage = null,
             onDestinationChange = {},
             onShortcutClick = {},
             onSuggestionClick = {},
@@ -133,4 +140,27 @@ private fun AppDarkPreview() {
             onOpenSettings = {},
         )
     }
+}
+
+private fun previewNearbyStops(): List<NearbyStop> {
+    val now = Clock.System.now()
+    return listOf(
+        NearbyStop(
+            id = "stop:bourse",
+            name = "Bourse",
+            distanceMeters = 120,
+            departures = listOf(
+                NearbyDeparture(
+                    id = "1",
+                    lineName = "3",
+                    headsign = "Churchill",
+                    mode = TransportMode.SUBWAY,
+                    routeColor = "FFDD00",
+                    routeTextColor = "000000",
+                    time = now + 3.minutes,
+                    realTime = true,
+                ),
+            ),
+        ),
+    )
 }

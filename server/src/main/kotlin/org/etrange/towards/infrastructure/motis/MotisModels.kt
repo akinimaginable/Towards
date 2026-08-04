@@ -93,6 +93,8 @@ internal data class MotisStopTime(
     val tripId: String = "",
     val routeId: String? = null,
     val displayName: String? = null,
+    val routeColor: String? = null,
+    val routeTextColor: String? = null,
     val cancelled: Boolean = false,
     val tripCancelled: Boolean = false,
 )

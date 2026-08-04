@@ -108,6 +108,8 @@ internal fun MotisStopTime.toDomain(): StopTime? {
         tripId = tripId,
         routeId = routeId,
         displayName = displayName,
+        routeColor = routeColor,
+        routeTextColor = routeTextColor,
         cancelled = cancelled || tripCancelled,
     )
 }
