@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.etrange.towards.data.ApiException
 import org.etrange.towards.data.LocationProvider
@@ -20,12 +22,15 @@ import org.etrange.towards.domain.model.GeocodeRequest
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.LocationKind
 import org.etrange.towards.domain.model.ReverseGeocodeRequest
+import org.etrange.towards.domain.model.StopTimesRequest
 import org.etrange.towards.domain.port.Geocoder
+import org.etrange.towards.domain.port.TimetableProvider
 
 @OptIn(FlowPreview::class)
 class HomeViewModel(
     private val geocoder: Geocoder,
     private val locationProvider: LocationProvider,
+    private val timetableProvider: TimetableProvider,
 ) : ViewModel() {
     private val _destination = MutableStateFlow("")
     val destination: StateFlow<String> = _destination.asStateFlow()
@@ -48,6 +53,15 @@ class HomeViewModel(
     private val _locationBias = MutableStateFlow<Coordinate?>(null)
     val locationBias: StateFlow<Coordinate?> = _locationBias.asStateFlow()
 
+    private val _nearbyStops = MutableStateFlow<List<NearbyStop>>(emptyList())
+    val nearbyStops: StateFlow<List<NearbyStop>> = _nearbyStops.asStateFlow()
+
+    private val _isLoadingNearby = MutableStateFlow(false)
+    val isLoadingNearby: StateFlow<Boolean> = _isLoadingNearby.asStateFlow()
+
+    private val _nearbyMessage = MutableStateFlow<String?>(null)
+    val nearbyMessage: StateFlow<String?> = _nearbyMessage.asStateFlow()
+
     private val _shortcuts = MutableStateFlow(
         listOf(
             DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
@@ -60,6 +74,8 @@ class HomeViewModel(
 
     private var searchJob: Job? = null
     private var locateJob: Job? = null
+    private var nearbyJob: Job? = null
+    private var nearbyPollJob: Job? = null
 
     init {
         _destination
@@ -68,8 +84,19 @@ class HomeViewModel(
             .onEach { query -> search(query) }
             .launchIn(viewModelScope)
 
+        _locationBias
+            .onEach { coordinate ->
+                if (coordinate != null && _destination.value.isBlank()) {
+                    loadNearbyDepartures(coordinate)
+                }
+            }
+            .launchIn(viewModelScope)
+
+        startNearbyPolling()
         refreshLocationBias()
     }
+
+    fun hasLocationPermission(): Boolean = locationProvider.hasPermission()
 
     fun onDestinationChange(value: String) {
         _destination.value = value
@@ -78,6 +105,7 @@ class HomeViewModel(
             _suggestions.value = emptyList()
             _errorMessage.value = null
             _isLoading.value = false
+            _locationBias.value?.let { loadNearbyDepartures(it) }
         }
     }
 
@@ -136,8 +164,17 @@ class HomeViewModel(
         }
     }
 
-    fun onLocationPermissionDenied() {
-        _errorMessage.value = "Location permission is required to use your current position"
+    fun onLocationPermissionDenied(fromUserAction: Boolean = true) {
+        if (fromUserAction) {
+            _errorMessage.value = "Location permission is required to use your current position"
+        } else {
+            _nearbyMessage.value = "Turn on location to see nearby departures"
+        }
+    }
+
+    fun onLocationPermissionGranted() {
+        _nearbyMessage.value = null
+        refreshLocationBias()
     }
 
     private fun refreshLocationBias() {
@@ -146,6 +183,49 @@ class HomeViewModel(
             runCatching { locationProvider.currentCoordinate() }
                 .getOrNull()
                 ?.let { _locationBias.value = it }
+        }
+    }
+
+    private fun startNearbyPolling() {
+        nearbyPollJob?.cancel()
+        nearbyPollJob = viewModelScope.launch {
+            while (isActive) {
+                delay(NEARBY_POLL_INTERVAL_MS)
+                if (_destination.value.isBlank()) {
+                    val coordinate = _locationBias.value ?: continue
+                    loadNearbyDepartures(coordinate)
+                }
+            }
+        }
+    }
+
+    private fun loadNearbyDepartures(coordinate: Coordinate) {
+        nearbyJob?.cancel()
+        nearbyJob = viewModelScope.launch {
+            _isLoadingNearby.value = true
+            try {
+                val stopTimes = timetableProvider.getStopTimes(
+                    StopTimesRequest(
+                        center = coordinate,
+                        radiusMeters = NEARBY_RADIUS_METERS,
+                        numberOfEvents = NEARBY_EVENT_COUNT,
+                    ),
+                )
+                _nearbyStops.value = groupNearbyDepartures(stopTimes, coordinate)
+                _nearbyMessage.value = if (_nearbyStops.value.isEmpty()) {
+                    "No departures nearby"
+                } else {
+                    null
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: ApiException) {
+                _nearbyMessage.value = error.message
+            } catch (error: Exception) {
+                _nearbyMessage.value = error.message ?: "Unable to load nearby departures"
+            } finally {
+                _isLoadingNearby.value = false
+            }
         }
     }
 
@@ -187,5 +267,11 @@ class HomeViewModel(
                 _isLoading.value = false
             }
         }
+    }
+
+    companion object {
+        private const val NEARBY_RADIUS_METERS = 500
+        private const val NEARBY_EVENT_COUNT = 40
+        private const val NEARBY_POLL_INTERVAL_MS = 60_000L
     }
 }

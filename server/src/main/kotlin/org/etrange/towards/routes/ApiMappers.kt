@@ -88,6 +88,8 @@ fun StopTime.toDto() = StopTimeDto(
     tripId = tripId,
     routeId = routeId,
     displayName = displayName,
+    routeColor = routeColor,
+    routeTextColor = routeTextColor,
     cancelled = cancelled,
 )
 

@@ -101,6 +101,8 @@ data class StopTimeDto(
     val tripId: String,
     val routeId: String? = null,
     val displayName: String? = null,
+    val routeColor: String? = null,
+    val routeTextColor: String? = null,
     val cancelled: Boolean,
 )
 

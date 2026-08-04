@@ -195,6 +195,8 @@ data class StopTime(
     val tripId: String,
     val routeId: String?,
     val displayName: String?,
+    val routeColor: String? = null,
+    val routeTextColor: String? = null,
     val cancelled: Boolean,
 )
 

@@ -34,9 +34,11 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,10 +51,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
 import org.etrange.towards.data.rememberLocationPermissionLauncher
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.LocationKind
+import org.etrange.towards.domain.model.TransportMode
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
 
@@ -69,15 +74,36 @@ fun HomeScreen(
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val selected by viewModel.selected.collectAsStateWithLifecycle()
     val locationBias by viewModel.locationBias.collectAsStateWithLifecycle()
+    val nearbyStops by viewModel.nearbyStops.collectAsStateWithLifecycle()
+    val isLoadingNearby by viewModel.isLoadingNearby.collectAsStateWithLifecycle()
+    val nearbyMessage by viewModel.nearbyMessage.collectAsStateWithLifecycle()
+
     var pendingLocationRequest by remember { mutableStateOf(false) }
+    var autoPermissionRequested by rememberSaveable { mutableStateOf(false) }
+
     val requestLocationPermission = rememberLocationPermissionLauncher { granted ->
         if (pendingLocationRequest) {
             pendingLocationRequest = false
             if (granted) {
                 viewModel.onUseCurrentLocation()
             } else {
-                viewModel.onLocationPermissionDenied()
+                viewModel.onLocationPermissionDenied(fromUserAction = true)
             }
+        } else {
+            if (granted) {
+                viewModel.onLocationPermissionGranted()
+            } else {
+                viewModel.onLocationPermissionDenied(fromUserAction = false)
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (!autoPermissionRequested && !viewModel.hasLocationPermission()) {
+            autoPermissionRequested = true
+            requestLocationPermission()
+        } else if (viewModel.hasLocationPermission()) {
+            autoPermissionRequested = true
         }
     }
 
@@ -89,6 +115,9 @@ fun HomeScreen(
         isLocating = isLocating,
         errorMessage = errorMessage,
         mapCenter = selected?.coordinate ?: locationBias,
+        nearbyStops = nearbyStops,
+        isLoadingNearby = isLoadingNearby,
+        nearbyMessage = nearbyMessage,
         onDestinationChange = viewModel::onDestinationChange,
         onShortcutClick = viewModel::onShortcutClick,
         onSuggestionClick = viewModel::onSuggestionClick,
@@ -109,6 +138,9 @@ fun HomeScreen(
     isLocating: Boolean,
     errorMessage: String?,
     mapCenter: Coordinate? = null,
+    nearbyStops: List<NearbyStop> = emptyList(),
+    isLoadingNearby: Boolean = false,
+    nearbyMessage: String? = null,
     onDestinationChange: (String) -> Unit,
     onShortcutClick: (DestinationShortcutItem) -> Unit,
     onSuggestionClick: (GeocodeResult) -> Unit,
@@ -278,26 +310,34 @@ fun HomeScreen(
                     }
                 }
 
-                items(suggestions, key = { it.id }) { result ->
-                    Button(
-                        onClick = { onSuggestionClick(result) },
-                        shape = RectangleShape,
-                        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
+                if (destination.isBlank()) {
+                    nearbyStopsSection(
+                        nearbyStops = nearbyStops,
+                        isLoadingNearby = isLoadingNearby,
+                        nearbyMessage = nearbyMessage,
+                    )
+                } else {
+                    items(suggestions, key = { it.id }) { result ->
+                        Button(
+                            onClick = { onSuggestionClick(result) },
+                            shape = RectangleShape,
+                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    result.name,
-                                    style = TextStyle(
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                    ),
-                                )
-                                Text(result.subtitle())
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        result.name,
+                                        style = TextStyle(
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold,
+                                        ),
+                                    )
+                                    Text(result.subtitle())
+                                }
                             }
                         }
                     }
@@ -332,15 +372,57 @@ private fun previewSuggestions() = listOf(
         street = "Grand Place",
         country = "Belgium",
     ),
-    GeocodeResult(
-        id = "place:gp",
-        kind = LocationKind.PLACE,
-        name = "Grand Place",
-        coordinate = Coordinate(50.8467, 4.3525),
-        street = "Grand Place",
-        country = "Belgium",
-    ),
 )
+
+private fun previewNearbyStops(): List<NearbyStop> {
+    val now = Clock.System.now()
+    return listOf(
+        NearbyStop(
+            id = "stop:bourse",
+            name = "Bourse",
+            distanceMeters = 120,
+            departures = listOf(
+                NearbyDeparture(
+                    id = "1",
+                    lineName = "3",
+                    headsign = "Churchill",
+                    mode = TransportMode.SUBWAY,
+                    routeColor = "FFDD00",
+                    routeTextColor = "000000",
+                    time = now + 3.minutes,
+                    realTime = true,
+                ),
+                NearbyDeparture(
+                    id = "2",
+                    lineName = "4",
+                    headsign = "Stalle",
+                    mode = TransportMode.SUBWAY,
+                    routeColor = "F4C300",
+                    routeTextColor = "000000",
+                    time = now + 7.minutes,
+                    realTime = false,
+                ),
+            ),
+        ),
+        NearbyStop(
+            id = "stop:anneessens",
+            name = "Anneessens",
+            distanceMeters = 280,
+            departures = listOf(
+                NearbyDeparture(
+                    id = "3",
+                    lineName = "46",
+                    headsign = "Moortebeek",
+                    mode = TransportMode.BUS,
+                    routeColor = "E30613",
+                    routeTextColor = "FFFFFF",
+                    time = now + 5.minutes,
+                    realTime = true,
+                ),
+            ),
+        ),
+    )
+}
 
 @Preview
 @Composable
@@ -358,6 +440,32 @@ private fun HomeScreenLightPreview() {
             isLoading = false,
             isLocating = false,
             errorMessage = null,
+            onDestinationChange = {},
+            onShortcutClick = {},
+            onSuggestionClick = {},
+            onUseCurrentLocation = {},
+            onOpenSettings = {},
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun HomeScreenNearbyPreview() {
+    TowardsPreview(themeMode = ThemeMode.Light) {
+        HomeScreen(
+            destination = "",
+            shortcuts = listOf(
+                DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
+                DestinationShortcutItem(label = "Work", detail = "17 min"),
+            ),
+            suggestions = emptyList(),
+            isLoading = false,
+            isLocating = false,
+            errorMessage = null,
+            nearbyStops = previewNearbyStops(),
+            isLoadingNearby = false,
+            nearbyMessage = null,
             onDestinationChange = {},
             onShortcutClick = {},
             onSuggestionClick = {},
