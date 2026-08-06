@@ -15,10 +15,10 @@ import androidx.navigation.compose.rememberNavController
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import org.etrange.towards.data.ApiConfig
+import org.etrange.towards.data.ApiEndpointStore
 import org.etrange.towards.data.HttpGeocoder
 import org.etrange.towards.data.HttpTimetableProvider
 import org.etrange.towards.data.createHttpClient
-import org.etrange.towards.data.defaultApiBaseUrl
 import org.etrange.towards.data.rememberLocationProvider
 import org.etrange.towards.domain.model.TransportMode
 import org.etrange.towards.navigation.HomeRoute
@@ -36,8 +36,9 @@ import org.etrange.towards.ui.theme.TowardsTheme
 
 @Composable
 fun App() {
+    val endpointStore = remember { ApiEndpointStore() }
     App(
-        settingsViewModel = viewModel { SettingsViewModel() },
+        settingsViewModel = viewModel { SettingsViewModel(endpointStore) },
     )
 }
 
@@ -47,15 +48,15 @@ fun App(
 ) {
     val themeMode by settingsViewModel.themeMode.collectAsStateWithLifecycle()
     val navController = rememberNavController()
-    val apiConfig = remember { ApiConfig(baseUrl = defaultApiBaseUrl()) }
+    val apiConfig = remember(settingsViewModel) { ApiConfig(settingsViewModel.endpointStore) }
     val httpClient = remember { createHttpClient() }
-    val geocoder = remember {
+    val geocoder = remember(apiConfig) {
         HttpGeocoder(
             client = httpClient,
             config = apiConfig,
         )
     }
-    val timetableProvider = remember {
+    val timetableProvider = remember(apiConfig) {
         HttpTimetableProvider(
             client = httpClient,
             config = apiConfig,

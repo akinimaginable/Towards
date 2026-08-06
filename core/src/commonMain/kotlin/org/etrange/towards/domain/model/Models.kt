@@ -219,6 +219,19 @@ data class GeocodeResult(
     val modes: Set<TransportMode> = emptySet(),
 )
 
+/** MOTIS ADDRESS matches often have blank ids; LazyColumn keys require uniqueness. */
+fun List<GeocodeResult>.ensureUniqueIds(): List<GeocodeResult> =
+    mapIndexed { index, result ->
+        if (result.id.isNotBlank()) {
+            result
+        } else {
+            result.copy(
+                id = "geocode:$index:${result.kind.name}:" +
+                    "${result.coordinate.latitude},${result.coordinate.longitude}:${result.name}",
+            )
+        }
+    }
+
 data class MapTrip(
     val tripIds: List<String>,
     val mode: TransportMode,
