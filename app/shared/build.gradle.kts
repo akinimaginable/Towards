@@ -90,9 +90,11 @@ kotlin {
             implementation(libs.ktor.mp.client.content.negotiation)
             implementation(libs.ktor.mp.client.serialization.json)
             implementation(libs.maplibre.compose)
+            implementation(libs.multiplatform.settings.no.arg)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.multiplatform.settings.test)
         }
     }
 }

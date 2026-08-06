@@ -17,6 +17,7 @@ import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeRequest
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.ReverseGeocodeRequest
+import org.etrange.towards.domain.model.ensureUniqueIds
 import org.etrange.towards.domain.port.Geocoder
 
 class HttpGeocoder(
@@ -39,7 +40,7 @@ class HttpGeocoder(
                 ?.let { parameter("modes", it.joinToString(",") { mode -> mode.name }) }
             request.bias?.let { parameter("bias", it.toQueryParameter()) }
             request.numberOfResults?.let { parameter("limit", it) }
-        }.map { it.toDomain() }
+        }.map { it.toDomain() }.ensureUniqueIds()
 
     override suspend fun reverseGeocode(request: ReverseGeocodeRequest): List<GeocodeResult> =
         get<List<GeocodeResultDto>>("/api/v1/reverse-geocode") {
@@ -47,7 +48,7 @@ class HttpGeocoder(
             request.kinds.takeIf { it.isNotEmpty() }
                 ?.let { parameter("types", it.joinToString(",") { kind -> kind.name }) }
             request.numberOfResults?.let { parameter("limit", it) }
-        }.map { it.toDomain() }
+        }.map { it.toDomain() }.ensureUniqueIds()
 
     private suspend inline fun <reified T> get(
         path: String,

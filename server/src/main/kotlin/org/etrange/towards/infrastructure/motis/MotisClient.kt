@@ -33,6 +33,7 @@ import org.etrange.towards.domain.model.StopTimesRequest
 import org.etrange.towards.domain.model.TripLookupRequest
 import org.etrange.towards.domain.model.TripPlan
 import org.etrange.towards.domain.model.TripPlanningRequest
+import org.etrange.towards.domain.model.ensureUniqueIds
 import org.etrange.towards.domain.port.Geocoder
 import org.etrange.towards.domain.port.TransitDataProvider
 import org.etrange.towards.domain.port.TripInformationProvider
@@ -101,14 +102,14 @@ class MotisClient(
             request.modes.takeIf { it.isNotEmpty() }?.let { parameter("mode", it.joinToString(",") { mode -> mode.name }) }
             request.bias?.let { parameter("place", it.toMotisParameter()) }
             request.numberOfResults?.let { parameter("numResults", it) }
-        }.map { it.toDomain() }
+        }.map { it.toDomain() }.ensureUniqueIds()
 
     override suspend fun reverseGeocode(request: ReverseGeocodeRequest): List<GeocodeResult> =
         get<List<MotisMatch>>("/api/v1/reverse-geocode") {
             parameter("place", request.coordinate.toMotisParameter())
             request.kinds.takeIf { it.isNotEmpty() }?.let { parameter("type", it.joinToString(",") { kind -> kind.name }) }
             request.numberOfResults?.let { parameter("numResults", it) }
-        }.map { it.toDomain() }
+        }.map { it.toDomain() }.ensureUniqueIds()
 
     override suspend fun getInitialMapView(): MapInitialView =
         get<MotisInitialResponse>("/api/v1/map/initial").toDomain()

@@ -5,12 +5,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -20,6 +24,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,17 +38,28 @@ fun SettingsScreen(
     onBack: () -> Unit,
 ) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val apiEndpointDraft by viewModel.apiEndpointDraft.collectAsStateWithLifecycle()
+    val apiEndpointError by viewModel.apiEndpointError.collectAsStateWithLifecycle()
     SettingsScreen(
         themeMode = themeMode,
         onThemeModeChange = viewModel::onThemeModeChange,
+        apiEndpointDraft = apiEndpointDraft,
+        apiEndpointError = apiEndpointError,
+        onApiEndpointDraftChange = viewModel::onApiEndpointDraftChange,
+        onApiEndpointSave = viewModel::onApiEndpointSave,
         onBack = onBack,
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
+    apiEndpointDraft: String,
+    apiEndpointError: String?,
+    onApiEndpointDraftChange: (String) -> Unit,
+    onApiEndpointSave: () -> Boolean,
     onBack: () -> Unit,
 ) {
     Scaffold(
@@ -90,6 +107,43 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            Text(
+                text = "API endpoint",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+            Text(
+                text = "Base URL for the Towards API. Changes apply immediately after saving.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = apiEndpointDraft,
+                onValueChange = onApiEndpointDraftChange,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("URL") },
+                placeholder = { Text("http://127.0.0.1:8081") },
+                isError = apiEndpointError != null,
+                supportingText = apiEndpointError?.let { message ->
+                    { Text(message) }
+                },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Uri,
+                    imeAction = ImeAction.Done,
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = { onApiEndpointSave() },
+                ),
+            )
+            Button(
+                onClick = { onApiEndpointSave() },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Save endpoint")
+            }
         }
     }
 }
@@ -101,6 +155,10 @@ private fun SettingsScreenLightPreview() {
         SettingsScreen(
             themeMode = ThemeMode.System,
             onThemeModeChange = {},
+            apiEndpointDraft = "http://127.0.0.1:8081",
+            apiEndpointError = null,
+            onApiEndpointDraftChange = {},
+            onApiEndpointSave = { true },
             onBack = {},
         )
     }
@@ -113,6 +171,10 @@ private fun SettingsScreenDarkPreview() {
         SettingsScreen(
             themeMode = ThemeMode.Dark,
             onThemeModeChange = {},
+            apiEndpointDraft = "not-a-url",
+            apiEndpointError = "Enter a valid http or https URL with a host, for example http://127.0.0.1:8081",
+            onApiEndpointDraftChange = {},
+            onApiEndpointSave = { true },
             onBack = {},
         )
     }
