@@ -17,10 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -58,6 +54,9 @@ import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.LocationKind
 import org.etrange.towards.domain.model.TransportMode
+import org.etrange.towards.ui.icons.addIcon
+import org.etrange.towards.ui.icons.searchIcon
+import org.etrange.towards.ui.icons.settingsIcon
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
 
@@ -155,7 +154,7 @@ fun HomeScreen(
                 actions = {
                     IconButton(onClick = onOpenSettings) {
                         Icon(
-                            imageVector = Icons.Filled.Settings,
+                            imageVector = settingsIcon,
                             contentDescription = "Settings",
                         )
                     }
@@ -242,7 +241,7 @@ fun HomeScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Add,
+                                imageVector = addIcon,
                                 contentDescription = "",
                                 tint = MaterialTheme.colorScheme.onSurface,
                             )
@@ -264,7 +263,7 @@ fun HomeScreen(
                     },
                     leadingIcon = {
                         Icon(
-                            imageVector = Icons.Filled.Search,
+                            imageVector = searchIcon,
                             contentDescription = "Search",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
