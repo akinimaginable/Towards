@@ -15,6 +15,7 @@ import platform.CoreLocation.kCLAuthorizationStatusAuthorizedWhenInUse
 import platform.CoreLocation.kCLAuthorizationStatusDenied
 import platform.CoreLocation.kCLAuthorizationStatusNotDetermined
 import platform.CoreLocation.kCLAuthorizationStatusRestricted
+import platform.CoreLocation.kCLLocationAccuracyHundredMeters
 import platform.Foundation.NSError
 import platform.darwin.NSObject
 import platform.darwin.dispatch_async
@@ -23,12 +24,19 @@ import kotlin.coroutines.resume
 
 @OptIn(ExperimentalForeignApi::class)
 class IosLocationProvider : LocationProvider {
-    private val manager = CLLocationManager()
+    private val manager = CLLocationManager().apply {
+        desiredAccuracy = kCLLocationAccuracyHundredMeters
+    }
 
     // CLLocationManager.delegate is weak — must keep a strong Kotlin reference.
     private var activeDelegate: NSObject? = null
 
     override fun hasPermission(): Boolean = manager.authorizationStatus.isAuthorized()
+
+    override fun lastKnownCoordinate(): Coordinate? {
+        if (!hasPermission()) return null
+        return manager.location?.toCoordinate()
+    }
 
     override suspend fun currentCoordinate(): Coordinate? =
         suspendCancellableCoroutine { continuation ->
@@ -47,17 +55,14 @@ class IosLocationProvider : LocationProvider {
                     didUpdateLocations: List<*>,
                 ) {
                     val location = didUpdateLocations.lastOrNull() as? CLLocation
-                    val coordinate = location?.coordinate?.useContents {
-                        Coordinate(latitude, longitude)
-                    }
-                    finish(coordinate)
+                    finish(location?.toCoordinate())
                 }
 
                 override fun locationManager(
                     manager: CLLocationManager,
                     didFailWithError: NSError,
                 ) {
-                    finish(null)
+                    finish(lastKnownCoordinate())
                 }
 
                 override fun locationManagerDidChangeAuthorization(manager: CLLocationManager) {
@@ -106,6 +111,10 @@ class IosLocationProvider : LocationProvider {
             }
         }
 }
+
+@OptIn(ExperimentalForeignApi::class)
+private fun CLLocation.toCoordinate(): Coordinate =
+    coordinate.useContents { Coordinate(latitude, longitude) }
 
 private fun CLAuthorizationStatus.isAuthorized(): Boolean =
     this == kCLAuthorizationStatusAuthorizedAlways ||

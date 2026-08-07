@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.etrange.towards.data.ApiException
+import org.etrange.towards.data.LocationBiasStore
 import org.etrange.towards.data.LocationProvider
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeRequest
@@ -25,12 +26,14 @@ import org.etrange.towards.domain.model.ReverseGeocodeRequest
 import org.etrange.towards.domain.model.StopTimesRequest
 import org.etrange.towards.domain.port.Geocoder
 import org.etrange.towards.domain.port.TimetableProvider
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(FlowPreview::class)
 class HomeViewModel(
     private val geocoder: Geocoder,
     private val locationProvider: LocationProvider,
     private val timetableProvider: TimetableProvider,
+    private val locationBiasStore: LocationBiasStore = LocationBiasStore(),
 ) : ViewModel() {
     private val _destination = MutableStateFlow("")
     val destination: StateFlow<String> = _destination.asStateFlow()
@@ -79,7 +82,7 @@ class HomeViewModel(
 
     init {
         _destination
-            .debounce(300)
+            .debounce(300.milliseconds)
             .distinctUntilChanged()
             .onEach { query -> search(query) }
             .launchIn(viewModelScope)
@@ -93,6 +96,7 @@ class HomeViewModel(
             .launchIn(viewModelScope)
 
         startNearbyPolling()
+        seedLocationBias()
         refreshLocationBias()
     }
 
@@ -132,7 +136,7 @@ class HomeViewModel(
                     _errorMessage.value = "Unable to determine your current location"
                     return@launch
                 }
-                _locationBias.value = coordinate
+                applyLocationBias(coordinate)
                 val results = geocoder.reverseGeocode(
                     ReverseGeocodeRequest(
                         coordinate = coordinate,
@@ -177,20 +181,31 @@ class HomeViewModel(
         refreshLocationBias()
     }
 
+    private fun seedLocationBias() {
+        locationBiasStore.load()?.let { _locationBias.value = it }
+        if (!locationProvider.hasPermission()) return
+        locationProvider.lastKnownCoordinate()?.let { applyLocationBias(it) }
+    }
+
     private fun refreshLocationBias() {
         if (!locationProvider.hasPermission()) return
         viewModelScope.launch {
             runCatching { locationProvider.currentCoordinate() }
                 .getOrNull()
-                ?.let { _locationBias.value = it }
+                ?.let { applyLocationBias(it) }
         }
+    }
+
+    private fun applyLocationBias(coordinate: Coordinate) {
+        _locationBias.value = coordinate
+        locationBiasStore.save(coordinate)
     }
 
     private fun startNearbyPolling() {
         nearbyPollJob?.cancel()
         nearbyPollJob = viewModelScope.launch {
             while (isActive) {
-                delay(NEARBY_POLL_INTERVAL_MS)
+                delay(NEARBY_POLL_INTERVAL_MS.milliseconds)
                 if (_destination.value.isBlank()) {
                     val coordinate = _locationBias.value ?: continue
                     loadNearbyDepartures(coordinate)

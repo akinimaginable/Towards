@@ -7,6 +7,8 @@ import org.etrange.towards.domain.model.Coordinate
 class JvmLocationProvider : LocationProvider {
     override fun hasPermission(): Boolean = false
 
+    override fun lastKnownCoordinate(): Coordinate? = null
+
     override suspend fun currentCoordinate(): Coordinate? = null
 }
 
