@@ -37,9 +37,7 @@ import org.etrange.towards.ui.theme.TowardsTheme
 @Composable
 fun App() {
     val endpointStore = remember { ApiEndpointStore() }
-    App(
-        settingsViewModel = viewModel { SettingsViewModel(endpointStore) },
-    )
+    App(settingsViewModel = viewModel { SettingsViewModel(endpointStore) })
 }
 
 @Composable
