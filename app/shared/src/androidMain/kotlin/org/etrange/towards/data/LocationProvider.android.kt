@@ -33,19 +33,28 @@ class AndroidLocationProvider(
     }
 
     @SuppressLint("MissingPermission")
+    override fun lastKnownCoordinate(): Coordinate? {
+        if (!hasPermission()) return null
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+            ?: return null
+        return lastKnownCoordinate(locationManager)
+    }
+
+    @SuppressLint("MissingPermission")
     override suspend fun currentCoordinate(): Coordinate? {
         if (!hasPermission()) return null
         val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
             ?: return null
 
+        // Prefer fused/network over GPS for a faster first fix.
         val provider = when {
-            locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ->
-                LocationManager.GPS_PROVIDER
-            locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ->
-                LocationManager.NETWORK_PROVIDER
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                 locationManager.isProviderEnabled(LocationManager.FUSED_PROVIDER) ->
                 LocationManager.FUSED_PROVIDER
+            locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ->
+                LocationManager.NETWORK_PROVIDER
+            locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ->
+                LocationManager.GPS_PROVIDER
             else -> null
         } ?: return lastKnownCoordinate(locationManager)
 

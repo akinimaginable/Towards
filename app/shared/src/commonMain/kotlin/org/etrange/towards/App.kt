@@ -18,6 +18,7 @@ import org.etrange.towards.data.ApiConfig
 import org.etrange.towards.data.ApiEndpointStore
 import org.etrange.towards.data.HttpGeocoder
 import org.etrange.towards.data.HttpTimetableProvider
+import org.etrange.towards.data.LocationBiasStore
 import org.etrange.towards.data.createHttpClient
 import org.etrange.towards.data.rememberLocationProvider
 import org.etrange.towards.domain.model.TransportMode
@@ -61,6 +62,7 @@ fun App(
         )
     }
     val locationProvider = rememberLocationProvider()
+    val locationBiasStore = remember { LocationBiasStore() }
 
     TowardsTheme(themeMode = themeMode) {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -70,7 +72,12 @@ fun App(
             ) {
                 composable<HomeRoute> {
                     val homeViewModel: HomeViewModel = viewModel {
-                        HomeViewModel(geocoder, locationProvider, timetableProvider)
+                        HomeViewModel(
+                            geocoder = geocoder,
+                            locationProvider = locationProvider,
+                            timetableProvider = timetableProvider,
+                            locationBiasStore = locationBiasStore,
+                        )
                     }
                     HomeScreen(
                         viewModel = homeViewModel,
