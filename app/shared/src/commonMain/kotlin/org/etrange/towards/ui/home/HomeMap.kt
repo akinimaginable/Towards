@@ -3,6 +3,7 @@ package org.etrange.towards.ui.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,17 +17,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
-import kotlin.time.Duration.Companion.milliseconds
 import org.etrange.towards.domain.model.Coordinate
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.MapOptions
 import org.maplibre.compose.map.MaplibreMap
-import org.maplibre.compose.map.OrnamentOptions
+import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 import towards.app.shared.generated.resources.Res
+import kotlin.time.Duration.Companion.milliseconds
 
 private val DefaultMapCenter = Coordinate(latitude = 50.8503, longitude = 4.3517)
 private const val DefaultZoom = 15.0
@@ -56,7 +57,6 @@ fun HomeMap(
         firstPosition = CameraPosition(
             target = Position(longitude = target.longitude, latitude = target.latitude),
             zoom = DefaultZoom,
-            padding = contentPadding,
         ),
     )
     val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -67,11 +67,10 @@ fun HomeMap(
     }
     var previousCenter by remember { mutableStateOf(center) }
 
-    LaunchedEffect(target.latitude, target.longitude, contentPadding) {
+    LaunchedEffect(target.latitude, target.longitude) {
         val finalPosition = cameraState.position.copy(
             target = Position(longitude = target.longitude, latitude = target.latitude),
             zoom = DefaultZoom,
-            padding = contentPadding,
         )
         val isFirstRealCenter = previousCenter == null && center != null
         previousCenter = center
@@ -87,9 +86,14 @@ fun HomeMap(
         modifier = modifier,
         baseStyle = BaseStyle.Uri(styleUri),
         cameraState = cameraState,
+        cameraPadding = contentPadding,
+        contentWindowInsets = WindowInsets(
+            top = contentPadding.calculateTopPadding(),
+            bottom = contentPadding.calculateBottomPadding(),
+        ),
         options = MapOptions(
             gestureOptions = GestureOptions.Standard,
-            ornamentOptions = OrnamentOptions.OnlyLogo,
         ),
+        overlay = MapOverlay.Default,
     )
 }

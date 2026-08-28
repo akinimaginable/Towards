@@ -15,7 +15,7 @@ let package = Package(
   dependencies: [
     .package(
       url: "https://github.com/maplibre/maplibre-gl-native-distribution.git",
-      exact: "6.28.0"
+      exact: "6.29.0"
     )
   ],
   targets: [
