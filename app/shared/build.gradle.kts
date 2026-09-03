@@ -58,6 +58,7 @@ kotlin {
             implementation(libs.androidx.core.ktx)
             implementation(libs.androidx.activity.compose)
             implementation(libs.ktor.mp.client.okhttp)
+            implementation(libs.maplibre.compose.runtime.opengl.android)
         }
         iosMain.dependencies {
             implementation(libs.ktor.mp.client.darwin)

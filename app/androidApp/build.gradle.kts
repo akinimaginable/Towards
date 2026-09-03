@@ -17,6 +17,7 @@ dependencies {
 
     implementation(libs.compose.uiToolingPreview)
     debugImplementation(libs.compose.uiTooling)
+    implementation(libs.maplibre.compose.runtime.opengl.android)
 }
 
 android {
