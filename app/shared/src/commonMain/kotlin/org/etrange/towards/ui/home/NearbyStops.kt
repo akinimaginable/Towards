@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -57,11 +57,16 @@ fun LazyListScope.nearbyStopsSection(
         return
     }
 
-    nearbyStops.forEach { stop ->
-        item(key = "stop-header-${stop.id}") {
+    nearbyStops.forEachIndexed { stopIndex, stop ->
+        item(key = "stop-header-$stopIndex-${stop.id}") {
             NearbyStopHeader(stop = stop)
         }
-        items(stop.departures, key = { it.id }) { departure ->
+        itemsIndexed(
+            items = stop.departures,
+            key = { departureIndex, departure ->
+                "dep-$stopIndex-$departureIndex-${departure.id}"
+            },
+        ) { _, departure ->
             NearbyDepartureRow(departure = departure)
         }
     }

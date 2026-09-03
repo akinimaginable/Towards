@@ -1,7 +1,9 @@
 package org.etrange.towards.ui.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -38,6 +40,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -114,6 +117,7 @@ fun HomeScreen(
         isLocating = isLocating,
         errorMessage = errorMessage,
         mapCenter = selected?.coordinate ?: locationBias,
+        userLocation = locationBias,
         nearbyStops = nearbyStops,
         isLoadingNearby = isLoadingNearby,
         nearbyMessage = nearbyMessage,
@@ -137,6 +141,7 @@ fun HomeScreen(
     isLocating: Boolean,
     errorMessage: String?,
     mapCenter: Coordinate? = null,
+    userLocation: Coordinate? = null,
     nearbyStops: List<NearbyStop> = emptyList(),
     isLoadingNearby: Boolean = false,
     nearbyMessage: String? = null,
@@ -175,26 +180,32 @@ fun HomeScreen(
             val searchHeight = 56.dp
             val sectionSpacing = 4.dp
             val overlayHeight = shortcutsHeight + sectionSpacing + searchHeight
-            val mapHeight = topPadding + mapPeekHeight + overlayHeight
+            val mapHeight = (topPadding + mapPeekHeight + overlayHeight)
+                .coerceAtMost(maxHeight * 0.58f)
             val horizontalPadding = innerPadding.calculateStartPadding(layoutDirection)
 
-            HomeMap(
-                center = mapCenter,
-                contentPadding = PaddingValues(
-                    top = topPadding,
-                    bottom = overlayHeight,
-                ),
-                modifier = Modifier.fillMaxWidth().height(mapHeight).align(Alignment.TopCenter),
-            )
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(mapHeight).clipToBounds(),
+                ) {
+                    HomeMap(
+                        center = mapCenter,
+                        userLocation = userLocation,
+                        contentPadding = PaddingValues(
+                            top = topPadding,
+                            bottom = overlayHeight,
+                        ),
+                        modifier = Modifier.fillMaxSize(),
+                    )
 
-            Column(
-                modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth()
-                    .padding(top = topPadding + mapPeekHeight).padding(
-                        start = horizontalPadding,
-                        end = innerPadding.calculateEndPadding(layoutDirection),
-                    ),
-                verticalArrangement = Arrangement.spacedBy(sectionSpacing),
-            ) {
+                    Column(
+                        modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                            .padding(
+                                start = horizontalPadding,
+                                end = innerPadding.calculateEndPadding(layoutDirection),
+                            ),
+                        verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                    ) {
                 Row(
                     modifier = Modifier.fillMaxWidth().height(shortcutsHeight)
                         .horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
@@ -287,16 +298,21 @@ fun HomeScreen(
                         cursorColor = MaterialTheme.colorScheme.primary,
                     ),
                 )
-            }
+                    }
+                }
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(top = mapHeight),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                contentPadding = PaddingValues(
-                    start = innerPadding.calculateStartPadding(layoutDirection),
-                    end = innerPadding.calculateEndPadding(layoutDirection),
-                ),
-            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.background),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    contentPadding = PaddingValues(
+                        start = innerPadding.calculateStartPadding(layoutDirection),
+                        end = innerPadding.calculateEndPadding(layoutDirection),
+                        bottom = innerPadding.calculateBottomPadding(),
+                    ),
+                ) {
                 if (errorMessage != null) {
                     item(key = "error") {
                         Text(
@@ -349,6 +365,7 @@ fun HomeScreen(
                         }
                     }
                 }
+            }
             }
         }
     }

@@ -14,18 +14,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
 import org.etrange.towards.domain.model.Coordinate
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.rememberCameraState
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.MapOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.overlay.MapOverlay
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.FeatureCollection
+import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
+import kotlinx.serialization.json.JsonObject
 import towards.app.shared.generated.resources.Res
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -36,6 +46,7 @@ private const val DefaultZoom = 15.0
 fun HomeMap(
     center: Coordinate?,
     modifier: Modifier = Modifier,
+    userLocation: Coordinate? = null,
     contentPadding: PaddingValues = PaddingValues(0.dp),
 ) {
     if (LocalInspectionMode.current) {
@@ -66,20 +77,31 @@ fun HomeMap(
         Res.getUri("files/towards_map_light.json")
     }
     var previousCenter by remember { mutableStateOf(center) }
+    val cameraTopPadding = contentPadding.calculateTopPadding()
+    val cameraBottomPadding = contentPadding.calculateBottomPadding()
 
-    LaunchedEffect(target.latitude, target.longitude) {
-        val finalPosition = cameraState.position.copy(
+    LaunchedEffect(target.latitude, target.longitude, cameraTopPadding, cameraBottomPadding) {
+        cameraState.awaitViewport()
+        val finalPosition = CameraPosition(
             target = Position(longitude = target.longitude, latitude = target.latitude),
             zoom = DefaultZoom,
+            bearing = cameraState.position.bearing,
+            tilt = cameraState.position.tilt,
         )
         val isFirstRealCenter = previousCenter == null && center != null
+        val paddingOnlyChange = previousCenter == center
         previousCenter = center
-        if (isFirstRealCenter) {
-            // Jump instantly so we don't animate from the Brussels default across the map.
+        if (isFirstRealCenter || paddingOnlyChange) {
             cameraState.animateTo(finalPosition = finalPosition, duration = 0.milliseconds)
         } else {
             cameraState.animateTo(finalPosition = finalPosition)
         }
+    }
+
+    val locationDotColor = MaterialTheme.colorScheme.primary
+    val locationHaloColor = locationDotColor.copy(alpha = 0.22f)
+    val userLocationData = remember(userLocation?.latitude, userLocation?.longitude) {
+        userLocationGeoJson(userLocation)
     }
 
     MaplibreMap(
@@ -88,12 +110,44 @@ fun HomeMap(
         cameraState = cameraState,
         cameraPadding = contentPadding,
         contentWindowInsets = WindowInsets(
-            top = contentPadding.calculateTopPadding(),
-            bottom = contentPadding.calculateBottomPadding(),
+            top = cameraTopPadding,
+            bottom = cameraBottomPadding,
         ),
         options = MapOptions(
             gestureOptions = GestureOptions.Standard,
         ),
-        overlay = MapOverlay.Default,
-    )
+        overlay = MapOverlay.None,
+    ) {
+        val userLocationSource = rememberGeoJsonSource(data = userLocationData)
+        CircleLayer(
+            id = "user-location-halo",
+            source = userLocationSource,
+            color = const(locationHaloColor),
+            radius = const(16.dp),
+            strokeWidth = const(0.dp),
+        )
+        CircleLayer(
+            id = "user-location",
+            source = userLocationSource,
+            color = const(locationDotColor),
+            radius = const(6.dp),
+            strokeColor = const(Color.White),
+            strokeWidth = const(2.dp),
+        )
+    }
 }
+
+private fun userLocationGeoJson(userLocation: Coordinate?): GeoJsonData =
+    if (userLocation == null) {
+        GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>(emptyList()))
+    } else {
+        GeoJsonData.Features(
+            Feature(
+                geometry = Point(
+                    longitude = userLocation.longitude,
+                    latitude = userLocation.latitude,
+                ),
+                properties = null,
+            ),
+        )
+    }

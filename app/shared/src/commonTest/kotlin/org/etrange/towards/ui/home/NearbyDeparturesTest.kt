@@ -166,6 +166,62 @@ class NearbyDeparturesTest {
     }
 
     @Test
+    fun treatsBlankParentIdAsMissing() {
+        val blankParent = nearPlace.copy(id = "stop:a", parentId = "")
+        val other = farPlace.copy(id = "stop:b", parentId = "")
+        val stopTimes = StopTimes(
+            place = nearPlace,
+            events = listOf(
+                stopTime(
+                    place = blankParent,
+                    routeId = "route:1",
+                    displayName = "1",
+                    headsign = "A",
+                    time = "2026-08-06T12:05:00Z",
+                ),
+                stopTime(
+                    place = other,
+                    routeId = "route:2",
+                    displayName = "2",
+                    headsign = "B",
+                    time = "2026-08-06T12:05:00Z",
+                ),
+            ),
+            previousPageCursor = null,
+            nextPageCursor = null,
+        )
+
+        val result = groupNearbyDepartures(stopTimes, origin)
+
+        assertEquals(2, result.size)
+        assertEquals(listOf("Near Stop", "Far Stop"), result.map { it.name })
+    }
+
+    @Test
+    fun groupsEventsWithOffsetTimestamps() {
+        val stopTimes = StopTimes(
+            place = nearPlace,
+            events = listOf(
+                stopTime(
+                    place = nearPlace,
+                    routeId = "route:3",
+                    displayName = "3",
+                    headsign = "Churchill",
+                    time = "2026-08-06T14:03:00+02:00",
+                ),
+            ),
+            previousPageCursor = null,
+            nextPageCursor = null,
+        )
+
+        val result = groupNearbyDepartures(stopTimes, origin)
+
+        assertEquals(1, result.size)
+        assertEquals(1, result.single().departures.size)
+        assertEquals(Instant.parse("2026-08-06T12:03:00Z"), result.single().departures.single().time)
+    }
+
+    @Test
     fun relativeLabelBoundaries() {
         assertEquals("now", relativeLabel(baseTime + 30.seconds, baseTime))
         assertEquals("3 min", relativeLabel(baseTime + 3.minutes, baseTime))

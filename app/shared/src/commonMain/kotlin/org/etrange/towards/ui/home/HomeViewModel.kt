@@ -98,6 +98,9 @@ class HomeViewModel(
         startNearbyPolling()
         seedLocationBias()
         refreshLocationBias()
+        if (_locationBias.value == null && !locationProvider.hasPermission()) {
+            _nearbyMessage.value = "Turn on location to see nearby departures"
+        }
     }
 
     fun hasLocationPermission(): Boolean = locationProvider.hasPermission()
@@ -178,6 +181,12 @@ class HomeViewModel(
 
     fun onLocationPermissionGranted() {
         _nearbyMessage.value = null
+        val lastKnown = locationProvider.lastKnownCoordinate()
+        if (lastKnown != null) {
+            applyLocationBias(lastKnown)
+        } else if (_locationBias.value == null) {
+            _isLoadingNearby.value = true
+        }
         refreshLocationBias()
     }
 
@@ -190,9 +199,13 @@ class HomeViewModel(
     private fun refreshLocationBias() {
         if (!locationProvider.hasPermission()) return
         viewModelScope.launch {
-            runCatching { locationProvider.currentCoordinate() }
-                .getOrNull()
-                ?.let { applyLocationBias(it) }
+            val coordinate = runCatching { locationProvider.currentCoordinate() }.getOrNull()
+            if (coordinate != null) {
+                applyLocationBias(coordinate)
+            } else if (_locationBias.value == null) {
+                _isLoadingNearby.value = false
+                _nearbyMessage.value = "Unable to determine your current location"
+            }
         }
     }
 
@@ -228,7 +241,7 @@ class HomeViewModel(
                 )
                 _nearbyStops.value = groupNearbyDepartures(stopTimes, coordinate)
                 _nearbyMessage.value = if (_nearbyStops.value.isEmpty()) {
-                    "No departures nearby"
+                    "No departures within ${NEARBY_RADIUS_METERS} m of your location"
                 } else {
                     null
                 }
@@ -285,7 +298,7 @@ class HomeViewModel(
     }
 
     companion object {
-        private const val NEARBY_RADIUS_METERS = 500
+        private const val NEARBY_RADIUS_METERS = 1_500
         private const val NEARBY_EVENT_COUNT = 40
         private const val NEARBY_POLL_INTERVAL_MS = 60_000L
     }

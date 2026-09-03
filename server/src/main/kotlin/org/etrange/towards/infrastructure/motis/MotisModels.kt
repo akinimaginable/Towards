@@ -79,7 +79,7 @@ internal data class MotisItinerary(
 @Serializable
 internal data class MotisStopTimesResponse(
     val stopTimes: List<MotisStopTime> = emptyList(),
-    val place: MotisPlace,
+    val place: MotisPlace = MotisPlace(),
     val previousPageCursor: String = "",
     val nextPageCursor: String = "",
 )

@@ -112,4 +112,6 @@ internal fun haversineMeters(from: Coordinate, to: Coordinate): Int {
 private fun Double.toRadians(): Double = this * PI / 180.0
 
 private fun stopKey(event: StopTime): String =
-    event.place.parentId ?: event.place.id ?: event.place.name
+    event.place.parentId?.takeIf { it.isNotBlank() }
+        ?: event.place.id?.takeIf { it.isNotBlank() }
+        ?: event.place.name
