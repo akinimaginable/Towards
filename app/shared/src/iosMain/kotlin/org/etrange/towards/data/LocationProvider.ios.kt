@@ -1,7 +1,9 @@
 package org.etrange.towards.data
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.useContents
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -126,8 +128,64 @@ actual fun rememberLocationProvider(): LocationProvider =
 
 @Composable
 actual fun rememberLocationPermissionLauncher(onResult: (granted: Boolean) -> Unit): () -> Unit {
+    val callback = rememberUpdatedState(onResult)
+    val request = remember { IosLocationPermissionRequest() }
+    DisposableEffect(Unit) {
+        onDispose { request.cancel() }
+    }
     return {
-        val status = CLLocationManager().authorizationStatus
-        onResult(status.isAuthorized() || status == kCLAuthorizationStatusNotDetermined)
+        request.request(callback.value)
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private class IosLocationPermissionRequest {
+    private val manager = CLLocationManager()
+    private var activeDelegate: NSObject? = null
+
+    fun request(onResult: (granted: Boolean) -> Unit) {
+        when (val status = manager.authorizationStatus) {
+            kCLAuthorizationStatusAuthorizedAlways,
+            kCLAuthorizationStatusAuthorizedWhenInUse,
+            -> {
+                onResult(true)
+                return
+            }
+            kCLAuthorizationStatusDenied,
+            kCLAuthorizationStatusRestricted,
+            -> {
+                onResult(false)
+                return
+            }
+        }
+
+        val delegate = object : NSObject(), CLLocationManagerDelegateProtocol {
+            override fun locationManagerDidChangeAuthorization(manager: CLLocationManager) {
+                deliver(manager.authorizationStatus, onResult)
+            }
+
+            override fun locationManager(
+                manager: CLLocationManager,
+                didChangeAuthorizationStatus: CLAuthorizationStatus,
+            ) {
+                deliver(didChangeAuthorizationStatus, onResult)
+            }
+        }
+        activeDelegate = delegate
+        dispatch_async(dispatch_get_main_queue()) {
+            manager.delegate = delegate
+            manager.requestWhenInUseAuthorization()
+        }
+    }
+
+    private fun deliver(status: CLAuthorizationStatus, onResult: (granted: Boolean) -> Unit) {
+        if (status == kCLAuthorizationStatusNotDetermined) return
+        cancel()
+        onResult(status.isAuthorized())
+    }
+
+    fun cancel() {
+        activeDelegate = null
+        manager.delegate = null
     }
 }
