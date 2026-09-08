@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -16,7 +17,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,12 +53,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.minutes
 import org.etrange.towards.data.rememberLocationPermissionLauncher
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
@@ -66,10 +66,12 @@ import org.etrange.towards.ui.icons.searchIcon
 import org.etrange.towards.ui.icons.settingsIcon
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
+import org.etrange.towards.ui.trip.LocationSearchField
 import org.etrange.towards.ui.trip.LocationSearchPanel
 import org.etrange.towards.ui.trip.TripEndpoint
 import org.etrange.towards.ui.trip.toTripEndpoint
-import kotlinx.coroutines.delay
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
 
 @Composable
 fun HomeScreen(
@@ -260,180 +262,177 @@ fun HomeScreen(
     onDismissSearch: () -> Unit = {},
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
-    Scaffold(
-        containerColor = Color.Transparent,
-        topBar = {
-            TopAppBar(
-                title = { Text("", fontWeight = FontWeight.Bold) },
-                actions = {
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(
-                            imageVector = settingsIcon,
-                            contentDescription = "Settings",
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent,
-                ),
-            )
-        },
-    ) { innerPadding ->
-        val layoutDirection = LocalLayoutDirection.current
-        val topPadding = innerPadding.calculateTopPadding()
-
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val mapPeekHeight = maxHeight / 3
-            val shortcutsHeight = 48.dp
-            val searchHeight = 56.dp
-            val sectionSpacing = 4.dp
-            val overlayHeight = shortcutsHeight + sectionSpacing + searchHeight
-            val mapHeight = (topPadding + mapPeekHeight + overlayHeight)
-                .coerceAtMost(maxHeight * 0.58f)
-            val horizontalPadding = innerPadding.calculateStartPadding(layoutDirection)
-
-            Column(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(mapHeight).clipToBounds(),
-                ) {
-                    HomeMap(
-                        center = mapCenter,
-                        userLocation = userLocation,
-                        contentPadding = PaddingValues(
-                            top = topPadding,
-                            bottom = overlayHeight,
-                        ),
-                        modifier = Modifier.fillMaxSize(),
-                    )
-
-                    Column(
-                        modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                            .padding(
-                                start = horizontalPadding,
-                                end = innerPadding.calculateEndPadding(layoutDirection),
-                            ),
-                        verticalArrangement = Arrangement.spacedBy(sectionSpacing),
-                    ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().height(shortcutsHeight)
-                        .horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Button(
-                        onClick = onUseCurrentLocation,
-                        enabled = !isLocating,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                        ),
-                        contentPadding = PaddingValues(horizontal = 14.dp),
-                    ) {
-                        if (isLocating) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            Text("My location")
-                        }
-                    }
-
-                    for (shortcut in shortcuts) {
-                        DestinationShortcut(
-                            label = shortcut.label,
-                            detail = shortcut.detail,
-                            onClick = { onShortcutClick(shortcut) },
-                            highlightDetail = shortcut.highlightDetail,
-                        )
-                    }
-
-                    Button(
-                        onClick = { },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                        ),
-                        contentPadding = PaddingValues(start = 8.dp, end = 14.dp),
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = { Text("", fontWeight = FontWeight.Bold) },
+                    actions = {
+                        IconButton(onClick = onOpenSettings) {
                             Icon(
-                                imageVector = addIcon,
-                                contentDescription = "",
-                                tint = MaterialTheme.colorScheme.onSurface,
+                                imageVector = settingsIcon,
+                                contentDescription = "Settings",
                             )
-                            Text("Add shortcut")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent,
+                    ),
+                )
+            },
+        ) { innerPadding ->
+            val layoutDirection = LocalLayoutDirection.current
+            val topPadding = innerPadding.calculateTopPadding()
+
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val mapPeekHeight = maxHeight / 3
+                val shortcutsHeight = 48.dp
+                val searchHeight = 56.dp
+                val sectionSpacing = 4.dp
+                val overlayHeight = shortcutsHeight + sectionSpacing + searchHeight
+                val mapHeight =
+                    (topPadding + mapPeekHeight + overlayHeight).coerceAtMost(maxHeight * 0.58f)
+                val horizontalPadding = innerPadding.calculateStartPadding(layoutDirection)
+
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(mapHeight).clipToBounds(),
+                    ) {
+                        HomeMap(
+                            center = mapCenter,
+                            userLocation = userLocation,
+                            contentPadding = PaddingValues(
+                                top = topPadding,
+                                bottom = overlayHeight,
+                            ),
+                            modifier = Modifier.fillMaxSize(),
+                        )
+
+                        Column(
+                            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                                .padding(
+                                    start = horizontalPadding,
+                                    end = innerPadding.calculateEndPadding(layoutDirection),
+                                ),
+                            verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().height(shortcutsHeight)
+                                    .horizontalScroll(rememberScrollState())
+                                    .padding(horizontal = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Button(
+                                    onClick = onUseCurrentLocation,
+                                    enabled = !isLocating,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                        contentColor = MaterialTheme.colorScheme.onSurface,
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 14.dp),
+                                ) {
+                                    if (isLocating) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp,
+                                        )
+                                    } else {
+                                        Text("My location")
+                                    }
+                                }
+
+                                for (shortcut in shortcuts) {
+                                    DestinationShortcut(
+                                        label = shortcut.label,
+                                        detail = shortcut.detail,
+                                        onClick = { onShortcutClick(shortcut) },
+                                        highlightDetail = shortcut.highlightDetail,
+                                    )
+                                }
+
+                                Button(
+                                    onClick = { },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                        contentColor = MaterialTheme.colorScheme.onSurface,
+                                    ),
+                                    contentPadding = PaddingValues(start = 8.dp, end = 14.dp),
+                                ) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Icon(
+                                            imageVector = addIcon,
+                                            contentDescription = "",
+                                            tint = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                        Text("Add shortcut")
+                                    }
+                                }
+                            }
+
+                            SearchLaunchBar(
+                                modifier = Modifier.fillMaxWidth().height(searchHeight)
+                                    .padding(horizontal = 12.dp),
+                                onClick = onOpenSearch,
+                            )
                         }
                     }
-                }
 
-                SearchLaunchBar(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(searchHeight)
-                        .padding(horizontal = 12.dp),
-                    onClick = onOpenSearch,
-                )
-                    }
-                }
+                    LazyColumn(
+                        modifier = Modifier.weight(1f).fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.background),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        contentPadding = PaddingValues(
+                            start = innerPadding.calculateStartPadding(layoutDirection),
+                            end = innerPadding.calculateEndPadding(layoutDirection),
+                            bottom = innerPadding.calculateBottomPadding(),
+                        ),
+                    ) {
+                        if (errorMessage != null) {
+                            item(key = "error") {
+                                Text(
+                                    text = errorMessage,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.fillMaxWidth()
+                                        .padding(horizontal = 24.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                        }
 
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.background),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    contentPadding = PaddingValues(
-                        start = innerPadding.calculateStartPadding(layoutDirection),
-                        end = innerPadding.calculateEndPadding(layoutDirection),
-                        bottom = innerPadding.calculateBottomPadding(),
-                    ),
-                ) {
-                if (errorMessage != null) {
-                    item(key = "error") {
-                        Text(
-                            text = errorMessage,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.fillMaxWidth()
-                                .padding(horizontal = 24.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.bodyMedium,
+                        nearbyStopsSection(
+                            nearbyStops = nearbyStops,
+                            isLoadingNearby = isLoadingNearby,
+                            nearbyMessage = nearbyMessage,
+                            onStopClick = onNearbyStopClick,
                         )
                     }
                 }
-
-                nearbyStopsSection(
-                    nearbyStops = nearbyStops,
-                    isLoadingNearby = isLoadingNearby,
-                    nearbyMessage = nearbyMessage,
-                    onStopClick = onNearbyStopClick,
-                )
-            }
             }
         }
-    }
 
-    if (searchSheetVisible) {
-        DestinationSearchSheet(
-            query = destination,
-            suggestions = suggestions,
-            shortcuts = shortcuts,
-            isLoading = isLoading,
-            isLocating = isLocating,
-            errorMessage = errorMessage,
-            originName = originName,
-            pickingOrigin = pickingOrigin,
-            onQueryChange = onDestinationChange,
-            onDismiss = onDismissSearch,
-            onPickOrigin = onPickOrigin,
-            onSearchDestination = onSearchDestination,
-            onMyLocationClick = onMyLocationAsOrigin,
-            onShortcutClick = onShortcutClick,
-            onSuggestionClick = onSuggestionClick,
-        )
-    }
+        if (searchSheetVisible) {
+            DestinationSearchSheet(
+                query = destination,
+                suggestions = suggestions,
+                shortcuts = shortcuts,
+                isLoading = isLoading,
+                isLocating = isLocating,
+                errorMessage = errorMessage,
+                originName = originName,
+                pickingOrigin = pickingOrigin,
+                onQueryChange = onDestinationChange,
+                onDismiss = onDismissSearch,
+                onPickOrigin = onPickOrigin,
+                onSearchDestination = onSearchDestination,
+                onMyLocationClick = onMyLocationAsOrigin,
+                onShortcutClick = onShortcutClick,
+                onSuggestionClick = onSuggestionClick,
+            )
+        }
     }
 }
 
@@ -460,66 +459,56 @@ private fun DestinationSearchSheet(
         initialValue = SheetValue.Expanded,
         enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
     )
-    val focusRequester = remember { FocusRequester() }
-
-    LaunchedEffect(pickingOrigin) {
-        delay(250)
-        runCatching { focusRequester.requestFocus() }
-    }
+    val originFocusRequester = remember { FocusRequester() }
+    val destinationFocusRequester = remember { FocusRequester() }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
     ) {
-        Text(
-            text = if (pickingOrigin) "Starting from" else "Where to?",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .padding(horizontal = 24.dp, vertical = 4.dp)
-                .then(
-                    if (pickingOrigin) {
-                        Modifier.clickable(onClick = onSearchDestination)
-                    } else {
-                        Modifier
-                    },
-                ),
-        )
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp)
-                .clickable(onClick = onPickOrigin),
-            shape = RoundedCornerShape(20.dp),
-            color = if (pickingOrigin) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceContainer
-            },
+        Column(
+            modifier = Modifier.fillMaxWidth().fillMaxHeight()
+                .windowInsetsPadding(WindowInsets.safeDrawing),
         ) {
-            OriginRow(originName = originName)
+            LocationSearchField(
+                query = if (pickingOrigin) query else "",
+                onQueryChange = onQueryChange,
+                placeholder = "From",
+                focusRequester = originFocusRequester,
+                isLoading = pickingOrigin && isLoading,
+                active = pickingOrigin,
+                displayText = originName,
+                autoFocus = pickingOrigin,
+                onActivate = onPickOrigin,
+            )
+            LocationSearchField(
+                query = if (!pickingOrigin) query else "",
+                onQueryChange = onQueryChange,
+                placeholder = "Where to?",
+                focusRequester = destinationFocusRequester,
+                isLoading = !pickingOrigin && isLoading,
+                active = !pickingOrigin,
+                autoFocus = !pickingOrigin,
+                onActivate = onSearchDestination,
+            )
+            LocationSearchPanel(
+                query = query,
+                suggestions = suggestions,
+                shortcuts = shortcuts,
+                isLoading = isLoading,
+                isLocating = isLocating,
+                errorMessage = errorMessage,
+                showMyLocation = pickingOrigin,
+                onQueryChange = onQueryChange,
+                onMyLocationClick = onMyLocationClick,
+                onShortcutClick = onShortcutClick,
+                onSuggestionClick = onSuggestionClick,
+                showQueryField = false,
+                modifier = Modifier.fillMaxWidth().weight(1f),
+            )
         }
-        LocationSearchPanel(
-            query = query,
-            suggestions = suggestions,
-            shortcuts = shortcuts,
-            isLoading = isLoading,
-            isLocating = isLocating,
-            errorMessage = errorMessage,
-            showMyLocation = pickingOrigin,
-            onQueryChange = onQueryChange,
-            onMyLocationClick = onMyLocationClick,
-            onShortcutClick = onShortcutClick,
-            onSuggestionClick = onSuggestionClick,
-            focusRequester = focusRequester,
-            placeholder = if (pickingOrigin) {
-                "Starting from"
-            } else {
-                "Stop, address, or place"
-            },
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.92f),
-        )
     }
 }
 
@@ -529,16 +518,12 @@ private fun SearchLaunchBar(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier
-            .clip(RoundedCornerShape(32.dp))
-            .clickable(onClick = onClick),
+        modifier = modifier.clip(RoundedCornerShape(32.dp)).clickable(onClick = onClick),
         shape = RoundedCornerShape(32.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -553,39 +538,6 @@ private fun SearchLaunchBar(
                 style = MaterialTheme.typography.bodyLarge,
             )
         }
-    }
-}
-
-@Composable
-private fun OriginRow(
-    originName: String,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "From",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = originName,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = "Change",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
     }
 }
 
@@ -610,11 +562,11 @@ private fun previewSuggestions() = listOf(
 private fun previewNearbyStops(): List<NearbyStop> {
     val now = Clock.System.now()
     return listOf(
-            NearbyStop(
-                id = "stop:bourse",
-                name = "Bourse",
-                coordinate = Coordinate(50.8481, 4.3497),
-                distanceMeters = 120,
+        NearbyStop(
+            id = "stop:bourse",
+            name = "Bourse",
+            coordinate = Coordinate(50.8481, 4.3497),
+            distanceMeters = 120,
             departures = listOf(
                 NearbyDeparture(
                     id = "1",
@@ -638,11 +590,11 @@ private fun previewNearbyStops(): List<NearbyStop> {
                 ),
             ),
         ),
-            NearbyStop(
-                id = "stop:anneessens",
-                name = "Anneessens",
-                coordinate = Coordinate(50.8469, 4.3458),
-                distanceMeters = 280,
+        NearbyStop(
+            id = "stop:anneessens",
+            name = "Anneessens",
+            coordinate = Coordinate(50.8469, 4.3458),
+            distanceMeters = 280,
             departures = listOf(
                 NearbyDeparture(
                     id = "3",
