@@ -36,8 +36,8 @@ data class NearbyStop(
 fun groupNearbyDepartures(
     stopTimes: StopTimes,
     origin: Coordinate,
-    maxStops: Int = 5,
-    maxDeparturesPerStop: Int = 4,
+    maxStops: Int = 20,
+    now: Instant? = null,
 ): List<NearbyStop> {
     val eventsByStop = stopTimes.events
         .asSequence()
@@ -45,50 +45,58 @@ fun groupNearbyDepartures(
         .mapNotNull { event ->
             val instant = event.time?.let { runCatching { Instant.parse(it) }.getOrNull() }
                 ?: return@mapNotNull null
+            if (now != null && instant < now - 1.minutes) return@mapNotNull null
             stopKey(event) to (event to instant)
         }
         .groupBy({ it.first }, { it.second })
 
-    return eventsByStop
-        .mapNotNull { (stopId, events) ->
-            val firstPlace = events.firstOrNull()?.first?.place ?: return@mapNotNull null
-            val departures = events
-                .groupBy { (event, _) ->
-                    (event.routeId ?: event.displayName.orEmpty()) to event.headsign
-                }
-                .map { (_, lineEvents) ->
-                    val (event, instant) = lineEvents.minBy { it.second }
-                    NearbyDeparture(
-                        id = "${stopId}:${event.routeId ?: event.displayName}:${event.headsign}:${event.tripId}",
-                        lineName = event.displayName ?: event.routeId ?: event.mode.name,
-                        headsign = event.headsign,
-                        mode = event.mode,
-                        routeColor = event.routeColor,
-                        routeTextColor = event.routeTextColor,
-                        time = instant,
-                        realTime = event.realTime,
-                    )
-                }
-                .sortedBy { it.time }
-                .take(maxDeparturesPerStop)
+    val stops = eventsByStop.mapNotNull { (stopId, events) ->
+        val firstPlace = events.firstOrNull()?.first?.place ?: return@mapNotNull null
+        val departures = events
+            .groupBy { (event, _) -> lineKey(event) }
+            .map { (lineKey, lineEvents) ->
+                val (event, instant) = lineEvents.minBy { it.second }
+                lineKey to NearbyDeparture(
+                    id = "${stopId}:${event.routeId ?: event.displayName}:${event.headsign}:${event.tripId}",
+                    lineName = event.displayName ?: event.routeId ?: event.mode.name,
+                    headsign = event.headsign,
+                    mode = event.mode,
+                    routeColor = event.routeColor,
+                    routeTextColor = event.routeTextColor,
+                    time = instant,
+                    realTime = event.realTime,
+                )
+            }
+        if (departures.isEmpty()) return@mapNotNull null
+        NearbyStop(
+            id = stopId,
+            name = firstPlace.name,
+            coordinate = firstPlace.coordinate,
+            distanceMeters = haversineMeters(origin, firstPlace.coordinate),
+            departures = emptyList(),
+        ) to departures
+    }
 
-            if (departures.isEmpty()) return@mapNotNull null
+    val nearestStopByLine = stops
+        .flatMap { (stop, departures) -> departures.map { (lineKey, _) -> lineKey to stop } }
+        .groupBy({ it.first }, { it.second })
+        .mapValues { (_, lineStops) -> lineStops.minBy { it.distanceMeters }.id }
 
-            NearbyStop(
-                id = stopId,
-                name = firstPlace.name,
-                coordinate = firstPlace.coordinate,
-                distanceMeters = haversineMeters(origin, firstPlace.coordinate),
-                departures = departures,
-            )
-        }
+    return stops.mapNotNull { (stop, departures) ->
+        val kept = departures
+            .filter { (lineKey, _) -> nearestStopByLine[lineKey] == stop.id }
+            .map { it.second }
+            .sortedBy { it.time }
+        if (kept.isEmpty()) return@mapNotNull null
+        stop.copy(departures = kept)
+    }
         .sortedBy { it.distanceMeters }
         .take(maxStops)
 }
 
 fun relativeLabel(time: Instant, now: Instant): String {
     val delta: Duration = time - now
-    // if (delta < 1.minutes) return "now"
+    if (delta < 1.minutes) return "now"
     val totalMinutes = delta.inWholeMinutes
     if (totalMinutes < 60) return "$totalMinutes min"
     val hours = totalMinutes / 60
@@ -112,6 +120,9 @@ fun haversineMeters(from: Coordinate, to: Coordinate): Int {
 }
 
 private fun Double.toRadians(): Double = this * PI / 180.0
+
+private fun lineKey(event: StopTime): Pair<String, String?> =
+    (event.routeId ?: event.displayName.orEmpty()) to event.headsign
 
 private fun stopKey(event: StopTime): String =
     event.place.parentId?.takeIf { it.isNotBlank() }

@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import org.etrange.towards.data.ApiException
 import org.etrange.towards.data.LocationBiasStore
 import org.etrange.towards.data.LocationProvider
+import org.etrange.towards.data.toApiDateTime
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeRequest
 import org.etrange.towards.domain.model.GeocodeResult
@@ -25,6 +26,7 @@ import org.etrange.towards.domain.model.StopTimesRequest
 import org.etrange.towards.domain.port.Geocoder
 import org.etrange.towards.domain.port.TimetableProvider
 import org.etrange.towards.ui.trip.TripEndpoint
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(FlowPreview::class)
@@ -238,14 +240,21 @@ class HomeViewModel(
         nearbyJob = viewModelScope.launch {
             _isLoadingNearby.value = true
             try {
+                val now = Clock.System.now()
                 val stopTimes = timetableProvider.getStopTimes(
                     StopTimesRequest(
                         center = coordinate,
                         radiusMeters = NEARBY_RADIUS_METERS,
                         numberOfEvents = NEARBY_EVENT_COUNT,
+                        time = now.toApiDateTime(),
                     ),
                 )
-                _nearbyStops.value = groupNearbyDepartures(stopTimes, coordinate)
+                _nearbyStops.value = groupNearbyDepartures(
+                    stopTimes,
+                    coordinate,
+                    maxStops = NEARBY_MAX_STOPS,
+                    now = now,
+                )
                 _nearbyMessage.value = if (_nearbyStops.value.isEmpty()) {
                     "No departures within ${NEARBY_RADIUS_METERS} m of your location"
                 } else {
@@ -306,7 +315,8 @@ class HomeViewModel(
     companion object {
         private val MAP_CENTER = Coordinate(latitude = 50.8503, longitude = 4.3517)
         private const val NEARBY_RADIUS_METERS = 1_500
-        private const val NEARBY_EVENT_COUNT = 40
+        private const val NEARBY_MAX_STOPS = 20
+        private const val NEARBY_EVENT_COUNT = 250
         private const val NEARBY_POLL_INTERVAL_MS = 60_000L
     }
 }
