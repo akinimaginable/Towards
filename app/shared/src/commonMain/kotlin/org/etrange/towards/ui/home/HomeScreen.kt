@@ -1,6 +1,7 @@
 package org.etrange.towards.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,27 +11,30 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,15 +44,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
@@ -62,11 +66,16 @@ import org.etrange.towards.ui.icons.searchIcon
 import org.etrange.towards.ui.icons.settingsIcon
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
+import org.etrange.towards.ui.trip.LocationSearchPanel
+import org.etrange.towards.ui.trip.TripEndpoint
+import org.etrange.towards.ui.trip.toTripEndpoint
+import kotlinx.coroutines.delay
 
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
     onOpenSettings: () -> Unit,
+    onPlanTrip: (origin: TripEndpoint, destination: TripEndpoint) -> Unit,
 ) {
     val destination by viewModel.destination.collectAsStateWithLifecycle()
     val shortcuts by viewModel.shortcuts.collectAsStateWithLifecycle()
@@ -75,6 +84,7 @@ fun HomeScreen(
     val isLocating by viewModel.isLocating.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val selected by viewModel.selected.collectAsStateWithLifecycle()
+    val origin by viewModel.origin.collectAsStateWithLifecycle()
     val locationBias by viewModel.locationBias.collectAsStateWithLifecycle()
     val nearbyStops by viewModel.nearbyStops.collectAsStateWithLifecycle()
     val isLoadingNearby by viewModel.isLoadingNearby.collectAsStateWithLifecycle()
@@ -82,6 +92,8 @@ fun HomeScreen(
 
     var pendingLocationRequest by remember { mutableStateOf(false) }
     var autoPermissionRequested by rememberSaveable { mutableStateOf(false) }
+    var searchSheetVisible by rememberSaveable { mutableStateOf(false) }
+    var pickingOrigin by rememberSaveable { mutableStateOf(false) }
 
     val requestLocationPermission = rememberLocationPermissionLauncher { granted ->
         if (pendingLocationRequest) {
@@ -121,17 +133,104 @@ fun HomeScreen(
         nearbyStops = nearbyStops,
         isLoadingNearby = isLoadingNearby,
         nearbyMessage = nearbyMessage,
+        originName = origin.name,
         onDestinationChange = viewModel::onDestinationChange,
-        onShortcutClick = viewModel::onShortcutClick,
-        onSuggestionClick = viewModel::onSuggestionClick,
+        onShortcutClick = { shortcut ->
+            val coordinate = shortcut.coordinate
+            if (coordinate != null) {
+                val place = TripEndpoint(
+                    name = shortcut.label,
+                    coordinate = coordinate,
+                    stopId = shortcut.stopId,
+                )
+                if (pickingOrigin) {
+                    viewModel.setOrigin(place)
+                    pickingOrigin = false
+                    viewModel.onDestinationChange("")
+                } else {
+                    planTrip(
+                        viewModel = viewModel,
+                        destination = place,
+                        onPlanTrip = onPlanTrip,
+                    )
+                    viewModel.onDestinationChange("")
+                    searchSheetVisible = false
+                }
+            } else {
+                viewModel.onShortcutClick(shortcut)
+                searchSheetVisible = true
+            }
+        },
+        onSuggestionClick = { result ->
+            if (pickingOrigin) {
+                viewModel.setOrigin(result.toTripEndpoint())
+                pickingOrigin = false
+                viewModel.onDestinationChange("")
+            } else {
+                viewModel.onSuggestionClick(result)
+                planTrip(
+                    viewModel = viewModel,
+                    destination = result.toTripEndpoint(),
+                    onPlanTrip = onPlanTrip,
+                )
+                viewModel.onDestinationChange("")
+                searchSheetVisible = false
+            }
+        },
+        onNearbyStopClick = { stop ->
+            planTrip(
+                viewModel = viewModel,
+                destination = stop.toTripEndpoint(),
+                onPlanTrip = onPlanTrip,
+            )
+        },
         onUseCurrentLocation = {
             pendingLocationRequest = true
             requestLocationPermission()
         },
         onOpenSettings = onOpenSettings,
+        searchSheetVisible = searchSheetVisible,
+        pickingOrigin = pickingOrigin,
+        onOpenSearch = {
+            pickingOrigin = false
+            searchSheetVisible = true
+        },
+        onPickOrigin = {
+            pickingOrigin = true
+            viewModel.onDestinationChange("")
+            searchSheetVisible = true
+        },
+        onSearchDestination = {
+            pickingOrigin = false
+            viewModel.onDestinationChange("")
+        },
+        onMyLocationAsOrigin = {
+            pendingLocationRequest = true
+            requestLocationPermission()
+            pickingOrigin = false
+        },
+        onDismissSearch = {
+            searchSheetVisible = false
+            pickingOrigin = false
+            viewModel.onDestinationChange("")
+        },
     )
 }
 
+private fun planTrip(
+    viewModel: HomeViewModel,
+    destination: TripEndpoint,
+    onPlanTrip: (TripEndpoint, TripEndpoint) -> Unit,
+) {
+    val origin = viewModel.routingOrigin()
+    if (origin.isSamePlace(destination)) {
+        viewModel.onSamePlaceSelected()
+        return
+    }
+    onPlanTrip(origin, destination)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     destination: String,
@@ -145,12 +244,22 @@ fun HomeScreen(
     nearbyStops: List<NearbyStop> = emptyList(),
     isLoadingNearby: Boolean = false,
     nearbyMessage: String? = null,
+    originName: String = "My location",
     onDestinationChange: (String) -> Unit,
     onShortcutClick: (DestinationShortcutItem) -> Unit,
     onSuggestionClick: (GeocodeResult) -> Unit,
     onUseCurrentLocation: () -> Unit,
     onOpenSettings: () -> Unit,
+    onNearbyStopClick: (NearbyStop) -> Unit = {},
+    searchSheetVisible: Boolean = false,
+    pickingOrigin: Boolean = false,
+    onOpenSearch: () -> Unit = {},
+    onPickOrigin: () -> Unit = {},
+    onSearchDestination: () -> Unit = {},
+    onMyLocationAsOrigin: () -> Unit = {},
+    onDismissSearch: () -> Unit = {},
 ) {
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
@@ -261,42 +370,12 @@ fun HomeScreen(
                     }
                 }
 
-                TextField(
-                    value = destination,
-                    onValueChange = onDestinationChange,
-                    modifier = Modifier.fillMaxWidth().height(searchHeight)
+                SearchLaunchBar(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(searchHeight)
                         .padding(horizontal = 12.dp),
-                    placeholder = {
-                        Text(
-                            text = "Search here",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = searchIcon,
-                            contentDescription = "Search",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    },
-                    trailingIcon = {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(32.dp),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        disabledIndicatorColor = Color.Transparent,
-                        cursorColor = MaterialTheme.colorScheme.primary,
-                    ),
+                    onClick = onOpenSearch,
                 )
                     }
                 }
@@ -325,59 +404,189 @@ fun HomeScreen(
                     }
                 }
 
-                if (destination.isBlank()) {
-                    nearbyStopsSection(
-                        nearbyStops = nearbyStops,
-                        isLoadingNearby = isLoadingNearby,
-                        nearbyMessage = nearbyMessage,
-                    )
-                } else {
-                    itemsIndexed(
-                        items = suggestions,
-                        key = { index, result ->
-                            result.id.ifBlank {
-                                "geo:$index:${result.kind}:${result.coordinate.latitude}," +
-                                    "${result.coordinate.longitude}:${result.name}"
-                            }
-                        },
-                    ) { _, result ->
-                        Button(
-                            onClick = { onSuggestionClick(result) },
-                            shape = RectangleShape,
-                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        result.name,
-                                        style = TextStyle(
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold,
-                                        ),
-                                    )
-                                    Text(result.subtitle())
-                                }
-                            }
-                        }
-                    }
-                }
+                nearbyStopsSection(
+                    nearbyStops = nearbyStops,
+                    isLoadingNearby = isLoadingNearby,
+                    nearbyMessage = nearbyMessage,
+                    onStopClick = onNearbyStopClick,
+                )
             }
             }
         }
     }
+
+    if (searchSheetVisible) {
+        DestinationSearchSheet(
+            query = destination,
+            suggestions = suggestions,
+            shortcuts = shortcuts,
+            isLoading = isLoading,
+            isLocating = isLocating,
+            errorMessage = errorMessage,
+            originName = originName,
+            pickingOrigin = pickingOrigin,
+            onQueryChange = onDestinationChange,
+            onDismiss = onDismissSearch,
+            onPickOrigin = onPickOrigin,
+            onSearchDestination = onSearchDestination,
+            onMyLocationClick = onMyLocationAsOrigin,
+            onShortcutClick = onShortcutClick,
+            onSuggestionClick = onSuggestionClick,
+        )
+    }
+    }
 }
 
-private fun GeocodeResult.subtitle(): String {
-    val address = listOfNotNull(
-        listOfNotNull(street, houseNumber).joinToString(" ").ifBlank { null },
-        postalCode,
-        country,
-    ).joinToString(", ")
-    return address.ifBlank { kind.name.lowercase().replaceFirstChar { it.titlecase() } }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DestinationSearchSheet(
+    query: String,
+    suggestions: List<GeocodeResult>,
+    shortcuts: List<DestinationShortcutItem>,
+    isLoading: Boolean,
+    isLocating: Boolean,
+    errorMessage: String?,
+    originName: String,
+    pickingOrigin: Boolean,
+    onQueryChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onPickOrigin: () -> Unit,
+    onSearchDestination: () -> Unit,
+    onMyLocationClick: () -> Unit,
+    onShortcutClick: (DestinationShortcutItem) -> Unit,
+    onSuggestionClick: (GeocodeResult) -> Unit,
+) {
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Expanded,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+    )
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(pickingOrigin) {
+        delay(250)
+        runCatching { focusRequester.requestFocus() }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.background,
+    ) {
+        Text(
+            text = if (pickingOrigin) "Starting from" else "Where to?",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .padding(horizontal = 24.dp, vertical = 4.dp)
+                .then(
+                    if (pickingOrigin) {
+                        Modifier.clickable(onClick = onSearchDestination)
+                    } else {
+                        Modifier
+                    },
+                ),
+        )
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .clickable(onClick = onPickOrigin),
+            shape = RoundedCornerShape(20.dp),
+            color = if (pickingOrigin) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainer
+            },
+        ) {
+            OriginRow(originName = originName)
+        }
+        LocationSearchPanel(
+            query = query,
+            suggestions = suggestions,
+            shortcuts = shortcuts,
+            isLoading = isLoading,
+            isLocating = isLocating,
+            errorMessage = errorMessage,
+            showMyLocation = pickingOrigin,
+            onQueryChange = onQueryChange,
+            onMyLocationClick = onMyLocationClick,
+            onShortcutClick = onShortcutClick,
+            onSuggestionClick = onSuggestionClick,
+            focusRequester = focusRequester,
+            placeholder = if (pickingOrigin) {
+                "Starting from"
+            } else {
+                "Stop, address, or place"
+            },
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.92f),
+        )
+    }
+}
+
+@Composable
+private fun SearchLaunchBar(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier
+            .clip(RoundedCornerShape(32.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(32.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = searchIcon,
+                contentDescription = "Search",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = "Where to?",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        }
+    }
+}
+
+@Composable
+private fun OriginRow(
+    originName: String,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "From",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = originName,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = "Change",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
 }
 
 private fun previewSuggestions() = listOf(
@@ -401,10 +610,11 @@ private fun previewSuggestions() = listOf(
 private fun previewNearbyStops(): List<NearbyStop> {
     val now = Clock.System.now()
     return listOf(
-        NearbyStop(
-            id = "stop:bourse",
-            name = "Bourse",
-            distanceMeters = 120,
+            NearbyStop(
+                id = "stop:bourse",
+                name = "Bourse",
+                coordinate = Coordinate(50.8481, 4.3497),
+                distanceMeters = 120,
             departures = listOf(
                 NearbyDeparture(
                     id = "1",
@@ -428,10 +638,11 @@ private fun previewNearbyStops(): List<NearbyStop> {
                 ),
             ),
         ),
-        NearbyStop(
-            id = "stop:anneessens",
-            name = "Anneessens",
-            distanceMeters = 280,
+            NearbyStop(
+                id = "stop:anneessens",
+                name = "Anneessens",
+                coordinate = Coordinate(50.8469, 4.3458),
+                distanceMeters = 280,
             departures = listOf(
                 NearbyDeparture(
                     id = "3",

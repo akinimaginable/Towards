@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -18,11 +19,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
+import org.etrange.towards.data.decodeCoordinates
 import org.etrange.towards.domain.model.Coordinate
+import org.etrange.towards.domain.model.JourneyLeg
+import org.etrange.towards.ui.trip.isStreetMode
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.value.LineCap
+import org.maplibre.compose.expressions.value.LineJoin
 import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.MapOptions
 import org.maplibre.compose.map.MaplibreMap
@@ -30,9 +37,11 @@ import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.LineString
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
 import kotlinx.serialization.json.JsonObject
@@ -48,6 +57,10 @@ fun HomeMap(
     modifier: Modifier = Modifier,
     userLocation: Coordinate? = null,
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    routeLegs: List<JourneyLeg> = emptyList(),
+    origin: Coordinate? = null,
+    destination: Coordinate? = null,
+    fitRoute: Boolean = false,
 ) {
     if (LocalInspectionMode.current) {
         Box(
@@ -79,9 +92,32 @@ fun HomeMap(
     var previousCenter by remember { mutableStateOf(center) }
     val cameraTopPadding = contentPadding.calculateTopPadding()
     val cameraBottomPadding = contentPadding.calculateBottomPadding()
+    val routeSignature = routeLegs.joinToString("|") { leg ->
+        "${leg.startTime}:${leg.to.name}:${leg.geometry?.points.orEmpty().take(24)}"
+    }
 
-    LaunchedEffect(target.latitude, target.longitude, cameraTopPadding, cameraBottomPadding) {
+    LaunchedEffect(
+        target.latitude,
+        target.longitude,
+        cameraTopPadding,
+        cameraBottomPadding,
+        routeSignature,
+        fitRoute,
+    ) {
         cameraState.awaitViewport()
+        val bounds = if (fitRoute) routeBoundingBox(routeLegs) else null
+        if (bounds != null) {
+            cameraState.animateTo(
+                boundingBox = bounds,
+                padding = PaddingValues(
+                    start = 28.dp,
+                    top = cameraTopPadding + 16.dp,
+                    end = 28.dp,
+                    bottom = cameraBottomPadding + 16.dp,
+                ),
+            )
+            return@LaunchedEffect
+        }
         val finalPosition = CameraPosition(
             target = Position(longitude = target.longitude, latitude = target.latitude),
             zoom = DefaultZoom,
@@ -101,8 +137,16 @@ fun HomeMap(
     val locationDotColor = MaterialTheme.colorScheme.primary
     val locationHaloColor = locationDotColor.copy(alpha = 0.22f)
     val userLocationData = remember(userLocation?.latitude, userLocation?.longitude) {
-        userLocationGeoJson(userLocation)
+        pointGeoJson(userLocation)
     }
+    val originData = remember(origin?.latitude, origin?.longitude) {
+        pointGeoJson(origin)
+    }
+    val destinationData = remember(destination?.latitude, destination?.longitude) {
+        pointGeoJson(destination)
+    }
+    val walkColor = if (darkTheme) Color(0xFFD1D1D6) else Color(0xFF6E6E73)
+    val casingColor = if (darkTheme) Color(0xFF1C1C1E) else Color.White
 
     MaplibreMap(
         modifier = modifier,
@@ -118,6 +162,49 @@ fun HomeMap(
         ),
         overlay = MapOverlay.None,
     ) {
+        routeLegs.forEachIndexed { index, leg ->
+            key("route-leg-$index") {
+                val positions = remember(leg) { legPositions(leg) }
+                if (positions.size >= 2) {
+                    val source = rememberGeoJsonSource(data = lineGeoJson(positions))
+                    val street = leg.mode.isStreetMode()
+                    val lineColor = if (street) {
+                        walkColor
+                    } else {
+                        parseHexColor(leg.routeColor) ?: MaterialTheme.colorScheme.primary
+                    }
+                    LineLayer(
+                        id = "route-leg-casing-$index",
+                        source = source,
+                        color = const(casingColor),
+                        width = const(if (street) 6.dp else 8.dp),
+                        cap = const(LineCap.Round),
+                        join = const(LineJoin.Round),
+                    )
+                    if (street) {
+                        LineLayer(
+                            id = "route-leg-$index",
+                            source = source,
+                            color = const(lineColor),
+                            width = const(3.dp),
+                            cap = const(LineCap.Round),
+                            join = const(LineJoin.Round),
+                            dasharray = const(listOf(1.2, 1.6)),
+                        )
+                    } else {
+                        LineLayer(
+                            id = "route-leg-$index",
+                            source = source,
+                            color = const(lineColor),
+                            width = const(5.dp),
+                            cap = const(LineCap.Round),
+                            join = const(LineJoin.Round),
+                        )
+                    }
+                }
+            }
+        }
+
         val userLocationSource = rememberGeoJsonSource(data = userLocationData)
         CircleLayer(
             id = "user-location-halo",
@@ -134,18 +221,77 @@ fun HomeMap(
             strokeColor = const(Color.White),
             strokeWidth = const(2.dp),
         )
+
+        if (origin != null) {
+            val originSource = rememberGeoJsonSource(data = originData)
+            CircleLayer(
+                id = "trip-origin",
+                source = originSource,
+                color = const(locationDotColor),
+                radius = const(7.dp),
+                strokeColor = const(Color.White),
+                strokeWidth = const(2.dp),
+            )
+        }
+        if (destination != null) {
+            val destinationSource = rememberGeoJsonSource(data = destinationData)
+            CircleLayer(
+                id = "trip-destination",
+                source = destinationSource,
+                color = const(MaterialTheme.colorScheme.error),
+                radius = const(7.dp),
+                strokeColor = const(Color.White),
+                strokeWidth = const(2.dp),
+            )
+        }
     }
 }
 
-private fun userLocationGeoJson(userLocation: Coordinate?): GeoJsonData =
-    if (userLocation == null) {
+internal fun routeBoundingBox(legs: List<JourneyLeg>): BoundingBox? {
+    val points = legs.flatMap { legPositions(it) }
+    if (points.isEmpty()) return null
+    var west = points.minOf { it.longitude }
+    var east = points.maxOf { it.longitude }
+    var south = points.minOf { it.latitude }
+    var north = points.maxOf { it.latitude }
+    if (west == east) {
+        west -= 0.002
+        east += 0.002
+    }
+    if (south == north) {
+        south -= 0.002
+        north += 0.002
+    }
+    return BoundingBox(west = west, south = south, east = east, north = north)
+}
+
+private fun legPositions(leg: JourneyLeg): List<Position> {
+    val decoded = leg.geometry?.decodeCoordinates().orEmpty()
+    val coordinates = decoded.ifEmpty {
+        listOf(leg.from.coordinate, leg.to.coordinate)
+    }
+    return coordinates.map { coordinate ->
+        Position(longitude = coordinate.longitude, latitude = coordinate.latitude)
+    }
+}
+
+private fun lineGeoJson(positions: List<Position>): GeoJsonData =
+    GeoJsonData.Features(
+        Feature(
+            geometry = LineString(positions),
+            properties = null,
+        ),
+    )
+
+private fun pointGeoJson(coordinate: Coordinate?): GeoJsonData =
+    if (coordinate == null) {
         GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>(emptyList()))
     } else {
         GeoJsonData.Features(
             Feature(
                 geometry = Point(
-                    longitude = userLocation.longitude,
-                    latitude = userLocation.latitude,
+                    longitude = coordinate.longitude,
+                    latitude = coordinate.latitude,
                 ),
                 properties = null,
             ),

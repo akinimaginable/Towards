@@ -28,6 +28,7 @@ data class NearbyDeparture(
 data class NearbyStop(
     val id: String,
     val name: String,
+    val coordinate: Coordinate,
     val distanceMeters: Int,
     val departures: List<NearbyDeparture>,
 )
@@ -76,6 +77,7 @@ fun groupNearbyDepartures(
             NearbyStop(
                 id = stopId,
                 name = firstPlace.name,
+                coordinate = firstPlace.coordinate,
                 distanceMeters = haversineMeters(origin, firstPlace.coordinate),
                 departures = departures,
             )
@@ -86,7 +88,7 @@ fun groupNearbyDepartures(
 
 fun relativeLabel(time: Instant, now: Instant): String {
     val delta: Duration = time - now
-    if (delta < 1.minutes) return "now"
+    // if (delta < 1.minutes) return "now"
     val totalMinutes = delta.inWholeMinutes
     if (totalMinutes < 60) return "$totalMinutes min"
     val hours = totalMinutes / 60
@@ -97,7 +99,7 @@ fun relativeLabel(time: Instant, now: Instant): String {
 fun formatDistanceMeters(meters: Int): String =
     if (meters < 1000) "$meters m" else "${(meters / 100.0).roundToInt() / 10.0} km"
 
-internal fun haversineMeters(from: Coordinate, to: Coordinate): Int {
+fun haversineMeters(from: Coordinate, to: Coordinate): Int {
     val earthRadiusMeters = 6_371_000.0
     val dLat = (to.latitude - from.latitude).toRadians()
     val dLon = (to.longitude - from.longitude).toRadians()

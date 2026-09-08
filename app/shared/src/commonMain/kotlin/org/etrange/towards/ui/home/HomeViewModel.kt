@@ -21,11 +21,10 @@ import org.etrange.towards.data.LocationProvider
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeRequest
 import org.etrange.towards.domain.model.GeocodeResult
-import org.etrange.towards.domain.model.LocationKind
-import org.etrange.towards.domain.model.ReverseGeocodeRequest
 import org.etrange.towards.domain.model.StopTimesRequest
 import org.etrange.towards.domain.port.Geocoder
 import org.etrange.towards.domain.port.TimetableProvider
+import org.etrange.towards.ui.trip.TripEndpoint
 import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(FlowPreview::class)
@@ -65,12 +64,21 @@ class HomeViewModel(
     private val _nearbyMessage = MutableStateFlow<String?>(null)
     val nearbyMessage: StateFlow<String?> = _nearbyMessage.asStateFlow()
 
+    private val _origin = MutableStateFlow(TripEndpoint("My location", MAP_CENTER))
+    val origin: StateFlow<TripEndpoint> = _origin.asStateFlow()
+
+    private var followUserLocation = true
+
     private val _shortcuts = MutableStateFlow(
         listOf(
             DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
             DestinationShortcutItem(label = "Work", detail = "17 min"),
             DestinationShortcutItem(label = "School", detail = "47 min"),
-            DestinationShortcutItem(label = "Grand Place", detail = "7 min"),
+            DestinationShortcutItem(
+                label = "Grand Place",
+                detail = "7 min",
+                coordinate = Coordinate(50.8467, 4.3525),
+            ),
         ),
     )
     val shortcuts: StateFlow<List<DestinationShortcutItem>> = _shortcuts.asStateFlow()
@@ -128,6 +136,18 @@ class HomeViewModel(
         _errorMessage.value = null
     }
 
+    fun routingOrigin(): TripEndpoint = _origin.value
+
+    fun setOrigin(endpoint: TripEndpoint) {
+        followUserLocation = endpoint.isCurrentLocation()
+        _origin.value = endpoint
+        _errorMessage.value = null
+    }
+
+    fun onSamePlaceSelected() {
+        _errorMessage.value = "Choose a different destination"
+    }
+
     fun onUseCurrentLocation() {
         locateJob?.cancel()
         locateJob = viewModelScope.launch {
@@ -140,25 +160,8 @@ class HomeViewModel(
                     return@launch
                 }
                 applyLocationBias(coordinate)
-                val results = geocoder.reverseGeocode(
-                    ReverseGeocodeRequest(
-                        coordinate = coordinate,
-                        numberOfResults = 1,
-                    ),
-                )
-                val match = results.firstOrNull()
-                if (match == null) {
-                    _destination.value = "${coordinate.latitude}, ${coordinate.longitude}"
-                    _selected.value = GeocodeResult(
-                        id = "current:${coordinate.latitude},${coordinate.longitude}",
-                        kind = LocationKind.PLACE,
-                        name = "Current location",
-                        coordinate = coordinate,
-                    )
-                    _suggestions.value = emptyList()
-                } else {
-                    onSuggestionClick(match)
-                }
+                followUserLocation = true
+                _origin.value = TripEndpoint(name = "My location", coordinate = coordinate)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: ApiException) {
@@ -212,6 +215,9 @@ class HomeViewModel(
     private fun applyLocationBias(coordinate: Coordinate) {
         _locationBias.value = coordinate
         locationBiasStore.save(coordinate)
+        if (followUserLocation) {
+            _origin.value = TripEndpoint(name = "My location", coordinate = coordinate)
+        }
     }
 
     private fun startNearbyPolling() {
@@ -298,8 +304,12 @@ class HomeViewModel(
     }
 
     companion object {
+        private val MAP_CENTER = Coordinate(latitude = 50.8503, longitude = 4.3517)
         private const val NEARBY_RADIUS_METERS = 1_500
         private const val NEARBY_EVENT_COUNT = 40
         private const val NEARBY_POLL_INTERVAL_MS = 60_000L
     }
 }
+
+private fun TripEndpoint.isCurrentLocation(): Boolean =
+    stopId == null && (name == "My location" || name == "Map center")

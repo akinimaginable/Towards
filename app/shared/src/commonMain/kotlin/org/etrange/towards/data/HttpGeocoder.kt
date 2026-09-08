@@ -13,7 +13,6 @@ import kotlinx.serialization.json.Json
 import org.etrange.towards.api.dto.ErrorResponseDto
 import org.etrange.towards.api.dto.GeocodeResultDto
 import org.etrange.towards.api.dto.toDomain
-import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeRequest
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.ReverseGeocodeRequest
@@ -78,15 +77,5 @@ class HttpGeocoder(
             message = error?.message ?: "The Towards API rejected the request",
             correlationId = error?.correlationId,
         )
-    }
-}
-
-private fun Coordinate.toQueryParameter(): String = buildString {
-    append(latitude)
-    append(',')
-    append(longitude)
-    level?.let {
-        append(',')
-        append(it)
     }
 }

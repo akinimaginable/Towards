@@ -11,31 +11,32 @@ import io.ktor.http.ContentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.Json
 import org.etrange.towards.api.dto.ErrorResponseDto
-import org.etrange.towards.api.dto.StopTimesDto
+import org.etrange.towards.api.dto.TripPlanDto
 import org.etrange.towards.api.dto.toDomain
-import org.etrange.towards.domain.model.StopTimes
-import org.etrange.towards.domain.model.StopTimesRequest
-import org.etrange.towards.domain.port.TimetableProvider
+import org.etrange.towards.domain.model.TripPlan
+import org.etrange.towards.domain.model.TripPlanningRequest
+import org.etrange.towards.domain.port.TripPlanner
 
-class HttpTimetableProvider(
+class HttpTripPlanner(
     private val client: HttpClient,
     private val config: ApiConfig,
     private val json: Json = Json {
         ignoreUnknownKeys = true
         isLenient = true
     },
-) : TimetableProvider {
+) : TripPlanner {
 
-    override suspend fun getStopTimes(request: StopTimesRequest): StopTimes =
-        get<StopTimesDto>("/api/v1/stop-times") {
-            request.stopId?.let { parameter("stopId", it) }
-            request.center?.let { parameter("center", it.toQueryParameter()) }
-            request.radiusMeters?.let { parameter("radius", it) }
+    override suspend fun plan(request: TripPlanningRequest): TripPlan =
+        get<TripPlanDto>("/api/v1/trips/plan") {
+            parameter("from", request.from.toQueryParameter())
+            parameter("to", request.to.toQueryParameter())
             request.time?.let { parameter("time", it) }
             if (request.arriveBy) parameter("arriveBy", true)
-            request.numberOfEvents?.let { parameter("n", it) }
-            request.transportModes.takeIf { it.isNotEmpty() }
-                ?.let { parameter("modes", it.joinToString(",") { mode -> mode.name }) }
+            request.transitModes.takeIf { it.isNotEmpty() }
+                ?.let { parameter("transitModes", it.joinToString(",") { mode -> mode.name }) }
+            request.directModes.takeIf { it.isNotEmpty() }
+                ?.let { parameter("directModes", it.joinToString(",") { mode -> mode.name }) }
+            request.maxTransfers?.let { parameter("maxTransfers", it) }
             request.pageCursor?.let { parameter("pageCursor", it) }
             request.language.takeIf { it.isNotEmpty() }
                 ?.let { parameter("language", it.joinToString(",")) }

@@ -1,6 +1,7 @@
 package org.etrange.towards.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -31,6 +32,7 @@ fun LazyListScope.nearbyStopsSection(
     nearbyStops: List<NearbyStop>,
     isLoadingNearby: Boolean,
     nearbyMessage: String?,
+    onStopClick: (NearbyStop) -> Unit = {},
 ) {
     if (isLoadingNearby && nearbyStops.isEmpty()) {
         item(key = "nearby-loading") {
@@ -59,7 +61,7 @@ fun LazyListScope.nearbyStopsSection(
 
     nearbyStops.forEachIndexed { stopIndex, stop ->
         item(key = "stop-header-$stopIndex-${stop.id}") {
-            NearbyStopHeader(stop = stop)
+            NearbyStopHeader(stop = stop, onClick = { onStopClick(stop) })
         }
         itemsIndexed(
             items = stop.departures,
@@ -73,9 +75,10 @@ fun LazyListScope.nearbyStopsSection(
 }
 
 @Composable
-fun NearbyStopHeader(stop: NearbyStop) {
+fun NearbyStopHeader(stop: NearbyStop, onClick: () -> Unit = {}) {
     Row(
         modifier = Modifier.fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,

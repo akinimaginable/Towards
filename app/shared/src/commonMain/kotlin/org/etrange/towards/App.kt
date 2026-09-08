@@ -3,6 +3,7 @@ package org.etrange.towards
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -12,18 +13,24 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.etrange.towards.data.ApiConfig
 import org.etrange.towards.data.ApiEndpointStore
 import org.etrange.towards.data.HttpGeocoder
 import org.etrange.towards.data.HttpTimetableProvider
+import org.etrange.towards.data.HttpTripPlanner
 import org.etrange.towards.data.LocationBiasStore
 import org.etrange.towards.data.createHttpClient
 import org.etrange.towards.data.rememberLocationProvider
+import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.TransportMode
 import org.etrange.towards.navigation.HomeRoute
+import org.etrange.towards.navigation.LocationPickerRoute
 import org.etrange.towards.navigation.SettingsRoute
+import org.etrange.towards.navigation.TripResultsRoute
 import org.etrange.towards.ui.home.DestinationShortcutItem
 import org.etrange.towards.ui.home.HomeScreen
 import org.etrange.towards.ui.home.HomeViewModel
@@ -34,6 +41,17 @@ import org.etrange.towards.ui.settings.SettingsViewModel
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
 import org.etrange.towards.ui.theme.TowardsTheme
+import org.etrange.towards.ui.trip.LocationPickerScreen
+import org.etrange.towards.ui.trip.LocationPickerViewModel
+import org.etrange.towards.ui.trip.TripEndpoint
+import org.etrange.towards.ui.trip.TripResultsScreen
+import org.etrange.towards.ui.trip.TripResultsViewModel
+import org.etrange.towards.ui.trip.counterpartOrNull
+import org.etrange.towards.ui.trip.destination
+import org.etrange.towards.ui.trip.origin
+import org.etrange.towards.ui.trip.toPickerRoute
+import org.etrange.towards.ui.trip.toResultsRoute
+import org.etrange.towards.ui.trip.tripEndpointsAfterPicking
 
 @Composable
 fun App() {
@@ -61,8 +79,15 @@ fun App(
             config = apiConfig,
         )
     }
+    val tripPlanner = remember(apiConfig) {
+        HttpTripPlanner(
+            client = httpClient,
+            config = apiConfig,
+        )
+    }
     val locationProvider = rememberLocationProvider()
     val locationBiasStore = remember { LocationBiasStore() }
+    val pickedOrigin = remember { MutableStateFlow<TripEndpoint?>(null) }
 
     TowardsTheme(themeMode = themeMode) {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -79,9 +104,85 @@ fun App(
                             locationBiasStore = locationBiasStore,
                         )
                     }
+                    val incomingOrigin by pickedOrigin.collectAsStateWithLifecycle()
+                    LaunchedEffect(incomingOrigin) {
+                        val origin = incomingOrigin ?: return@LaunchedEffect
+                        homeViewModel.setOrigin(origin)
+                        pickedOrigin.value = null
+                    }
                     HomeScreen(
                         viewModel = homeViewModel,
                         onOpenSettings = { navController.navigate(SettingsRoute) },
+                        onPlanTrip = { origin, destination ->
+                            navController.navigate(origin.toResultsRoute(destination))
+                        },
+                    )
+                }
+                composable<TripResultsRoute> { entry ->
+                    val route = entry.toRoute<TripResultsRoute>()
+                    val tripViewModel: TripResultsViewModel = viewModel(
+                        key = "${route.fromLatitude},${route.fromLongitude}:" +
+                            "${route.toLatitude},${route.toLongitude}",
+                    ) {
+                        TripResultsViewModel(
+                            tripPlanner = tripPlanner,
+                            origin = route.origin(),
+                            destination = route.destination(),
+                        )
+                    }
+                    TripResultsScreen(
+                        viewModel = tripViewModel,
+                        onBack = { navController.popBackStack() },
+                        onChangeOrigin = {
+                            navController.navigate(
+                                tripViewModel.origin.value.toPickerRoute(
+                                    editingOrigin = true,
+                                    counterpart = tripViewModel.destination.value,
+                                ),
+                            )
+                        },
+                        onChangeDestination = {
+                            navController.navigate(
+                                tripViewModel.destination.value.toPickerRoute(
+                                    editingOrigin = false,
+                                    counterpart = tripViewModel.origin.value,
+                                ),
+                            )
+                        },
+                    )
+                }
+                composable<LocationPickerRoute> { entry ->
+                    val route = entry.toRoute<LocationPickerRoute>()
+                    val pickerViewModel: LocationPickerViewModel = viewModel(
+                        key = "picker:${route.editingOrigin}:${route.counterpartName}",
+                    ) {
+                        LocationPickerViewModel(
+                            geocoder = geocoder,
+                            locationProvider = locationProvider,
+                            locationBiasStore = locationBiasStore,
+                            otherPlace = route.counterpartOrNull(),
+                        )
+                    }
+                    LocationPickerScreen(
+                        viewModel = pickerViewModel,
+                        editingOrigin = route.editingOrigin,
+                        onBack = { navController.popBackStack() },
+                        onPlacePicked = { picked ->
+                            val counterpart = route.counterpartOrNull()
+                            if (counterpart == null) {
+                                pickedOrigin.value = picked
+                                navController.popBackStack()
+                            } else {
+                                val (origin, destination) = tripEndpointsAfterPicking(
+                                    editingOrigin = route.editingOrigin,
+                                    picked = picked,
+                                    counterpart = counterpart,
+                                )
+                                navController.navigate(origin.toResultsRoute(destination)) {
+                                    popUpTo<TripResultsRoute> { inclusive = true }
+                                }
+                            }
+                        },
                     )
                 }
                 composable<SettingsRoute> {
@@ -154,6 +255,7 @@ private fun previewNearbyStops(): List<NearbyStop> {
         NearbyStop(
             id = "stop:bourse",
             name = "Bourse",
+            coordinate = Coordinate(50.8481, 4.3497),
             distanceMeters = 120,
             departures = listOf(
                 NearbyDeparture(

@@ -12,11 +12,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import org.etrange.towards.domain.model.Coordinate
 
 data class DestinationShortcutItem(
     val label: String,
     val detail: String,
     val highlightDetail: Boolean = false,
+    val coordinate: Coordinate? = null,
+    val stopId: String? = null,
 )
 
 @Composable
