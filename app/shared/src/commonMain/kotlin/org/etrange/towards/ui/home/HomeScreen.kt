@@ -62,6 +62,7 @@ import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.LocationKind
 import org.etrange.towards.domain.model.TransportMode
 import org.etrange.towards.ui.icons.addIcon
+import org.etrange.towards.ui.icons.myLocationIcon
 import org.etrange.towards.ui.icons.searchIcon
 import org.etrange.towards.ui.icons.settingsIcon
 import org.etrange.towards.ui.theme.ThemeMode
@@ -85,9 +86,9 @@ fun HomeScreen(
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val isLocating by viewModel.isLocating.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
-    val selected by viewModel.selected.collectAsStateWithLifecycle()
     val origin by viewModel.origin.collectAsStateWithLifecycle()
     val locationBias by viewModel.locationBias.collectAsStateWithLifecycle()
+    val followMap by viewModel.followMap.collectAsStateWithLifecycle()
     val nearbyStops by viewModel.nearbyStops.collectAsStateWithLifecycle()
     val isLoadingNearby by viewModel.isLoadingNearby.collectAsStateWithLifecycle()
     val nearbyMessage by viewModel.nearbyMessage.collectAsStateWithLifecycle()
@@ -130,13 +131,16 @@ fun HomeScreen(
         isLoading = isLoading,
         isLocating = isLocating,
         errorMessage = errorMessage,
-        mapCenter = selected?.coordinate ?: locationBias,
+        mapCenter = locationBias,
         userLocation = locationBias,
+        followMap = followMap,
         nearbyStops = nearbyStops,
         isLoadingNearby = isLoadingNearby,
         nearbyMessage = nearbyMessage,
         originName = origin.name,
         onDestinationChange = viewModel::onDestinationChange,
+        onUserMovedCamera = viewModel::onUserMovedCamera,
+        onMapCameraIdle = viewModel::onMapCameraIdle,
         onShortcutClick = { shortcut ->
             val coordinate = shortcut.coordinate
             if (coordinate != null) {
@@ -243,6 +247,7 @@ fun HomeScreen(
     errorMessage: String?,
     mapCenter: Coordinate? = null,
     userLocation: Coordinate? = null,
+    followMap: Boolean = true,
     nearbyStops: List<NearbyStop> = emptyList(),
     isLoadingNearby: Boolean = false,
     nearbyMessage: String? = null,
@@ -253,6 +258,8 @@ fun HomeScreen(
     onUseCurrentLocation: () -> Unit,
     onOpenSettings: () -> Unit,
     onNearbyStopClick: (NearbyStop) -> Unit = {},
+    onUserMovedCamera: () -> Unit = {},
+    onMapCameraIdle: (Coordinate) -> Unit = {},
     searchSheetVisible: Boolean = false,
     pickingOrigin: Boolean = false,
     onOpenSearch: () -> Unit = {},
@@ -302,12 +309,53 @@ fun HomeScreen(
                         HomeMap(
                             center = mapCenter,
                             userLocation = userLocation,
+                            followCenter = followMap,
+                            onUserMovedCamera = onUserMovedCamera,
+                            onMapCameraIdle = onMapCameraIdle,
                             contentPadding = PaddingValues(
                                 top = topPadding,
                                 bottom = overlayHeight,
                             ),
                             modifier = Modifier.fillMaxSize(),
                         )
+
+                        Surface(
+                            onClick = onUseCurrentLocation,
+                            enabled = !isLocating,
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(
+                                    end = innerPadding.calculateEndPadding(layoutDirection) + 12.dp,
+                                    bottom = overlayHeight + 12.dp,
+                                )
+                                .size(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (followMap) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainer
+                            },
+                            contentColor = if (followMap) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                            shadowElevation = 2.dp,
+                        ) {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                if (isLocating) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = myLocationIcon,
+                                        contentDescription = "Recenter on me",
+                                    )
+                                }
+                            }
+                        }
 
                         Column(
                             modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()

@@ -13,16 +13,22 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.JsonObject
 import org.etrange.towards.data.decodeCoordinates
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.JourneyLeg
 import org.etrange.towards.ui.trip.isStreetMode
+import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.expressions.dsl.const
@@ -44,7 +50,6 @@ import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.LineString
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
-import kotlinx.serialization.json.JsonObject
 import towards.app.shared.generated.resources.Res
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -61,6 +66,9 @@ fun HomeMap(
     origin: Coordinate? = null,
     destination: Coordinate? = null,
     fitRoute: Boolean = false,
+    followCenter: Boolean = true,
+    onUserMovedCamera: () -> Unit = {},
+    onMapCameraIdle: (Coordinate) -> Unit = {},
 ) {
     if (LocalInspectionMode.current) {
         Box(
@@ -90,10 +98,27 @@ fun HomeMap(
         Res.getUri("files/towards_map_light.json")
     }
     var previousCenter by remember { mutableStateOf(center) }
+    var previousFollowCenter by remember { mutableStateOf(followCenter) }
     val cameraTopPadding = contentPadding.calculateTopPadding()
     val cameraBottomPadding = contentPadding.calculateBottomPadding()
     val routeSignature = routeLegs.joinToString("|") { leg ->
         "${leg.startTime}:${leg.to.name}:${leg.geometry?.points.orEmpty().take(24)}"
+    }
+
+    LaunchedEffect(cameraState) {
+        snapshotFlow { cameraState.moveReason to cameraState.position.target }
+            .filter { (reason, _) -> reason == CameraMoveReason.GESTURE }
+            .map { (_, targetPosition) ->
+                Coordinate(
+                    latitude = targetPosition.latitude,
+                    longitude = targetPosition.longitude,
+                )
+            }
+            .distinctUntilChanged()
+            .collect { focus ->
+                onUserMovedCamera()
+                onMapCameraIdle(focus)
+            }
     }
 
     LaunchedEffect(
@@ -103,6 +128,7 @@ fun HomeMap(
         cameraBottomPadding,
         routeSignature,
         fitRoute,
+        followCenter,
     ) {
         cameraState.awaitViewport()
         val bounds = if (fitRoute) routeBoundingBox(routeLegs) else null
@@ -118,6 +144,11 @@ fun HomeMap(
             )
             return@LaunchedEffect
         }
+        if (!followCenter) {
+            previousCenter = center
+            previousFollowCenter = false
+            return@LaunchedEffect
+        }
         val finalPosition = CameraPosition(
             target = Position(longitude = target.longitude, latitude = target.latitude),
             zoom = DefaultZoom,
@@ -125,20 +156,18 @@ fun HomeMap(
             tilt = cameraState.position.tilt,
         )
         val isFirstRealCenter = previousCenter == null && center != null
-        val paddingOnlyChange = previousCenter == center
+        val paddingOnlyChange = previousCenter == center && previousFollowCenter
+        val resumedFollow = followCenter && !previousFollowCenter
         previousCenter = center
-        if (isFirstRealCenter || paddingOnlyChange) {
+        previousFollowCenter = followCenter
+        if (isFirstRealCenter || (paddingOnlyChange && !resumedFollow)) {
             cameraState.animateTo(finalPosition = finalPosition, duration = 0.milliseconds)
         } else {
             cameraState.animateTo(finalPosition = finalPosition)
         }
     }
 
-    val locationDotColor = MaterialTheme.colorScheme.primary
-    val locationHaloColor = locationDotColor.copy(alpha = 0.22f)
-    val userLocationData = remember(userLocation?.latitude, userLocation?.longitude) {
-        pointGeoJson(userLocation)
-    }
+    val originDotColor = MaterialTheme.colorScheme.primary
     val originData = remember(origin?.latitude, origin?.longitude) {
         pointGeoJson(origin)
     }
@@ -147,6 +176,9 @@ fun HomeMap(
     }
     val walkColor = if (darkTheme) Color(0xFFD1D1D6) else Color(0xFF6E6E73)
     val casingColor = if (darkTheme) Color(0xFF1C1C1E) else Color.White
+    val userPosition = remember(userLocation?.latitude, userLocation?.longitude) {
+        userLocation?.let { Position(longitude = it.longitude, latitude = it.latitude) }
+    }
 
     MaplibreMap(
         modifier = modifier,
@@ -160,7 +192,18 @@ fun HomeMap(
         options = MapOptions(
             gestureOptions = GestureOptions.Standard,
         ),
-        overlay = MapOverlay.None,
+        overlay = MapOverlay {
+            if (userPosition != null) {
+                UserLocationMarker(
+                    modifier = Modifier.placedAt(userPosition, Alignment.Center),
+                )
+            }
+            if (!followCenter && !fitRoute) {
+                MapCenterMarker(
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
+        },
     ) {
         routeLegs.forEachIndexed { index, leg ->
             key("route-leg-$index") {
@@ -205,29 +248,12 @@ fun HomeMap(
             }
         }
 
-        val userLocationSource = rememberGeoJsonSource(data = userLocationData)
-        CircleLayer(
-            id = "user-location-halo",
-            source = userLocationSource,
-            color = const(locationHaloColor),
-            radius = const(16.dp),
-            strokeWidth = const(0.dp),
-        )
-        CircleLayer(
-            id = "user-location",
-            source = userLocationSource,
-            color = const(locationDotColor),
-            radius = const(6.dp),
-            strokeColor = const(Color.White),
-            strokeWidth = const(2.dp),
-        )
-
         if (origin != null) {
             val originSource = rememberGeoJsonSource(data = originData)
             CircleLayer(
                 id = "trip-origin",
                 source = originSource,
-                color = const(locationDotColor),
+                color = const(originDotColor),
                 radius = const(7.dp),
                 strokeColor = const(Color.White),
                 strokeWidth = const(2.dp),

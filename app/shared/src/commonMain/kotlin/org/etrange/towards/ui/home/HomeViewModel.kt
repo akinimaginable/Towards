@@ -57,6 +57,12 @@ class HomeViewModel(
     private val _locationBias = MutableStateFlow<Coordinate?>(null)
     val locationBias: StateFlow<Coordinate?> = _locationBias.asStateFlow()
 
+    private val _mapFocus = MutableStateFlow(MAP_CENTER)
+    val mapFocus: StateFlow<Coordinate> = _mapFocus.asStateFlow()
+
+    private val _followMap = MutableStateFlow(true)
+    val followMap: StateFlow<Boolean> = _followMap.asStateFlow()
+
     private val _nearbyStops = MutableStateFlow<List<NearbyStop>>(emptyList())
     val nearbyStops: StateFlow<List<NearbyStop>> = _nearbyStops.asStateFlow()
 
@@ -97,9 +103,11 @@ class HomeViewModel(
             .onEach { query -> search(query) }
             .launchIn(viewModelScope)
 
-        _locationBias
+        _mapFocus
+            .debounce(300.milliseconds)
+            .distinctUntilChanged()
             .onEach { coordinate ->
-                if (coordinate != null && _destination.value.isBlank()) {
+                if (_destination.value.isBlank()) {
                     loadNearbyDepartures(coordinate)
                 }
             }
@@ -108,9 +116,6 @@ class HomeViewModel(
         startNearbyPolling()
         seedLocationBias()
         refreshLocationBias()
-        if (_locationBias.value == null && !locationProvider.hasPermission()) {
-            _nearbyMessage.value = "Turn on location to see nearby departures"
-        }
     }
 
     fun hasLocationPermission(): Boolean = locationProvider.hasPermission()
@@ -122,7 +127,7 @@ class HomeViewModel(
             _suggestions.value = emptyList()
             _errorMessage.value = null
             _isLoading.value = false
-            _locationBias.value?.let { loadNearbyDepartures(it) }
+            loadNearbyDepartures(_mapFocus.value)
         }
     }
 
@@ -150,6 +155,15 @@ class HomeViewModel(
         _errorMessage.value = "Choose a different destination"
     }
 
+    fun onUserMovedCamera() {
+        _followMap.value = false
+    }
+
+    fun onMapCameraIdle(coordinate: Coordinate) {
+        if (_followMap.value) return
+        updateMapFocus(coordinate)
+    }
+
     fun onUseCurrentLocation() {
         locateJob?.cancel()
         locateJob = viewModelScope.launch {
@@ -161,6 +175,7 @@ class HomeViewModel(
                     _errorMessage.value = "Unable to determine your current location"
                     return@launch
                 }
+                _followMap.value = true
                 applyLocationBias(coordinate)
                 followUserLocation = true
                 _origin.value = TripEndpoint(name = "My location", coordinate = coordinate)
@@ -179,24 +194,24 @@ class HomeViewModel(
     fun onLocationPermissionDenied(fromUserAction: Boolean = true) {
         if (fromUserAction) {
             _errorMessage.value = "Location permission is required to use your current position"
-        } else {
-            _nearbyMessage.value = "Turn on location to see nearby departures"
         }
     }
 
     fun onLocationPermissionGranted() {
-        _nearbyMessage.value = null
         val lastKnown = locationProvider.lastKnownCoordinate()
         if (lastKnown != null) {
             applyLocationBias(lastKnown)
-        } else if (_locationBias.value == null) {
-            _isLoadingNearby.value = true
         }
         refreshLocationBias()
     }
 
     private fun seedLocationBias() {
-        locationBiasStore.load()?.let { _locationBias.value = it }
+        locationBiasStore.load()?.let { stored ->
+            _locationBias.value = stored
+            if (_followMap.value) {
+                updateMapFocus(stored, force = true)
+            }
+        }
         if (!locationProvider.hasPermission()) return
         locationProvider.lastKnownCoordinate()?.let { applyLocationBias(it) }
     }
@@ -207,9 +222,6 @@ class HomeViewModel(
             val coordinate = runCatching { locationProvider.currentCoordinate() }.getOrNull()
             if (coordinate != null) {
                 applyLocationBias(coordinate)
-            } else if (_locationBias.value == null) {
-                _isLoadingNearby.value = false
-                _nearbyMessage.value = "Unable to determine your current location"
             }
         }
     }
@@ -220,6 +232,14 @@ class HomeViewModel(
         if (followUserLocation) {
             _origin.value = TripEndpoint(name = "My location", coordinate = coordinate)
         }
+        if (_followMap.value) {
+            updateMapFocus(coordinate, force = true)
+        }
+    }
+
+    private fun updateMapFocus(coordinate: Coordinate, force: Boolean = false) {
+        if (!force && !shouldUpdateMapFocus(_mapFocus.value, coordinate)) return
+        _mapFocus.value = coordinate
     }
 
     private fun startNearbyPolling() {
@@ -228,8 +248,7 @@ class HomeViewModel(
             while (isActive) {
                 delay(NEARBY_POLL_INTERVAL_MS.milliseconds)
                 if (_destination.value.isBlank()) {
-                    val coordinate = _locationBias.value ?: continue
-                    loadNearbyDepartures(coordinate)
+                    loadNearbyDepartures(_mapFocus.value)
                 }
             }
         }
@@ -256,7 +275,7 @@ class HomeViewModel(
                     now = now,
                 )
                 _nearbyMessage.value = if (_nearbyStops.value.isEmpty()) {
-                    "No departures within ${NEARBY_RADIUS_METERS} m of your location"
+                    "No departures within ${NEARBY_RADIUS_METERS} m of this area"
                 } else {
                     null
                 }
@@ -293,7 +312,7 @@ class HomeViewModel(
                 _suggestions.value = geocoder.geocode(
                     GeocodeRequest(
                         text = trimmed,
-                        bias = _locationBias.value,
+                        bias = _mapFocus.value,
                         numberOfResults = 10,
                     ),
                 )
