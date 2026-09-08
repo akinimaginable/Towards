@@ -10,8 +10,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.etrange.towards.data.ApiException
 import org.etrange.towards.domain.model.Itinerary
+import org.etrange.towards.data.toApiDateTime
 import org.etrange.towards.domain.model.TripPlanningRequest
 import org.etrange.towards.domain.port.TripPlanner
+import kotlin.time.Clock
 
 class TripResultsViewModel(
     private val tripPlanner: TripPlanner,
@@ -63,6 +65,7 @@ class TripResultsViewModel(
                     TripPlanningRequest(
                         from = _origin.value.toLocationReference(),
                         to = _destination.value.toLocationReference(),
+                        time = Clock.System.now().toApiDateTime(),
                     ),
                 )
                 val options = combineTripOptions(plan)

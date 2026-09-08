@@ -1,9 +1,20 @@
 package org.etrange.towards.ui.trip
 
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.format.char
+import kotlinx.datetime.toLocalDateTime
 import org.etrange.towards.domain.model.Itinerary
 import org.etrange.towards.domain.model.JourneyLeg
 import org.etrange.towards.domain.model.TransportMode
 import org.etrange.towards.domain.model.TripPlan
+import kotlin.time.Instant
+
+private val clock24HourFormat = LocalTime.Format {
+    hour()
+    char(':')
+    minute()
+}
 
 fun combineTripOptions(plan: TripPlan): List<Itinerary> {
     val seen = mutableSetOf<String>()
@@ -24,10 +35,12 @@ fun formatDuration(seconds: Int): String {
     return if (minutes == 0) "$hours h" else "$hours h $minutes min"
 }
 
-fun formatClock(isoDateTime: String): String {
-    val timeIndex = isoDateTime.indexOf('T')
-    if (timeIndex < 0 || timeIndex + 5 >= isoDateTime.length) return isoDateTime
-    return isoDateTime.substring(timeIndex + 1, timeIndex + 6)
+fun formatClock(
+    isoDateTime: String,
+    timeZone: TimeZone = TimeZone.currentSystemDefault(),
+): String {
+    val instant = runCatching { Instant.parse(isoDateTime) }.getOrNull() ?: return isoDateTime
+    return clock24HourFormat.format(instant.toLocalDateTime(timeZone).time)
 }
 
 fun Itinerary.walkSeconds(): Int =

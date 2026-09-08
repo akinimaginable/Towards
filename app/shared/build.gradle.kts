@@ -86,6 +86,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(libs.androidx.navigation.compose)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.kotlinx.datetime)
             implementation(libs.ktor.mp.client.core)
             implementation(libs.ktor.mp.client.content.negotiation)
             implementation(libs.ktor.mp.client.serialization.json)
