@@ -18,7 +18,7 @@ internal val MapCenterMarkerColor = Color(0xFF612DF5)
 internal val MarkerSize = 32.dp
 
 @Composable
-fun LocationMarker(color: Color, modifier: Modifier = Modifier) {
+private fun LocationMarker(color: Color, modifier: Modifier = Modifier) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Box(
             modifier = Modifier
@@ -29,7 +29,7 @@ fun LocationMarker(color: Color, modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier.size(16.dp).clip(CircleShape)
                 .background(color)
-                .border(width = 3.dp, color = Color.White, shape = CircleShape),
+                .border(width = 2.dp, color = Color.White, shape = CircleShape),
         )
     }
 }

@@ -194,14 +194,10 @@ fun HomeMap(
         ),
         overlay = MapOverlay {
             if (userPosition != null) {
-                UserLocationMarker(
-                    modifier = Modifier.placedAt(userPosition, Alignment.Center),
-                )
+                UserLocationMarker(modifier = Modifier.placedAt(userPosition, Alignment.Center))
             }
             if (!followCenter && !fitRoute) {
-                MapCenterMarker(
-                    modifier = Modifier.align(Alignment.Center),
-                )
+                MapCenterMarker(modifier = Modifier.align(Alignment.Center))
             }
         },
     ) {
