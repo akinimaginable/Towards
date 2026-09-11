@@ -261,10 +261,10 @@ fun HomeScreen(
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
-            containerColor = Color.Transparent,
+            containerColor = Color.Red,
             topBar = {
                 TopAppBar(
-                    title = { Text("", fontWeight = FontWeight.Bold) },
+                    title = { Text("") },
                     actions = {
                         IconButton(onClick = onOpenSettings) {
                             Icon(
@@ -284,149 +284,135 @@ fun HomeScreen(
             val topPadding = innerPadding.calculateTopPadding()
 
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                val mapPeekHeight = maxHeight / 3
+                val mapPeekHeight = maxHeight / 5
                 val shortcutsHeight = 48.dp
                 val searchHeight = 56.dp
                 val sectionSpacing = 4.dp
+                val searchListOverlap = 16.dp
                 val overlayHeight = shortcutsHeight + sectionSpacing + searchHeight
                 val mapHeight =
                     (topPadding + mapPeekHeight + overlayHeight).coerceAtMost(maxHeight * 0.58f)
+                val mapBodyHeight = (mapHeight - searchListOverlap).coerceAtLeast(0.dp)
+                val overlayOnMapHeight = (overlayHeight - searchListOverlap).coerceAtLeast(0.dp)
                 val horizontalPadding = innerPadding.calculateStartPadding(layoutDirection)
 
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().height(mapHeight).clipToBounds(),
-                    ) {
-                        HomeMap(
-                            center = mapCenter,
-                            userLocation = userLocation,
-                            followCenter = followMap,
-                            onUserMovedCamera = onUserMovedCamera,
-                            onMapCameraIdle = onMapCameraIdle,
-                            contentPadding = PaddingValues(
-                                top = topPadding,
-                                bottom = overlayHeight,
-                            ),
-                            modifier = Modifier.fillMaxSize(),
-                        )
-
-                        Surface(
-                            onClick = onUseCurrentLocation,
-                            enabled = !isLocating,
-                            modifier = Modifier.align(Alignment.BottomEnd).padding(
-                                    end = innerPadding.calculateEndPadding(layoutDirection) + 12.dp,
-                                    bottom = overlayHeight + 12.dp,
-                                ).size(44.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (followMap) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.surfaceContainer
-                            },
-                            contentColor = if (followMap) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            },
-                            shadowElevation = 2.dp,
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().height(mapBodyHeight).clipToBounds(),
                         ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                if (isLocating) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(20.dp),
-                                        strokeWidth = 2.dp,
-                                    )
+                            HomeMap(
+                                center = mapCenter,
+                                userLocation = userLocation,
+                                followCenter = followMap,
+                                onUserMovedCamera = onUserMovedCamera,
+                                onMapCameraIdle = onMapCameraIdle,
+                                contentPadding = PaddingValues(
+                                    top = topPadding,
+                                    bottom = overlayOnMapHeight,
+                                ),
+                                modifier = Modifier.fillMaxSize(),
+                            )
+
+                            Surface(
+                                onClick = onUseCurrentLocation,
+                                enabled = !isLocating,
+                                modifier = Modifier.align(Alignment.BottomEnd).padding(
+                                        end = innerPadding.calculateEndPadding(layoutDirection) + 12.dp,
+                                        bottom = overlayOnMapHeight + 12.dp,
+                                    ).size(44.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (followMap) {
+                                    MaterialTheme.colorScheme.primaryContainer
                                 } else {
-                                    Icon(
-                                        imageVector = myLocationIcon,
-                                        contentDescription = "Recenter on me",
-                                    )
+                                    MaterialTheme.colorScheme.surfaceContainer
+                                },
+                                contentColor = if (followMap) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
+                                shadowElevation = 2.dp,
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    if (isLocating) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp,
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = myLocationIcon,
+                                            contentDescription = "Recenter on me",
+                                        )
+                                    }
                                 }
                             }
                         }
 
-                        Column(
-                            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                                .padding(
-                                    start = horizontalPadding,
-                                    end = innerPadding.calculateEndPadding(layoutDirection),
-                                ),
-                            verticalArrangement = Arrangement.spacedBy(sectionSpacing),
+                        LazyColumn(
+                            modifier = Modifier.weight(1f).fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.background),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            contentPadding = PaddingValues(
+                                start = innerPadding.calculateStartPadding(layoutDirection),
+                                end = innerPadding.calculateEndPadding(layoutDirection),
+                                top = searchListOverlap,
+                                bottom = innerPadding.calculateBottomPadding(),
+                            ),
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().height(shortcutsHeight)
-                                    .horizontalScroll(rememberScrollState())
-                                    .padding(horizontal = 12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                Button(
-                                    onClick = onUseCurrentLocation,
-                                    enabled = !isLocating,
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                        contentColor = MaterialTheme.colorScheme.onSurface,
-                                    ),
-                                    contentPadding = PaddingValues(horizontal = 14.dp),
-                                ) {
-                                    if (isLocating) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(16.dp),
-                                            strokeWidth = 2.dp,
-                                        )
-                                    } else {
-                                        Text("My location")
-                                    }
-                                }
-
-                                for (shortcut in shortcuts) {
-                                    DestinationShortcut(
-                                        label = shortcut.label,
-                                        detail = shortcut.detail,
-                                        onClick = { onShortcutClick(shortcut) },
-                                        highlightDetail = shortcut.highlightDetail,
+                            if (errorMessage != null) {
+                                item(key = "error") {
+                                    Text(
+                                        text = errorMessage,
+                                        color = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.fillMaxWidth()
+                                            .padding(horizontal = 24.dp, vertical = 4.dp),
+                                        style = MaterialTheme.typography.bodyMedium,
                                     )
                                 }
-
                             }
 
-                            SearchLaunchBar(
-                                modifier = Modifier.fillMaxWidth().height(searchHeight)
-                                    .padding(horizontal = 12.dp),
-                                onClick = onOpenSearch,
+                            nearbyStopsSection(
+                                nearbyStops = nearbyStops,
+                                isLoadingNearby = isLoadingNearby,
+                                nearbyMessage = nearbyMessage,
+                                onStopClick = onNearbyStopClick,
                             )
                         }
                     }
 
-                    LazyColumn(
-                        modifier = Modifier.weight(1f).fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.background),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        contentPadding = PaddingValues(
-                            start = innerPadding.calculateStartPadding(layoutDirection),
+                    Column(
+                        modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(
+                            top = mapHeight - overlayHeight,
+                            start = horizontalPadding,
                             end = innerPadding.calculateEndPadding(layoutDirection),
-                            bottom = innerPadding.calculateBottomPadding(),
                         ),
+                        verticalArrangement = Arrangement.spacedBy(sectionSpacing),
                     ) {
-                        if (errorMessage != null) {
-                            item(key = "error") {
-                                Text(
-                                    text = errorMessage,
-                                    color = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.fillMaxWidth()
-                                        .padding(horizontal = 24.dp, vertical = 4.dp),
-                                    style = MaterialTheme.typography.bodyMedium,
+                        Row(
+                            modifier = Modifier.fillMaxWidth().height(shortcutsHeight)
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            for (shortcut in shortcuts) {
+                                DestinationShortcut(
+                                    label = shortcut.label,
+                                    detail = shortcut.detail,
+                                    onClick = { onShortcutClick(shortcut) },
+                                    highlightDetail = shortcut.highlightDetail,
                                 )
                             }
                         }
 
-                        nearbyStopsSection(
-                            nearbyStops = nearbyStops,
-                            isLoadingNearby = isLoadingNearby,
-                            nearbyMessage = nearbyMessage,
-                            onStopClick = onNearbyStopClick,
+                        SearchLaunchBar(
+                            modifier = Modifier.fillMaxWidth().height(searchHeight)
+                                .padding(horizontal = 12.dp),
+                            onClick = onOpenSearch,
                         )
                     }
                 }
@@ -450,35 +436,6 @@ fun HomeScreen(
                 onMyLocationClick = onMyLocationAsOrigin,
                 onShortcutClick = onShortcutClick,
                 onSuggestionClick = onSuggestionClick,
-            )
-        }
-    }
-}
-
-@Composable
-private fun SearchLaunchBar(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier.clip(RoundedCornerShape(32.dp)).clickable(onClick = onClick),
-        shape = RoundedCornerShape(32.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = searchIcon,
-                contentDescription = "Search",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = "Where to?",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyLarge,
             )
         }
     }
@@ -564,7 +521,6 @@ private fun HomeScreenLightPreview() {
                 DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
                 DestinationShortcutItem(label = "Work", detail = "17 min"),
                 DestinationShortcutItem(label = "School", detail = "47 min"),
-                DestinationShortcutItem(label = "Grand Place", detail = "7 min"),
             ),
             suggestions = previewSuggestions(),
             isLoading = false,
