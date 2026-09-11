@@ -9,17 +9,13 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,14 +26,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
@@ -65,10 +57,9 @@ import org.etrange.towards.ui.icons.addIcon
 import org.etrange.towards.ui.icons.myLocationIcon
 import org.etrange.towards.ui.icons.searchIcon
 import org.etrange.towards.ui.icons.settingsIcon
+import org.etrange.towards.ui.search.DestinationSearchSheet
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
-import org.etrange.towards.ui.trip.LocationSearchField
-import org.etrange.towards.ui.trip.LocationSearchPanel
 import org.etrange.towards.ui.trip.TripEndpoint
 import org.etrange.towards.ui.trip.toTripEndpoint
 import kotlin.time.Clock
@@ -322,13 +313,10 @@ fun HomeScreen(
                         Surface(
                             onClick = onUseCurrentLocation,
                             enabled = !isLocating,
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(
+                            modifier = Modifier.align(Alignment.BottomEnd).padding(
                                     end = innerPadding.calculateEndPadding(layoutDirection) + 12.dp,
                                     bottom = overlayHeight + 12.dp,
-                                )
-                                .size(44.dp),
+                                ).size(44.dp),
                             shape = RoundedCornerShape(12.dp),
                             color = if (followMap) {
                                 MaterialTheme.colorScheme.primaryContainer
@@ -342,7 +330,10 @@ fun HomeScreen(
                             },
                             shadowElevation = 2.dp,
                         ) {
-                            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
                                 if (isLocating) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(20.dp),
@@ -479,82 +470,6 @@ fun HomeScreen(
                 onMyLocationClick = onMyLocationAsOrigin,
                 onShortcutClick = onShortcutClick,
                 onSuggestionClick = onSuggestionClick,
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DestinationSearchSheet(
-    query: String,
-    suggestions: List<GeocodeResult>,
-    shortcuts: List<DestinationShortcutItem>,
-    isLoading: Boolean,
-    isLocating: Boolean,
-    errorMessage: String?,
-    originName: String,
-    pickingOrigin: Boolean,
-    onQueryChange: (String) -> Unit,
-    onDismiss: () -> Unit,
-    onPickOrigin: () -> Unit,
-    onSearchDestination: () -> Unit,
-    onMyLocationClick: () -> Unit,
-    onShortcutClick: (DestinationShortcutItem) -> Unit,
-    onSuggestionClick: (GeocodeResult) -> Unit,
-) {
-    val sheetState = rememberBottomSheetState(
-        initialValue = SheetValue.Expanded,
-        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
-    )
-    val originFocusRequester = remember { FocusRequester() }
-    val destinationFocusRequester = remember { FocusRequester() }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().fillMaxHeight()
-                .windowInsetsPadding(WindowInsets.safeDrawing),
-        ) {
-            LocationSearchField(
-                query = if (pickingOrigin) query else "",
-                onQueryChange = onQueryChange,
-                placeholder = "From",
-                focusRequester = originFocusRequester,
-                isLoading = pickingOrigin && isLoading,
-                active = pickingOrigin,
-                displayText = originName,
-                autoFocus = pickingOrigin,
-                onActivate = onPickOrigin,
-            )
-            LocationSearchField(
-                query = if (!pickingOrigin) query else "",
-                onQueryChange = onQueryChange,
-                placeholder = "Where to?",
-                focusRequester = destinationFocusRequester,
-                isLoading = !pickingOrigin && isLoading,
-                active = !pickingOrigin,
-                autoFocus = !pickingOrigin,
-                onActivate = onSearchDestination,
-            )
-            LocationSearchPanel(
-                query = query,
-                suggestions = suggestions,
-                shortcuts = shortcuts,
-                isLoading = isLoading,
-                isLocating = isLocating,
-                errorMessage = errorMessage,
-                showMyLocation = pickingOrigin,
-                onQueryChange = onQueryChange,
-                onMyLocationClick = onMyLocationClick,
-                onShortcutClick = onShortcutClick,
-                onSuggestionClick = onSuggestionClick,
-                showQueryField = false,
-                modifier = Modifier.fillMaxWidth().weight(1f),
             )
         }
     }

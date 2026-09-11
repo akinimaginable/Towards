@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,6 +21,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -39,14 +41,20 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.yield
+import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
+import org.etrange.towards.domain.model.LocationKind
 import org.etrange.towards.ui.home.DestinationShortcut
 import org.etrange.towards.ui.home.DestinationShortcutItem
 import org.etrange.towards.ui.home.subtitle
 import org.etrange.towards.ui.icons.myLocationIcon
 import org.etrange.towards.ui.icons.searchIcon
+import org.etrange.towards.ui.search.SearchTextField
+import org.etrange.towards.ui.theme.ThemeMode
+import org.etrange.towards.ui.theme.TowardsPreview
 
 @Composable
 fun LocationSearchField(
@@ -113,7 +121,6 @@ fun LocationSearchField(
             },
             placeholder = placeholder,
             isLoading = isLoading,
-            readOnly = false,
             modifier = fieldModifier,
         )
     } else {
@@ -122,63 +129,9 @@ fun LocationSearchField(
             onValueChange = {},
             placeholder = placeholder,
             isLoading = false,
-            readOnly = true,
             modifier = fieldModifier,
         )
     }
-}
-
-@Composable
-private fun SearchTextField(
-    value: TextFieldValue,
-    onValueChange: (TextFieldValue) -> Unit,
-    placeholder: String,
-    isLoading: Boolean,
-    readOnly: Boolean,
-    modifier: Modifier,
-) {
-    TextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = modifier,
-        readOnly = readOnly,
-        placeholder = {
-            Text(
-                text = placeholder,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
-        leadingIcon = {
-            Icon(
-                imageVector = searchIcon,
-                contentDescription = "Search",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
-        trailingIcon = {
-            Box(
-                modifier = Modifier.size(20.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                    )
-                }
-            }
-        },
-        singleLine = true,
-        shape = RoundedCornerShape(28.dp),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            disabledIndicatorColor = Color.Transparent,
-            cursorColor = MaterialTheme.colorScheme.primary,
-        ),
-    )
 }
 
 @Composable
@@ -367,5 +320,63 @@ internal fun reconcileSearchQuery(fieldText: String, externalQuery: String): Str
         externalQuery.isNotEmpty() &&
         (fieldText.startsWith(externalQuery) || externalQuery.startsWith(fieldText))
     return if (inFlightTyping) fieldText else externalQuery
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun LocationSearchPanelPreview() {
+    TowardsPreview(themeMode = ThemeMode.Light) {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            LocationSearchPanel(
+                query = "",
+                suggestions = emptyList(),
+                shortcuts = listOf(
+                    DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
+                    DestinationShortcutItem(label = "Grand Place", detail = "7 min"),
+                ),
+                isLoading = false,
+                isLocating = false,
+                errorMessage = null,
+                showMyLocation = true,
+                onQueryChange = {},
+                onMyLocationClick = {},
+                onShortcutClick = {},
+                onSuggestionClick = {},
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun LocationSearchPanelSuggestionsPreview() {
+    TowardsPreview(themeMode = ThemeMode.Light) {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            LocationSearchPanel(
+                query = "Grand",
+                suggestions = listOf(
+                    GeocodeResult(
+                        id = "place:gp",
+                        kind = LocationKind.PLACE,
+                        name = "Grand Place",
+                        coordinate = Coordinate(50.8467, 4.3525),
+                        street = "Grand Place",
+                        country = "Belgium",
+                    ),
+                ),
+                shortcuts = emptyList(),
+                isLoading = false,
+                isLocating = false,
+                errorMessage = null,
+                showMyLocation = false,
+                onQueryChange = {},
+                onMyLocationClick = {},
+                onShortcutClick = {},
+                onSuggestionClick = {},
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
 }
 
