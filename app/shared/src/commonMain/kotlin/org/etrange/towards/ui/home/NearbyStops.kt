@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,11 +23,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.time.Clock
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import org.etrange.towards.domain.model.TransportMode
+import org.etrange.towards.ui.icons.liveIcon
+import org.etrange.towards.ui.theme.TowardsTheme
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 
 fun LazyListScope.nearbyStopsSection(
     nearbyStops: List<NearbyStop>,
@@ -51,8 +57,7 @@ fun LazyListScope.nearbyStopsSection(
             Text(
                 text = nearbyMessage,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
@@ -77,8 +82,7 @@ fun LazyListScope.nearbyStopsSection(
 @Composable
 fun NearbyStopHeader(stop: NearbyStop, onClick: () -> Unit = {}) {
     Row(
-        modifier = Modifier.fillMaxWidth()
-            .clickable(onClick = onClick)
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
             .padding(horizontal = 24.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -104,21 +108,18 @@ fun NearbyDepartureRow(departure: NearbyDeparture) {
     val now by produceState(initialValue = Clock.System.now(), key1 = departure.id) {
         while (isActive) {
             value = Clock.System.now()
-            delay(30_000)
+            delay(30.seconds)
         }
     }
 
     Row(
         modifier = Modifier.fillMaxWidth()
+            // .background(color = parseHexColor(departure.routeColor) ?: MaterialTheme.colorScheme.secondaryContainer)
             .padding(horizontal = 24.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LineBadge(
-            label = departure.lineName,
-            routeColor = departure.routeColor,
-            routeTextColor = departure.routeTextColor,
-        )
+        Text(departure.lineName)
         Text(
             text = departure.headsign.orEmpty(),
             style = MaterialTheme.typography.bodyMedium,
@@ -127,17 +128,29 @@ fun NearbyDepartureRow(departure: NearbyDeparture) {
             overflow = TextOverflow.Ellipsis,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Text(
-            text = "${relativeLabel(departure.time, now)} · " +
-                if (departure.realTime) "Live" else "Scheduled",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = if (departure.realTime) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            },
-        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = relativeLabel(departure.time, now),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = if (departure.realTime) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+            )
+            if (departure.realTime) {
+                Icon(
+                    imageVector = liveIcon,
+                    contentDescription = "Live",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
     }
 }
 
@@ -147,14 +160,11 @@ fun LineBadge(
     routeColor: String?,
     routeTextColor: String?,
 ) {
-    val background = parseHexColor(routeColor)
-        ?: MaterialTheme.colorScheme.secondaryContainer
-    val foreground = parseHexColor(routeTextColor)
-        ?: MaterialTheme.colorScheme.onSecondaryContainer
+    val background = parseHexColor(routeColor) ?: MaterialTheme.colorScheme.secondaryContainer
+    val foreground = parseHexColor(routeTextColor) ?: MaterialTheme.colorScheme.onSecondaryContainer
 
     Box(
-        modifier = Modifier
-            .background(background, RoundedCornerShape(6.dp))
+        modifier = Modifier.background(background, RoundedCornerShape(6.dp))
             .padding(horizontal = 8.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -176,7 +186,24 @@ internal fun parseHexColor(value: String?): Color? {
         8 -> hex
         else -> return null
     }
-    return runCatching {
-        Color(normalized.toLong(16))
-    }.getOrNull()
+    return runCatching { Color(normalized.toLong(16)) }.getOrNull()
+}
+
+@Preview
+@Composable
+fun NearbyDepartureRowPreview() {
+    TowardsTheme {
+        NearbyDepartureRow(
+            departure = NearbyDeparture(
+                id = "1",
+                lineName = "1",
+                routeColor = "#af00aa",
+                routeTextColor = "#FFFFFF",
+                headsign = "Headsign",
+                time = Clock.System.now(),
+                realTime = false,
+                mode = TransportMode.TRANSIT
+            )
+        )
+    }
 }
