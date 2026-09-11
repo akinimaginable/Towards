@@ -20,9 +20,9 @@ import org.etrange.towards.data.LocationBiasStore
 import org.etrange.towards.data.LocationProvider
 import org.etrange.towards.data.toApiDateTime
 import org.etrange.towards.domain.model.Coordinate
-import org.etrange.towards.domain.model.GeocodeRequest
 import org.etrange.towards.domain.model.GeocodeResult
-import org.etrange.towards.domain.model.StopTimesRequest
+import org.etrange.towards.domain.model.requests.GeocodeRequest
+import org.etrange.towards.domain.model.requests.StopTimesRequest
 import org.etrange.towards.domain.port.Geocoder
 import org.etrange.towards.domain.port.TimetableProvider
 import org.etrange.towards.ui.trip.TripEndpoint
@@ -87,21 +87,14 @@ class HomeViewModel(
     private var nearbyPollJob: Job? = null
 
     init {
-        _destination
-            .debounce(300.milliseconds)
-            .distinctUntilChanged()
-            .onEach { query -> search(query) }
-            .launchIn(viewModelScope)
+        _destination.debounce(300.milliseconds).distinctUntilChanged()
+            .onEach { query -> search(query) }.launchIn(viewModelScope)
 
-        _mapFocus
-            .debounce(300.milliseconds)
-            .distinctUntilChanged()
-            .onEach { coordinate ->
+        _mapFocus.debounce(300.milliseconds).distinctUntilChanged().onEach { coordinate ->
                 if (_destination.value.isBlank()) {
                     loadNearbyDepartures(coordinate)
                 }
-            }
-            .launchIn(viewModelScope)
+            }.launchIn(viewModelScope)
 
         startNearbyPolling()
         seedLocationBias()
@@ -333,7 +326,7 @@ class HomeViewModel(
     companion object {
         private val MAP_CENTER = Coordinate(latitude = 50.8503, longitude = 4.3517)
         private const val NEARBY_RADIUS_METERS = 1_500
-        private const val NEARBY_MAX_STOPS = 20
+        private const val NEARBY_MAX_STOPS = 30
         private const val NEARBY_EVENT_COUNT = 250
         private const val NEARBY_POLL_INTERVAL_MS = 60_000L
     }

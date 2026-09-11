@@ -6,13 +6,13 @@ import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.Itinerary
 import org.etrange.towards.domain.model.JourneyLeg
 import org.etrange.towards.domain.model.LocationKind
-import org.etrange.towards.domain.model.MapInitialView
-import org.etrange.towards.domain.model.MapTrip
 import org.etrange.towards.domain.model.Place
 import org.etrange.towards.domain.model.StopTime
 import org.etrange.towards.domain.model.StopTimes
 import org.etrange.towards.domain.model.TransportMode
 import org.etrange.towards.domain.model.TripPlan
+import org.etrange.towards.domain.model.map.MapInitialView
+import org.etrange.towards.domain.model.map.MapTrip
 
 private fun String.isUnsupportedMotisMode(): Boolean = this == "RENTAL"
 

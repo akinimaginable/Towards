@@ -19,18 +19,18 @@ import org.etrange.towards.api.dto.RefreshItineraryRequestDto
 import org.etrange.towards.application.BadRequestException
 import org.etrange.towards.application.MobilityService
 import org.etrange.towards.domain.model.Coordinate
-import org.etrange.towards.domain.model.GeocodeRequest
-import org.etrange.towards.domain.model.ItineraryRefreshRequest
 import org.etrange.towards.domain.model.LocationKind
 import org.etrange.towards.domain.model.LocationReference
-import org.etrange.towards.domain.model.MapBounds
-import org.etrange.towards.domain.model.MapStopsRequest
-import org.etrange.towards.domain.model.MapTripsRequest
-import org.etrange.towards.domain.model.ReverseGeocodeRequest
-import org.etrange.towards.domain.model.StopTimesRequest
 import org.etrange.towards.domain.model.TransportMode
-import org.etrange.towards.domain.model.TripLookupRequest
-import org.etrange.towards.domain.model.TripPlanningRequest
+import org.etrange.towards.domain.model.map.MapBounds
+import org.etrange.towards.domain.model.requests.GeocodeRequest
+import org.etrange.towards.domain.model.requests.ItineraryRefreshRequest
+import org.etrange.towards.domain.model.requests.MapStopsRequest
+import org.etrange.towards.domain.model.requests.MapTripsRequest
+import org.etrange.towards.domain.model.requests.ReverseGeocodeRequest
+import org.etrange.towards.domain.model.requests.StopTimesRequest
+import org.etrange.towards.domain.model.requests.TripLookupRequest
+import org.etrange.towards.domain.model.requests.TripPlanningRequest
 import org.etrange.towards.plugins.API_RATE_LIMIT
 
 fun Application.configureRoutes(
@@ -87,9 +87,7 @@ fun Application.configureRoutes(
                     val request = ItineraryRefreshRequest(body.itineraryId, body.language)
                     call.respond(
                         service.refreshItinerary(
-                            call.actor(),
-                            call.correlationId(),
-                            request
+                            call.actor(), call.correlationId(), request
                         ).toDto()
                     )
                 }
@@ -152,9 +150,7 @@ fun Application.configureRoutes(
                         )
                         call.respond(
                             service.getMapStops(
-                                call.actor(),
-                                call.correlationId(),
-                                request
+                                call.actor(), call.correlationId(), request
                             ).map { it.toDto() })
                     }
                     get("/trips") {
@@ -173,17 +169,13 @@ fun Application.configureRoutes(
                         )
                         call.respond(
                             service.getMapTrips(
-                                call.actor(),
-                                call.correlationId(),
-                                request
+                                call.actor(), call.correlationId(), request
                             ).map { it.toDto() })
                     }
                     get("/levels") {
                         call.respond(
                             service.getMapLevels(
-                                call.actor(),
-                                call.correlationId(),
-                                call.mapBounds()
+                                call.actor(), call.correlationId(), call.mapBounds()
                             )
                         )
                     }
@@ -213,22 +205,22 @@ private fun ApplicationCall.enumList(
     if (values.isEmpty()) return defaults.toSet()
     return values.mapTo(linkedSetOf()) { value ->
         runCatching { TransportMode.valueOf(value.uppercase()) }.getOrElse {
-                throw BadRequestException(
-                    "Unsupported transport mode",
-                    mapOf(name to value),
-                )
-            }
+            throw BadRequestException(
+                "Unsupported transport mode",
+                mapOf(name to value),
+            )
+        }
     }
 }
 
 private fun ApplicationCall.locationKinds(name: String): Set<LocationKind> =
     listQuery(name).mapTo(linkedSetOf()) { value ->
         runCatching { LocationKind.valueOf(value.uppercase()) }.getOrElse {
-                throw BadRequestException(
-                    "Unsupported location type",
-                    mapOf(name to value),
-                )
-            }
+            throw BadRequestException(
+                "Unsupported location type",
+                mapOf(name to value),
+            )
+        }
     }
 
 private fun ApplicationCall.booleanQuery(name: String): Boolean? =

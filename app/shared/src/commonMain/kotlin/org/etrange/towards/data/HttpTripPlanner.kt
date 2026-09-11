@@ -15,7 +15,7 @@ import org.etrange.towards.api.dto.ErrorResponseDto
 import org.etrange.towards.api.dto.TripPlanDto
 import org.etrange.towards.api.dto.toDomain
 import org.etrange.towards.domain.model.TripPlan
-import org.etrange.towards.domain.model.TripPlanningRequest
+import org.etrange.towards.domain.model.requests.TripPlanningRequest
 import org.etrange.towards.domain.port.TripPlanner
 
 class HttpTripPlanner(

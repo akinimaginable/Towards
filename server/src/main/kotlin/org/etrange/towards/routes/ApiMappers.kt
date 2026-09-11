@@ -16,12 +16,12 @@ import org.etrange.towards.domain.model.EncodedPath
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.Itinerary
 import org.etrange.towards.domain.model.JourneyLeg
-import org.etrange.towards.domain.model.MapInitialView
-import org.etrange.towards.domain.model.MapTrip
 import org.etrange.towards.domain.model.Place
 import org.etrange.towards.domain.model.StopTime
 import org.etrange.towards.domain.model.StopTimes
 import org.etrange.towards.domain.model.TripPlan
+import org.etrange.towards.domain.model.map.MapInitialView
+import org.etrange.towards.domain.model.map.MapTrip
 
 fun Coordinate.toDto() = CoordinateDto(latitude, longitude, level)
 

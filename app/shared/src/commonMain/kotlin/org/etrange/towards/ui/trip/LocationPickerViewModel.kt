@@ -17,8 +17,8 @@ import org.etrange.towards.data.ApiException
 import org.etrange.towards.data.LocationBiasStore
 import org.etrange.towards.data.LocationProvider
 import org.etrange.towards.domain.model.Coordinate
-import org.etrange.towards.domain.model.GeocodeRequest
 import org.etrange.towards.domain.model.GeocodeResult
+import org.etrange.towards.domain.model.requests.GeocodeRequest
 import org.etrange.towards.domain.port.Geocoder
 import org.etrange.towards.ui.home.DestinationShortcutItem
 import kotlin.time.Duration.Companion.milliseconds
@@ -47,17 +47,14 @@ class LocationPickerViewModel(
 
     val shortcuts: List<DestinationShortcutItem> = emptyList()
 
-    private val locationBias: Coordinate? = locationBiasStore.load()
-        ?: locationProvider.lastKnownCoordinate()
+    private val locationBias: Coordinate? =
+        locationBiasStore.load() ?: locationProvider.lastKnownCoordinate()
 
     private var searchJob: Job? = null
     private var locateJob: Job? = null
 
     init {
-        _query
-            .debounce(300.milliseconds)
-            .distinctUntilChanged()
-            .onEach { query -> search(query) }
+        _query.debounce(300.milliseconds).distinctUntilChanged().onEach { query -> search(query) }
             .launchIn(viewModelScope)
     }
 
@@ -84,8 +81,7 @@ class LocationPickerViewModel(
         )
     }
 
-    fun onSuggestionClick(result: GeocodeResult): TripEndpoint? =
-        accept(result.toTripEndpoint())
+    fun onSuggestionClick(result: GeocodeResult): TripEndpoint? = accept(result.toTripEndpoint())
 
     fun onMyLocationClick(onResult: (TripEndpoint?) -> Unit) {
         locateJob?.cancel()
@@ -93,8 +89,8 @@ class LocationPickerViewModel(
             _isLocating.value = true
             _errorMessage.value = null
             try {
-                val coordinate = locationProvider.currentCoordinate()
-                    ?: locationProvider.lastKnownCoordinate()
+                val coordinate =
+                    locationProvider.currentCoordinate() ?: locationProvider.lastKnownCoordinate()
                     ?: locationBiasStore.load()
                 if (coordinate == null) {
                     _errorMessage.value = "Unable to determine your current location"

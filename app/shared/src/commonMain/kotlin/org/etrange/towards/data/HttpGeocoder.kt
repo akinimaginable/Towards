@@ -14,10 +14,10 @@ import kotlinx.serialization.json.Json
 import org.etrange.towards.api.dto.ErrorResponseDto
 import org.etrange.towards.api.dto.GeocodeResultDto
 import org.etrange.towards.api.dto.toDomain
-import org.etrange.towards.domain.model.GeocodeRequest
 import org.etrange.towards.domain.model.GeocodeResult
-import org.etrange.towards.domain.model.ReverseGeocodeRequest
 import org.etrange.towards.domain.model.ensureUniqueIds
+import org.etrange.towards.domain.model.requests.GeocodeRequest
+import org.etrange.towards.domain.model.requests.ReverseGeocodeRequest
 import org.etrange.towards.domain.port.Geocoder
 
 class HttpGeocoder(

@@ -1,0 +1,27 @@
+package org.etrange.towards.domain.model
+
+enum class TransportMode {
+    WALK,
+    BIKE,
+    CAR,
+    CAR_PARKING,
+    CAR_DROPOFF,
+    FLEX,
+    TRANSIT,
+    TRAM,
+    SUBWAY,
+    FERRY,
+    AIRPLANE,
+    BUS,
+    COACH,
+    RAIL,
+    HIGHSPEED_RAIL,
+    LONG_DISTANCE,
+    NIGHT_RAIL,
+    REGIONAL_FAST_RAIL,
+    REGIONAL_RAIL,
+    SUBURBAN,
+    FUNICULAR,
+    AERIAL_LIFT,
+    OTHER,
+}

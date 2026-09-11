@@ -15,7 +15,7 @@ import org.etrange.towards.api.dto.ErrorResponseDto
 import org.etrange.towards.api.dto.StopTimesDto
 import org.etrange.towards.api.dto.toDomain
 import org.etrange.towards.domain.model.StopTimes
-import org.etrange.towards.domain.model.StopTimesRequest
+import org.etrange.towards.domain.model.requests.StopTimesRequest
 import org.etrange.towards.domain.port.TimetableProvider
 
 class HttpTimetableProvider(

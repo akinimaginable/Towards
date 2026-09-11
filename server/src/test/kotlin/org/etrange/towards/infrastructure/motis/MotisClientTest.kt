@@ -14,7 +14,7 @@ import org.etrange.towards.config.MotisConfig
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.LocationReference
 import org.etrange.towards.domain.model.TransportMode
-import org.etrange.towards.domain.model.TripPlanningRequest
+import org.etrange.towards.domain.model.requests.TripPlanningRequest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

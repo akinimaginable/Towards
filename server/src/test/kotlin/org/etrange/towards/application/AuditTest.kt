@@ -10,7 +10,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.etrange.towards.domain.model.Coordinate
-import org.etrange.towards.domain.model.GeocodeRequest
+import org.etrange.towards.domain.model.requests.GeocodeRequest
 
 class AuditTest {
     @Test
