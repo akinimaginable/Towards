@@ -44,6 +44,25 @@ class ApplicationTest {
     }
 
     @Test
+    fun malformedJsonUsesBadRequestErrorEnvelope() = testApplication {
+        environment { config = testConfig() }
+        application {
+            module()
+        }
+
+        val response = client.post("/api/v1/itineraries/refresh") {
+            header(HttpHeaders.XRequestId, "malformed-json-test")
+            contentType(ContentType.Application.Json)
+            setBody("{")
+        }
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertEquals("malformed-json-test", response.headers[HttpHeaders.XRequestId])
+        assertTrue(response.bodyAsText().contains("INVALID_JSON"))
+        assertTrue(response.bodyAsText().contains("malformed-json-test"))
+    }
+
+    @Test
     fun rateLimiterReturnsJsonTooManyRequests() = testApplication {
         environment {
             config = testConfig(

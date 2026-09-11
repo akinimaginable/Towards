@@ -9,6 +9,7 @@ import io.ktor.server.application.install
 import io.ktor.server.application.log
 import io.ktor.server.auth.Authentication
 import io.ktor.server.auth.principal
+import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.callid.CallId
 import io.ktor.server.plugins.callid.callId
 import io.ktor.server.plugins.calllogging.CallLogging
@@ -119,13 +120,22 @@ fun Application.configureHttpPlugins(
                 ),
             )
         }
-        exception<SerializationException> { call, cause ->
-            auditService.recordSystemError(call, cause)
+        exception<BadRequestException> { call, _ ->
             call.respond(
                 HttpStatusCode.BadRequest,
                 ErrorResponseDto(
                     code = "INVALID_JSON",
-                    message = cause.message ?: "The request body is invalid",
+                    message = "The request body is invalid",
+                    correlationId = call.callId,
+                ),
+            )
+        }
+        exception<SerializationException> { call, _ ->
+            call.respond(
+                HttpStatusCode.BadRequest,
+                ErrorResponseDto(
+                    code = "INVALID_JSON",
+                    message = "The request body is invalid",
                     correlationId = call.callId,
                 ),
             )
