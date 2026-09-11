@@ -53,7 +53,6 @@ import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.LocationKind
 import org.etrange.towards.domain.model.TransportMode
-import org.etrange.towards.ui.icons.addIcon
 import org.etrange.towards.ui.icons.myLocationIcon
 import org.etrange.towards.ui.icons.searchIcon
 import org.etrange.towards.ui.icons.settingsIcon
@@ -79,6 +78,7 @@ fun HomeScreen(
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val origin by viewModel.origin.collectAsStateWithLifecycle()
     val locationBias by viewModel.locationBias.collectAsStateWithLifecycle()
+    val userLocation by viewModel.userLocation.collectAsStateWithLifecycle()
     val followMap by viewModel.followMap.collectAsStateWithLifecycle()
     val nearbyStops by viewModel.nearbyStops.collectAsStateWithLifecycle()
     val isLoadingNearby by viewModel.isLoadingNearby.collectAsStateWithLifecycle()
@@ -123,7 +123,7 @@ fun HomeScreen(
         isLocating = isLocating,
         errorMessage = errorMessage,
         mapCenter = locationBias,
-        userLocation = locationBias,
+        userLocation = userLocation,
         followMap = followMap,
         nearbyStops = nearbyStops,
         isLoadingNearby = isLoadingNearby,
@@ -390,26 +390,6 @@ fun HomeScreen(
                                     )
                                 }
 
-                                Button(
-                                    onClick = { },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                        contentColor = MaterialTheme.colorScheme.onSurface,
-                                    ),
-                                    contentPadding = PaddingValues(start = 8.dp, end = 14.dp),
-                                ) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Icon(
-                                            imageVector = addIcon,
-                                            contentDescription = "",
-                                            tint = MaterialTheme.colorScheme.onSurface,
-                                        )
-                                        Text("Add shortcut")
-                                    }
-                                }
                             }
 
                             SearchLaunchBar(

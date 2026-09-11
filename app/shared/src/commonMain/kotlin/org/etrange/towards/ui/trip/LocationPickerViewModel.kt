@@ -45,16 +45,7 @@ class LocationPickerViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
-    val shortcuts: List<DestinationShortcutItem> = listOf(
-        DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
-        DestinationShortcutItem(label = "Work", detail = "17 min"),
-        DestinationShortcutItem(label = "School", detail = "47 min"),
-        DestinationShortcutItem(
-            label = "Grand Place",
-            detail = "7 min",
-            coordinate = Coordinate(50.8467, 4.3525),
-        ),
-    )
+    val shortcuts: List<DestinationShortcutItem> = emptyList()
 
     private val locationBias: Coordinate? = locationBiasStore.load()
         ?: locationProvider.lastKnownCoordinate()

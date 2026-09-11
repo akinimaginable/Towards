@@ -57,6 +57,9 @@ class HomeViewModel(
     private val _locationBias = MutableStateFlow<Coordinate?>(null)
     val locationBias: StateFlow<Coordinate?> = _locationBias.asStateFlow()
 
+    private val _userLocation = MutableStateFlow<Coordinate?>(null)
+    val userLocation: StateFlow<Coordinate?> = _userLocation.asStateFlow()
+
     private val _mapFocus = MutableStateFlow(MAP_CENTER)
     val mapFocus: StateFlow<Coordinate> = _mapFocus.asStateFlow()
 
@@ -72,23 +75,10 @@ class HomeViewModel(
     private val _nearbyMessage = MutableStateFlow<String?>(null)
     val nearbyMessage: StateFlow<String?> = _nearbyMessage.asStateFlow()
 
-    private val _origin = MutableStateFlow(TripEndpoint("My location", MAP_CENTER))
+    private val _origin = MutableStateFlow(TripEndpoint("Map center", MAP_CENTER))
     val origin: StateFlow<TripEndpoint> = _origin.asStateFlow()
 
-    private var followUserLocation = true
-
-    private val _shortcuts = MutableStateFlow(
-        listOf(
-            DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
-            DestinationShortcutItem(label = "Work", detail = "17 min"),
-            DestinationShortcutItem(label = "School", detail = "47 min"),
-            DestinationShortcutItem(
-                label = "Grand Place",
-                detail = "7 min",
-                coordinate = Coordinate(50.8467, 4.3525),
-            ),
-        ),
-    )
+    private val _shortcuts = MutableStateFlow<List<DestinationShortcutItem>>(emptyList())
     val shortcuts: StateFlow<List<DestinationShortcutItem>> = _shortcuts.asStateFlow()
 
     private var searchJob: Job? = null
@@ -146,7 +136,6 @@ class HomeViewModel(
     fun routingOrigin(): TripEndpoint = _origin.value
 
     fun setOrigin(endpoint: TripEndpoint) {
-        followUserLocation = endpoint.isCurrentLocation()
         _origin.value = endpoint
         _errorMessage.value = null
     }
@@ -161,6 +150,8 @@ class HomeViewModel(
 
     fun onMapCameraIdle(coordinate: Coordinate) {
         if (_followMap.value) return
+        _locationBias.value = coordinate
+        _origin.value = TripEndpoint(name = "Map center", coordinate = coordinate)
         updateMapFocus(coordinate)
     }
 
@@ -176,9 +167,7 @@ class HomeViewModel(
                     return@launch
                 }
                 _followMap.value = true
-                applyLocationBias(coordinate)
-                followUserLocation = true
-                _origin.value = TripEndpoint(name = "My location", coordinate = coordinate)
+                applyLocationBias(coordinate, originName = "My location")
             } catch (error: CancellationException) {
                 throw error
             } catch (error: ApiException) {
@@ -200,7 +189,7 @@ class HomeViewModel(
     fun onLocationPermissionGranted() {
         val lastKnown = locationProvider.lastKnownCoordinate()
         if (lastKnown != null) {
-            applyLocationBias(lastKnown)
+            applyLocationBias(lastKnown, originName = "Last known location")
         }
         refreshLocationBias()
     }
@@ -208,29 +197,39 @@ class HomeViewModel(
     private fun seedLocationBias() {
         locationBiasStore.load()?.let { stored ->
             _locationBias.value = stored
+            _origin.value = TripEndpoint(name = "Map center", coordinate = stored)
             if (_followMap.value) {
                 updateMapFocus(stored, force = true)
             }
         }
         if (!locationProvider.hasPermission()) return
-        locationProvider.lastKnownCoordinate()?.let { applyLocationBias(it) }
+        locationProvider.lastKnownCoordinate()?.let {
+            applyLocationBias(it, originName = "Last known location")
+        }
     }
 
     private fun refreshLocationBias() {
         if (!locationProvider.hasPermission()) return
         viewModelScope.launch {
-            val coordinate = runCatching { locationProvider.currentCoordinate() }.getOrNull()
+            val coordinate = try {
+                locationProvider.currentCoordinate()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                null
+            }
             if (coordinate != null) {
-                applyLocationBias(coordinate)
+                applyLocationBias(coordinate, originName = "My location")
             }
         }
     }
 
-    private fun applyLocationBias(coordinate: Coordinate) {
+    private fun applyLocationBias(coordinate: Coordinate, originName: String? = null) {
         _locationBias.value = coordinate
         locationBiasStore.save(coordinate)
-        if (followUserLocation) {
-            _origin.value = TripEndpoint(name = "My location", coordinate = coordinate)
+        if (originName != null) {
+            _userLocation.value = coordinate
+            _origin.value = TripEndpoint(name = originName, coordinate = coordinate)
         }
         if (_followMap.value) {
             updateMapFocus(coordinate, force = true)
@@ -339,6 +338,3 @@ class HomeViewModel(
         private const val NEARBY_POLL_INTERVAL_MS = 60_000L
     }
 }
-
-private fun TripEndpoint.isCurrentLocation(): Boolean =
-    stopId == null && (name == "My location" || name == "Map center")

@@ -102,7 +102,7 @@ private fun DestinationSearchSheetContent(
     autoFocus: Boolean = true,
 ) {
     Column(modifier = modifier) {
-        /*LocationSearchField(
+        LocationSearchField(
             query = if (pickingOrigin) query else "",
             onQueryChange = onQueryChange,
             placeholder = "From",
@@ -112,7 +112,7 @@ private fun DestinationSearchSheetContent(
             displayText = originName,
             autoFocus = autoFocus && pickingOrigin,
             onActivate = onPickOrigin,
-        )*/
+        )
         LocationSearchField(
             query = if (!pickingOrigin) query else "",
             onQueryChange = onQueryChange,
