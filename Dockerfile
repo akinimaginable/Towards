@@ -39,4 +39,4 @@ EXPOSE 8081
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
     CMD curl -fsS http://127.0.0.1:8081/health | grep -q '"status":"UP"'
 
-ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "--illegal-native-access=deny", "-XX:+UseCompactObjectHeaders", ""-XX:+UseContainerSupport", "-jar", "/app/app.jar"]
