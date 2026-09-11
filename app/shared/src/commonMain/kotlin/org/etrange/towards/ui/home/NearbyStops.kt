@@ -128,7 +128,8 @@ fun NearbyDepartureRow(departure: NearbyDeparture) {
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
-            text = relativeLabel(departure.time, now),
+            text = "${relativeLabel(departure.time, now)} · " +
+                if (departure.realTime) "Live" else "Scheduled",
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
             color = if (departure.realTime) {

@@ -54,6 +54,17 @@ class TripPresentationTest {
         val transit = itinerary("tram", walk = false)
         assertEquals("Walk 4 min · Direct", transit.summaryLabel())
         assertEquals("3 Churchill", transit.legs.last().detailTitle())
+        assertEquals("Live · on time", transit.legs.last().realtimeStatusLabel())
+        assertEquals(
+            "Live · 5 min late",
+            transit.legs.last().copy(
+                startTime = "2026-09-07T10:13:00+02:00",
+            ).realtimeStatusLabel(),
+        )
+        assertEquals(
+            "Cancelled",
+            transit.legs.last().copy(cancelled = true).realtimeStatusLabel(),
+        )
     }
 
     @Test

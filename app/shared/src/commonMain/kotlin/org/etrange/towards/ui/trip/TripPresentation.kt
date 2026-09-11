@@ -79,6 +79,23 @@ fun JourneyLeg.lineLabel(): String =
     displayName?.takeIf { it.isNotBlank() }
         ?: mode.name.lowercase().replaceFirstChar { it.titlecase() }
 
+fun JourneyLeg.delayMinutes(): Long? {
+    val expected = runCatching { Instant.parse(startTime) }.getOrNull() ?: return null
+    val scheduled = runCatching { Instant.parse(scheduledStartTime) }.getOrNull() ?: return null
+    return (expected - scheduled).inWholeMinutes
+}
+
+fun JourneyLeg.realtimeStatusLabel(): String {
+    if (cancelled) return "Cancelled"
+    if (!realTime) return "Scheduled"
+    val delay = delayMinutes() ?: return "Live"
+    return when {
+        delay > 0 -> "Live · $delay min late"
+        delay < 0 -> "Live · ${-delay} min early"
+        else -> "Live · on time"
+    }
+}
+
 fun JourneyLeg.detailTitle(): String {
     if (mode.isStreetMode()) {
         val minutes = (durationSeconds / 60).coerceAtLeast(1)

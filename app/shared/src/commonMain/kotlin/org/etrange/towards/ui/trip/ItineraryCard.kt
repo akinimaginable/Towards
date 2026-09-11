@@ -35,6 +35,9 @@ fun ItineraryCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val containsCancellation = itinerary.legs.any { it.cancelled }
+    val hasRealtime = itinerary.legs.any { it.realTime && !it.cancelled }
+
     Surface(
         modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
@@ -46,6 +49,15 @@ fun ItineraryCard(
         },
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+            if (containsCancellation) {
+                Text(
+                    text = "Cancelled service",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -56,8 +68,8 @@ fun ItineraryCard(
                     Text(
                         text = "${formatClock(itinerary.startTime)} – ${formatClock(itinerary.endTime)}",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = if (itinerary.legs.any { it.realTime }) {
-                            MaterialTheme.colorScheme.primary
+                        color = if (containsCancellation) {
+                            MaterialTheme.colorScheme.error
                         } else {
                             MaterialTheme.colorScheme.onSurface
                         },
@@ -68,6 +80,20 @@ fun ItineraryCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 2.dp),
+                    )
+                    Text(
+                        text = when {
+                            containsCancellation -> "Includes cancelled travel"
+                            hasRealtime -> "Live times"
+                            else -> "Scheduled times"
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = when {
+                            containsCancellation -> MaterialTheme.colorScheme.error
+                            hasRealtime -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.padding(top = 4.dp),
                     )
                 }
                 Text(
@@ -170,12 +196,30 @@ private fun ItineraryLegRow(leg: JourneyLeg) {
                 overflow = TextOverflow.Ellipsis,
             )
             if (!leg.mode.isStreetMode()) {
+                val platform = leg.from.platform?.takeIf { it.isNotBlank() }
                 Text(
-                    text = "${formatClock(leg.startTime)} · ${leg.from.name}",
+                    text = buildString {
+                        append(formatClock(leg.startTime))
+                        append(" · ")
+                        append(leg.from.name)
+                        if (platform != null) {
+                            append(" · Platform ")
+                            append(platform)
+                        }
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = leg.realtimeStatusLabel(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = when {
+                        leg.cancelled -> MaterialTheme.colorScheme.error
+                        leg.realTime -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 )
             }
         }
