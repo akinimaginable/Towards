@@ -9,6 +9,7 @@ import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import org.etrange.towards.api.dto.ErrorResponseDto
 import org.etrange.towards.api.dto.StopTimesDto
@@ -50,6 +51,8 @@ class HttpTimetableProvider(
                 accept(ContentType.Application.Json)
                 configure()
             }
+        } catch (cause: CancellationException) {
+            throw cause
         } catch (cause: Exception) {
             throw ApiException(
                 statusCode = 0,

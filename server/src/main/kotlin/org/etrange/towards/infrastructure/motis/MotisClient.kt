@@ -10,6 +10,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import org.etrange.towards.application.BadRequestException
 import org.etrange.towards.application.NotFoundException
@@ -149,6 +150,8 @@ class MotisClient(
                 accept(ContentType.Application.Json)
                 configure()
             }
+        } catch (cause: CancellationException) {
+            throw cause
         } catch (cause: Exception) {
             throw UpstreamServiceException(
                 HttpStatusCode.ServiceUnavailable,
