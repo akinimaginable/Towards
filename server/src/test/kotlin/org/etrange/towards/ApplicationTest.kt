@@ -112,6 +112,6 @@ private fun testConfig(vararg overrides: Pair<String, String>) = MapApplicationC
     "towards.database.pool.maxLifetimeMillis" to "1800000",
     "towards.rateLimit.requests" to "120",
     "towards.rateLimit.periodSeconds" to "60",
-    "towards.authentication.dummyUserId" to "00000000-0000-0000-0000-000000000001",
+    "towards.audit.retentionDays" to "30",
     *overrides,
 )

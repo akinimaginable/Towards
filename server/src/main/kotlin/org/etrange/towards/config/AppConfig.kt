@@ -28,15 +28,15 @@ data class RateLimitConfig(
     val periodSeconds: Long,
 )
 
-data class AuthenticationConfig(
-    val dummyUserId: String,
+data class AuditConfig(
+    val retentionDays: Int,
 )
 
 data class AppConfig(
     val motis: MotisConfig,
     val database: DatabaseConfig,
     val rateLimit: RateLimitConfig,
-    val authentication: AuthenticationConfig,
+    val audit: AuditConfig,
 ) {
     companion object {
         fun from(config: ApplicationConfig): AppConfig {
@@ -45,7 +45,7 @@ data class AppConfig(
             val database = root.config("database")
             val pool = database.config("pool")
             val rateLimit = root.config("rateLimit")
-            val authentication = root.config("authentication")
+            val audit = root.config("audit")
 
             return AppConfig(
                 motis = MotisConfig(
@@ -69,8 +69,9 @@ data class AppConfig(
                     requests = rateLimit.property("requests").getString().toInt(),
                     periodSeconds = rateLimit.property("periodSeconds").getString().toLong(),
                 ),
-                authentication = AuthenticationConfig(
-                    dummyUserId = authentication.property("dummyUserId").getString(),
+                audit = AuditConfig(
+                    retentionDays = audit.property("retentionDays").getString().toInt()
+                        .also { require(it > 0) { "audit retentionDays must be positive" } },
                 ),
             )
         }

@@ -60,7 +60,6 @@ ktor-serverContentNegotiation = { module = "io.ktor:ktor-server-content-negotiat
 ktor-serverStatusPages = { module = "io.ktor:ktor-server-status-pages-jvm", version.ref = "ktor" }
 ktor-serverCallLogging = { module = "io.ktor:ktor-server-call-logging-jvm", version.ref = "ktor" }
 ktor-serverCallId = { module = "io.ktor:ktor-server-call-id-jvm", version.ref = "ktor" }
-ktor-serverAuth = { module = "io.ktor:ktor-server-auth-jvm", version.ref = "ktor" }
 ktor-serverRateLimit = { module = "io.ktor:ktor-server-rate-limit-jvm", version.ref = "ktor" }
 ktor-serverMetricsMicrometer = { module = "io.ktor:ktor-server-metrics-micrometer-jvm", version.ref = "ktor" }
 ktor-clientCore = { module = "io.ktor:ktor-client-core-jvm", version.ref = "ktor" }

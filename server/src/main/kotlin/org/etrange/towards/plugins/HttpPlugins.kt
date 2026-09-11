@@ -7,8 +7,6 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
 import io.ktor.server.application.log
-import io.ktor.server.auth.Authentication
-import io.ktor.server.auth.principal
 import io.ktor.server.plugins.BadRequestException
 import io.ktor.server.plugins.callid.CallId
 import io.ktor.server.plugins.callid.callId
@@ -32,7 +30,6 @@ import org.etrange.towards.application.AuditRecord
 import org.etrange.towards.application.AuditService
 import org.etrange.towards.application.ApiException
 import org.etrange.towards.config.AppConfig
-import org.etrange.towards.domain.model.UserId
 import org.slf4j.event.Level
 import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
@@ -42,7 +39,7 @@ const val API_RATE_LIMIT = "api"
 fun Application.configureHttpPlugins(
     config: AppConfig,
     prometheusRegistry: PrometheusMeterRegistry,
-    auditService: AuditService,
+    auditService: () -> AuditService,
 ) {
     val applicationLogger = log
 
@@ -74,12 +71,6 @@ fun Application.configureHttpPlugins(
         )
     }
 
-    install(Authentication) {
-        dummy {
-            userId = UserId(config.authentication.dummyUserId)
-        }
-    }
-
     install(RateLimit) {
         register(RateLimitName(API_RATE_LIMIT)) {
             rateLimiter(
@@ -87,8 +78,7 @@ fun Application.configureHttpPlugins(
                 refillPeriod = config.rateLimit.periodSeconds.seconds,
             )
             requestKey { call ->
-                call.principal<DummyPrincipal>()?.userId?.value
-                    ?: call.request.local.remoteHost
+                call.request.local.remoteHost
             }
         }
     }
@@ -109,7 +99,6 @@ fun Application.configureHttpPlugins(
             )
         }
         exception<ApiException> { call, cause ->
-            auditService.recordSystemError(call, cause)
             call.respond(
                 cause.status,
                 ErrorResponseDto(
@@ -141,7 +130,6 @@ fun Application.configureHttpPlugins(
             )
         }
         exception<IllegalArgumentException> { call, cause ->
-            auditService.recordSystemError(call, cause)
             call.respond(
                 HttpStatusCode.BadRequest,
                 ErrorResponseDto(
@@ -152,7 +140,7 @@ fun Application.configureHttpPlugins(
             )
         }
         exception<Throwable> { call, cause ->
-            auditService.recordSystemError(call, cause)
+            auditService().recordSystemError(call, cause)
             applicationLogger.error("unhandled_request_error correlationId={}", call.callId, cause)
             call.respond(
                 HttpStatusCode.InternalServerError,
@@ -166,19 +154,19 @@ fun Application.configureHttpPlugins(
     }
 }
 
-private suspend fun AuditService.recordSystemError(
+private fun AuditService.recordSystemError(
     call: ApplicationCall,
     cause: Throwable,
 ) {
     record(
         AuditRecord(
-            actor = call.principal<DummyPrincipal>()?.toActorContext(),
+            actor = null,
             correlationId = call.callId ?: "unknown",
             action = AuditAction.SYSTEM_ERROR,
             outcome = AuditOutcome.FAILURE,
             requestSummary = "${call.request.httpMethod.value} ${call.request.path()}",
             resultSummary = null,
-            errorDetails = "${cause::class.simpleName}: ${cause.message}".take(2_000),
+            errorDetails = cause::class.simpleName,
             durationMillis = call.processingTimeMillis(),
         ),
     )

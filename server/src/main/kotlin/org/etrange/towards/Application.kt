@@ -25,14 +25,18 @@ fun Application.module() {
     }
 
     val prometheusRegistry = getKoin().get<io.micrometer.prometheusmetrics.PrometheusMeterRegistry>()
-    val mobilityService = getKoin().get<MobilityService>()
-    val auditService = getKoin().get<AuditService>()
 
-    configureHttpPlugins(config, prometheusRegistry, auditService)
+    configureHttpPlugins(
+        config = config,
+        prometheusRegistry = prometheusRegistry,
+        auditService = { getKoin().get<AuditService>() },
+    )
+    val mobilityService = getKoin().get<MobilityService>()
     configureRoutes(mobilityService, prometheusRegistry)
 
     monitor.subscribe(ApplicationStopped) {
         getKoin().get<HttpClient>().close()
+        getKoin().get<AuditService>().close()
         getKoin().getOrNull<DatabaseResources>()?.close()
     }
 }

@@ -70,7 +70,13 @@ fun applicationModule(config: AppConfig) = module {
             NoOpAuditRepository()
         }
     }
-    single { AuditService(get()) }
+    single {
+        AuditService(
+            repository = get<AuditRepository>(),
+            retentionDays = config.audit.retentionDays,
+            meterRegistry = get<PrometheusMeterRegistry>(),
+        )
+    }
     single<TripPlanCache> { PassThroughTripPlanCache() }
     single {
         MobilityService(

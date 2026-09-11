@@ -5,6 +5,7 @@ import org.etrange.towards.domain.model.GeocodeRequest
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.Itinerary
 import org.etrange.towards.domain.model.ItineraryRefreshRequest
+import org.etrange.towards.domain.model.LocationReference
 import org.etrange.towards.domain.model.MapBounds
 import org.etrange.towards.domain.model.MapInitialView
 import org.etrange.towards.domain.model.MapStopsRequest
@@ -43,14 +44,14 @@ class MobilityService(
     private val tripPlanCache: TripPlanCache,
 ) {
     suspend fun plan(
-        actor: ActorContext,
+        actor: ActorContext?,
         correlationId: String,
         request: TripPlanningRequest,
     ): TripPlan = audited(
         actor = actor,
         correlationId = correlationId,
         action = AuditAction.TRIP_SEARCH,
-        requestSummary = request.toString(),
+        requestSummary = request.toAuditSummary(),
         resultSummary = { "itineraries=${it.itineraries.size},direct=${it.direct.size}" },
     ) {
         tripPlanCache.get(request) ?: tripPlanner.plan(request).also {
@@ -59,77 +60,77 @@ class MobilityService(
     }
 
     suspend fun getTrip(
-        actor: ActorContext,
+        actor: ActorContext?,
         correlationId: String,
         request: TripLookupRequest,
     ): Itinerary = audited(
         actor,
         correlationId,
         AuditAction.TRIP_LOOKUP,
-        "tripId=${request.tripId}",
+        "tripIdPresent=${request.tripId.isNotBlank()},languageCount=${request.language.size}",
         { "legs=${it.legs.size}" },
     ) {
         tripInformationProvider.getTrip(request)
     }
 
     suspend fun refreshItinerary(
-        actor: ActorContext,
+        actor: ActorContext?,
         correlationId: String,
         request: ItineraryRefreshRequest,
     ): Itinerary = audited(
         actor,
         correlationId,
         AuditAction.ITINERARY_REFRESH,
-        "itineraryId=${request.itineraryId.take(128)}",
+        "itineraryIdPresent=${request.itineraryId.isNotBlank()},languageCount=${request.language.size}",
         { "legs=${it.legs.size}" },
     ) {
         tripInformationProvider.refreshItinerary(request)
     }
 
     suspend fun getStopTimes(
-        actor: ActorContext,
+        actor: ActorContext?,
         correlationId: String,
         request: StopTimesRequest,
     ): StopTimes = audited(
         actor,
         correlationId,
         AuditAction.STOP_TIMES,
-        request.toString(),
+        request.toAuditSummary(),
         { "events=${it.events.size}" },
     ) {
         transitDataProvider.getStopTimes(request)
     }
 
     suspend fun geocode(
-        actor: ActorContext,
+        actor: ActorContext?,
         correlationId: String,
         request: GeocodeRequest,
     ): List<GeocodeResult> = audited(
         actor,
         correlationId,
         AuditAction.GEOCODE,
-        request.toString(),
+        request.toAuditSummary(),
         { "results=${it.size}" },
     ) {
         geocoder.geocode(request)
     }
 
     suspend fun reverseGeocode(
-        actor: ActorContext,
+        actor: ActorContext?,
         correlationId: String,
         request: ReverseGeocodeRequest,
     ): List<GeocodeResult> = audited(
         actor,
         correlationId,
         AuditAction.REVERSE_GEOCODE,
-        request.toString(),
+        request.toAuditSummary(),
         { "results=${it.size}" },
     ) {
         geocoder.reverseGeocode(request)
     }
 
     suspend fun getInitialMapView(
-        actor: ActorContext,
+        actor: ActorContext?,
         correlationId: String,
     ): MapInitialView = audited(
         actor,
@@ -142,49 +143,49 @@ class MobilityService(
     }
 
     suspend fun getMapStops(
-        actor: ActorContext,
+        actor: ActorContext?,
         correlationId: String,
         request: MapStopsRequest,
     ): List<Place> = audited(
         actor,
         correlationId,
         AuditAction.MAP_STOPS,
-        request.toString(),
+        request.toAuditSummary(),
         { "stops=${it.size}" },
     ) {
         transitDataProvider.getMapStops(request)
     }
 
     suspend fun getMapTrips(
-        actor: ActorContext,
+        actor: ActorContext?,
         correlationId: String,
         request: MapTripsRequest,
     ): List<MapTrip> = audited(
         actor,
         correlationId,
         AuditAction.MAP_TRIPS,
-        request.toString(),
+        request.toAuditSummary(),
         { "trips=${it.size}" },
     ) {
         transitDataProvider.getMapTrips(request)
     }
 
     suspend fun getMapLevels(
-        actor: ActorContext,
+        actor: ActorContext?,
         correlationId: String,
         bounds: MapBounds,
     ): List<Double> = audited(
         actor,
         correlationId,
         AuditAction.MAP_LEVELS,
-        bounds.toString(),
+        "boundsPresent=true",
         { "levels=${it.size}" },
     ) {
         transitDataProvider.getMapLevels(bounds)
     }
 
     private suspend fun <T> audited(
-        actor: ActorContext,
+        actor: ActorContext?,
         correlationId: String,
         action: AuditAction,
         requestSummary: String?,
@@ -216,7 +217,7 @@ class MobilityService(
                     outcome = AuditOutcome.FAILURE,
                     requestSummary = requestSummary,
                     resultSummary = null,
-                    errorDetails = "${cause::class.simpleName}: ${cause.message}".take(2_000),
+                    errorDetails = cause::class.simpleName,
                     durationMillis = elapsedMillis(startedAt),
                 ),
             )
@@ -226,3 +227,32 @@ class MobilityService(
 
     private fun elapsedMillis(startedAt: Long): Long = (System.nanoTime() - startedAt) / 1_000_000
 }
+
+private fun LocationReference.auditKind(): String = when (this) {
+    is LocationReference.Stop -> "stop"
+    is LocationReference.Position -> "position"
+}
+
+internal fun TripPlanningRequest.toAuditSummary(): String =
+    "from=${from.auditKind()},to=${to.auditKind()},arriveBy=$arriveBy," +
+        "transitModes=${transitModes.size},directModes=${directModes.size}," +
+        "hasTime=${time != null},maxTransfersSet=${maxTransfers != null}," +
+        "hasPageCursor=${pageCursor != null},languageCount=${language.size}"
+
+internal fun StopTimesRequest.toAuditSummary(): String =
+    "source=${if (stopId != null) "stop" else "area"},radiusSet=${radiusMeters != null}," +
+        "eventsSet=${numberOfEvents != null},arriveBy=$arriveBy,modes=${transportModes.size}," +
+        "hasTime=${time != null},hasPageCursor=${pageCursor != null},languageCount=${language.size}"
+
+internal fun GeocodeRequest.toAuditSummary(): String =
+    "queryLength=${text.length},hasBias=${bias != null},kinds=${kinds.size}," +
+        "modes=${modes.size},limitSet=${numberOfResults != null},languageCount=${languages.size}"
+
+internal fun ReverseGeocodeRequest.toAuditSummary(): String =
+    "kinds=${kinds.size},limitSet=${numberOfResults != null}"
+
+internal fun MapStopsRequest.toAuditSummary(): String =
+    "groupedSet=${grouped != null},modes=${modes.size},languageCount=${languages.size}"
+
+internal fun MapTripsRequest.toAuditSummary(): String =
+    "zoom=$zoom,precision=$precision,languageCount=${languages.size}"

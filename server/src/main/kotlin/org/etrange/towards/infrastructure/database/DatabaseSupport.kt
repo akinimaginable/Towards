@@ -12,8 +12,10 @@ import org.etrange.towards.application.AuditRecord
 import org.etrange.towards.application.AuditRepository
 import org.etrange.towards.config.DatabaseConfig
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.javatime.timestampWithTimeZone
 import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.time.OffsetDateTime
@@ -109,4 +111,11 @@ class ExposedAuditRepository(
             }
         }
     }
+
+    override suspend fun deleteBefore(cutoff: OffsetDateTime): Int =
+        withContext(Dispatchers.IO) {
+            transaction(database) {
+                AuditLogTable.deleteWhere { createdAt less cutoff }
+            }
+        }
 }

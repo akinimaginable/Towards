@@ -19,7 +19,6 @@ dependencies {
     implementation(libs.ktor.serverStatusPages)
     implementation(libs.ktor.serverCallLogging)
     implementation(libs.ktor.serverCallId)
-    implementation(libs.ktor.serverAuth)
     implementation(libs.ktor.serverRateLimit)
     implementation(libs.ktor.serverMetricsMicrometer)
     implementation(libs.ktor.clientCore)
