@@ -6,6 +6,7 @@ PRODUCT_BUNDLE_IDENTIFIER=org.etrange.towards.Towards$(TEAM_ID)
 CURRENT_PROJECT_VERSION=1
 MARKETING_VERSION=1.0
 
-// MapLibre and Compose both ship HarfBuzz; Shared must link first or text glyphs break.
+// MapLibre Native FFI needs libc++, zlib, and Apple graphics frameworks
+// Shared must link before MapLibre so Compose/Skia HarfBuzz wins over MapLibre's copy
 // See https://github.com/maplibre/maplibre-compose/issues/551 and CMP-8882
-OTHER_LDFLAGS = -framework Shared -framework MapLibre $(inherited)
+OTHER_LDFLAGS = -l"c++" -lz -framework Shared -framework CoreFoundation -framework CoreGraphics -framework CoreText -framework Foundation -framework ImageIO -framework Metal -framework QuartzCore -framework MapLibre $(inherited)

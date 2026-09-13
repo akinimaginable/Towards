@@ -261,7 +261,7 @@ fun HomeScreen(
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
-            containerColor = Color.Red,
+            containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
                     title = { Text("") },

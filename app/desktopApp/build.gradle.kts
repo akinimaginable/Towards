@@ -11,6 +11,7 @@ dependencies {
 
     implementation(compose.desktop.currentOs)
     implementation(libs.kotlinx.coroutinesSwing)
+    implementation(libs.maplibre.compose)
 
     implementation(libs.compose.uiToolingPreview)
 }
@@ -18,6 +19,7 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "org.etrange.towards.MainKt"
+        jvmArgs += "--enable-native-access=ALL-UNNAMED"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)

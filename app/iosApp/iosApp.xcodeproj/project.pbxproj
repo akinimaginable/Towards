@@ -325,8 +325,24 @@
 					"@executable_path/Frameworks",
 				);
 				OTHER_LDFLAGS = (
+					"-l\"c++\"",
+					"-lz",
 					"-framework",
 					Shared,
+					"-framework",
+					CoreFoundation,
+					"-framework",
+					CoreGraphics,
+					"-framework",
+					CoreText,
+					"-framework",
+					Foundation,
+					"-framework",
+					ImageIO,
+					"-framework",
+					Metal,
+					"-framework",
+					QuartzCore,
 					"$(inherited)",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.etrange.Towards;
@@ -362,8 +378,24 @@
 					"@executable_path/Frameworks",
 				);
 				OTHER_LDFLAGS = (
+					"-l\"c++\"",
+					"-lz",
 					"-framework",
 					Shared,
+					"-framework",
+					CoreFoundation,
+					"-framework",
+					CoreGraphics,
+					"-framework",
+					CoreText,
+					"-framework",
+					Foundation,
+					"-framework",
+					ImageIO,
+					"-framework",
+					Metal,
+					"-framework",
+					QuartzCore,
 					"$(inherited)",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.etrange.Towards;

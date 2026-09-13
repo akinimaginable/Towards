@@ -66,13 +66,7 @@ kotlin {
         jvmMain.dependencies {
             implementation(libs.ktor.mp.client.cio)
             val maplibreComposeVersion = libs.versions.maplibre.compose.get()
-            runtimeOnly("org.maplibre.compose:maplibre-native-bindings-jni:$maplibreComposeVersion") {
-                capabilities {
-                    requireCapability(
-                        "org.maplibre.compose:maplibre-native-bindings-jni-${maplibreDesktopTarget()}",
-                    )
-                }
-            }
+            runtimeOnly("org.maplibre.compose:${maplibreDesktopRuntime()}:$maplibreComposeVersion")
         }
         commonMain.dependencies {
             api(project(":core"))
@@ -104,19 +98,19 @@ dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
 }
 
-private fun maplibreDesktopTarget(): String {
+private fun maplibreDesktopRuntime(): String {
     val hostOs = when (val os = System.getProperty("os.name").lowercase()) {
         "mac os x" -> "macos"
         else -> os.split(" ").first()
     }
     val hostArch = when (val arch = System.getProperty("os.arch").lowercase()) {
-        "x86_64" -> "amd64"
-        "arm64" -> "aarch64"
+        "x86_64", "amd64" -> "x64"
+        "aarch64", "arm64" -> "arm64"
         else -> arch
     }
     val renderer = when (hostOs) {
         "macos" -> "metal"
-        else -> "opengl"
+        else -> "vulkan"
     }
-    return "$hostOs-$hostArch-$renderer"
+    return "maplibre-compose-runtime-$renderer-$hostOs-$hostArch"
 }

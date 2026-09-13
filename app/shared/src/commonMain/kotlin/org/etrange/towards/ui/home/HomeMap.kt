@@ -30,16 +30,13 @@ import org.etrange.towards.domain.model.JourneyLeg
 import org.etrange.towards.ui.trip.isStreetMode
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.LineCap
 import org.maplibre.compose.expressions.value.LineJoin
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
-import org.maplibre.compose.map.GestureOptions
-import org.maplibre.compose.map.MapOptions
 import org.maplibre.compose.map.MaplibreMap
-import org.maplibre.compose.overlay.MapOverlay
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
@@ -85,12 +82,6 @@ fun HomeMap(
     }
 
     val target = center ?: DefaultMapCenter
-    val cameraState = rememberCameraState(
-        firstPosition = CameraPosition(
-            target = Position(longitude = target.longitude, latitude = target.latitude),
-            zoom = DefaultZoom,
-        ),
-    )
     val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val styleUri = if (darkTheme) {
         Res.getUri("files/towards_map_dark.json")
@@ -105,68 +96,6 @@ fun HomeMap(
         "${leg.startTime}:${leg.to.name}:${leg.geometry?.points.orEmpty().take(24)}"
     }
 
-    LaunchedEffect(cameraState) {
-        snapshotFlow { cameraState.moveReason to cameraState.position.target }
-            .filter { (reason, _) -> reason == CameraMoveReason.GESTURE }
-            .map { (_, targetPosition) ->
-                Coordinate(
-                    latitude = targetPosition.latitude,
-                    longitude = targetPosition.longitude,
-                )
-            }
-            .distinctUntilChanged()
-            .collect { focus ->
-                onUserMovedCamera()
-                onMapCameraIdle(focus)
-            }
-    }
-
-    LaunchedEffect(
-        target.latitude,
-        target.longitude,
-        cameraTopPadding,
-        cameraBottomPadding,
-        routeSignature,
-        fitRoute,
-        followCenter,
-    ) {
-        cameraState.awaitViewport()
-        val bounds = if (fitRoute) routeBoundingBox(routeLegs) else null
-        if (bounds != null) {
-            cameraState.animateTo(
-                boundingBox = bounds,
-                padding = PaddingValues(
-                    start = 28.dp,
-                    top = cameraTopPadding + 16.dp,
-                    end = 28.dp,
-                    bottom = cameraBottomPadding + 16.dp,
-                ),
-            )
-            return@LaunchedEffect
-        }
-        if (!followCenter) {
-            previousCenter = center
-            previousFollowCenter = false
-            return@LaunchedEffect
-        }
-        val finalPosition = CameraPosition(
-            target = Position(longitude = target.longitude, latitude = target.latitude),
-            zoom = DefaultZoom,
-            bearing = cameraState.position.bearing,
-            tilt = cameraState.position.tilt,
-        )
-        val isFirstRealCenter = previousCenter == null && center != null
-        val paddingOnlyChange = previousCenter == center && previousFollowCenter
-        val resumedFollow = followCenter && !previousFollowCenter
-        previousCenter = center
-        previousFollowCenter = followCenter
-        if (isFirstRealCenter || (paddingOnlyChange && !resumedFollow)) {
-            cameraState.animateTo(finalPosition = finalPosition, duration = 0.milliseconds)
-        } else {
-            cameraState.animateTo(finalPosition = finalPosition)
-        }
-    }
-
     val originDotColor = MaterialTheme.colorScheme.primary
     val originData = remember(origin?.latitude, origin?.longitude) {
         pointGeoJson(origin)
@@ -179,27 +108,15 @@ fun HomeMap(
     val userPosition = remember(userLocation?.latitude, userLocation?.longitude) {
         userLocation?.let { Position(longitude = it.longitude, latitude = it.latitude) }
     }
+    val destinationDotColor = MaterialTheme.colorScheme.error
+    val transitFallbackColor = MaterialTheme.colorScheme.primary
 
-    MaplibreMap(
-        modifier = modifier,
+    val mapState = rememberMapState(
         baseStyle = BaseStyle.Uri(styleUri),
-        cameraState = cameraState,
-        cameraPadding = contentPadding,
-        contentWindowInsets = WindowInsets(
-            top = cameraTopPadding,
-            bottom = cameraBottomPadding,
+        initialCameraPosition = CameraPosition(
+            target = Position(longitude = target.longitude, latitude = target.latitude),
+            zoom = DefaultZoom,
         ),
-        options = MapOptions(
-            gestureOptions = GestureOptions.Standard,
-        ),
-        overlay = MapOverlay {
-            if (userPosition != null) {
-                UserLocationMarker(modifier = Modifier.placedAt(userPosition, Alignment.Center))
-            }
-            if (!followCenter && !fitRoute) {
-                MapCenterMarker(modifier = Modifier.align(Alignment.Center))
-            }
-        },
     ) {
         routeLegs.forEachIndexed { index, leg ->
             key("route-leg-$index") {
@@ -210,7 +127,7 @@ fun HomeMap(
                     val lineColor = if (street) {
                         walkColor
                     } else {
-                        parseHexColor(leg.routeColor) ?: MaterialTheme.colorScheme.primary
+                        parseHexColor(leg.routeColor) ?: transitFallbackColor
                     }
                     LineLayer(
                         id = "route-leg-casing-$index",
@@ -228,7 +145,7 @@ fun HomeMap(
                             width = const(3.dp),
                             cap = const(LineCap.Round),
                             join = const(LineJoin.Round),
-                            dasharray = const(listOf(1.2, 1.6)),
+                            dasharray = const(listOf(1.2f, 1.6f)),
                         )
                     } else {
                         LineLayer(
@@ -260,13 +177,93 @@ fun HomeMap(
             CircleLayer(
                 id = "trip-destination",
                 source = destinationSource,
-                color = const(MaterialTheme.colorScheme.error),
+                color = const(destinationDotColor),
                 radius = const(7.dp),
                 strokeColor = const(Color.White),
                 strokeWidth = const(2.dp),
             )
         }
     }
+
+    LaunchedEffect(mapState) {
+        snapshotFlow { mapState.cameraMoveReason to mapState.cameraPosition.target }
+            .filter { (reason, _) -> reason == CameraMoveReason.GESTURE }
+            .map { (_, targetPosition) ->
+                Coordinate(
+                    latitude = targetPosition.latitude,
+                    longitude = targetPosition.longitude,
+                )
+            }
+            .distinctUntilChanged()
+            .collect { focus ->
+                onUserMovedCamera()
+                onMapCameraIdle(focus)
+            }
+    }
+
+    LaunchedEffect(
+        target.latitude,
+        target.longitude,
+        cameraTopPadding,
+        cameraBottomPadding,
+        routeSignature,
+        fitRoute,
+        followCenter,
+    ) {
+        mapState.awaitViewport()
+        val bounds = if (fitRoute) routeBoundingBox(routeLegs) else null
+        if (bounds != null) {
+            mapState.animateCameraToBounds(
+                boundingBox = bounds,
+                padding = PaddingValues(
+                    start = 28.dp,
+                    top = cameraTopPadding + 16.dp,
+                    end = 28.dp,
+                    bottom = cameraBottomPadding + 16.dp,
+                ),
+            )
+            return@LaunchedEffect
+        }
+        if (!followCenter) {
+            previousCenter = center
+            previousFollowCenter = false
+            return@LaunchedEffect
+        }
+        val finalPosition = CameraPosition(
+            target = Position(longitude = target.longitude, latitude = target.latitude),
+            zoom = DefaultZoom,
+            bearing = mapState.cameraPosition.bearing,
+            tilt = mapState.cameraPosition.tilt,
+        )
+        val isFirstRealCenter = previousCenter == null && center != null
+        val paddingOnlyChange = previousCenter == center && previousFollowCenter
+        val resumedFollow = followCenter && !previousFollowCenter
+        previousCenter = center
+        previousFollowCenter = followCenter
+        if (isFirstRealCenter || (paddingOnlyChange && !resumedFollow)) {
+            mapState.animateCameraPosition(position = finalPosition, duration = 0.milliseconds)
+        } else {
+            mapState.animateCameraPosition(position = finalPosition)
+        }
+    }
+
+    MaplibreMap(
+        modifier = modifier,
+        state = mapState,
+        cameraPadding = contentPadding,
+        contentWindowInsets = WindowInsets(
+            top = cameraTopPadding,
+            bottom = cameraBottomPadding,
+        ),
+        overlay = {
+            if (userPosition != null) {
+                UserLocationMarker(modifier = Modifier.placedAt(userPosition, Alignment.Center))
+            }
+            if (!followCenter && !fitRoute) {
+                MapCenterMarker(modifier = Modifier.align(Alignment.Center))
+            }
+        },
+    )
 }
 
 internal fun routeBoundingBox(legs: List<JourneyLeg>): BoundingBox? {
