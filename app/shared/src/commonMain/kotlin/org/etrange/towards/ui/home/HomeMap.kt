@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -20,9 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonObject
 import org.etrange.towards.data.decodeCoordinates
 import org.etrange.towards.domain.model.Coordinate
@@ -110,6 +108,10 @@ fun HomeMap(
     }
     val destinationDotColor = MaterialTheme.colorScheme.error
     val transitFallbackColor = MaterialTheme.colorScheme.primary
+    val onUserMovedCameraState = rememberUpdatedState(onUserMovedCamera)
+    val onMapCameraIdleState = rememberUpdatedState(onMapCameraIdle)
+    val followLatitude = if (followCenter) target.latitude else null
+    val followLongitude = if (followCenter) target.longitude else null
 
     val mapState = rememberMapState(
         baseStyle = BaseStyle.Uri(styleUri),
@@ -186,24 +188,32 @@ fun HomeMap(
     }
 
     LaunchedEffect(mapState) {
-        snapshotFlow { mapState.cameraMoveReason to mapState.cameraPosition.target }
-            .filter { (reason, _) -> reason == CameraMoveReason.GESTURE }
-            .map { (_, targetPosition) ->
-                Coordinate(
-                    latitude = targetPosition.latitude,
-                    longitude = targetPosition.longitude,
-                )
-            }
-            .distinctUntilChanged()
-            .collect { focus ->
-                onUserMovedCamera()
-                onMapCameraIdle(focus)
+        var gestureActive = false
+        snapshotFlow { mapState.isCameraMoving to mapState.cameraMoveReason }
+            .collect { (moving, reason) ->
+                if (moving && reason == CameraMoveReason.GESTURE) {
+                    if (!gestureActive) {
+                        gestureActive = true
+                        onUserMovedCameraState.value()
+                    }
+                    return@collect
+                }
+                if (gestureActive && !moving) {
+                    gestureActive = false
+                    val targetPosition = mapState.cameraPosition.target
+                    onMapCameraIdleState.value(
+                        Coordinate(
+                            latitude = targetPosition.latitude,
+                            longitude = targetPosition.longitude,
+                        ),
+                    )
+                }
             }
     }
 
     LaunchedEffect(
-        target.latitude,
-        target.longitude,
+        followLatitude,
+        followLongitude,
         cameraTopPadding,
         cameraBottomPadding,
         routeSignature,
