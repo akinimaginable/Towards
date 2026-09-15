@@ -1,7 +1,6 @@
 package org.etrange.towards.ui.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,19 +14,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -40,11 +33,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -53,8 +44,6 @@ import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.LocationKind
 import org.etrange.towards.domain.model.TransportMode
-import org.etrange.towards.ui.icons.myLocationIcon
-import org.etrange.towards.ui.icons.searchIcon
 import org.etrange.towards.ui.icons.settingsIcon
 import org.etrange.towards.ui.search.DestinationSearchSheet
 import org.etrange.towards.ui.theme.ThemeMode
@@ -80,6 +69,7 @@ fun HomeScreen(
     val locationBias by viewModel.locationBias.collectAsStateWithLifecycle()
     val userLocation by viewModel.userLocation.collectAsStateWithLifecycle()
     val followMap by viewModel.followMap.collectAsStateWithLifecycle()
+    val focusedPlaceLabel by viewModel.focusedPlaceLabel.collectAsStateWithLifecycle()
     val nearbyStops by viewModel.nearbyStops.collectAsStateWithLifecycle()
     val isLoadingNearby by viewModel.isLoadingNearby.collectAsStateWithLifecycle()
     val nearbyMessage by viewModel.nearbyMessage.collectAsStateWithLifecycle()
@@ -125,6 +115,7 @@ fun HomeScreen(
         mapCenter = locationBias,
         userLocation = userLocation,
         followMap = followMap,
+        focusedPlaceLabel = focusedPlaceLabel,
         nearbyStops = nearbyStops,
         isLoadingNearby = isLoadingNearby,
         nearbyMessage = nearbyMessage,
@@ -239,6 +230,7 @@ fun HomeScreen(
     mapCenter: Coordinate? = null,
     userLocation: Coordinate? = null,
     followMap: Boolean = true,
+    focusedPlaceLabel: String? = null,
     nearbyStops: List<NearbyStop> = emptyList(),
     isLoadingNearby: Boolean = false,
     nearbyMessage: String? = null,
@@ -313,44 +305,6 @@ fun HomeScreen(
                                 ),
                                 modifier = Modifier.fillMaxSize(),
                             )
-
-                            Surface(
-                                onClick = onUseCurrentLocation,
-                                enabled = !isLocating,
-                                modifier = Modifier.align(Alignment.BottomEnd).padding(
-                                        end = innerPadding.calculateEndPadding(layoutDirection) + 12.dp,
-                                        bottom = overlayOnMapHeight + 12.dp,
-                                    ).size(44.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (followMap) {
-                                    MaterialTheme.colorScheme.primaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.surfaceContainer
-                                },
-                                contentColor = if (followMap) {
-                                    MaterialTheme.colorScheme.onPrimaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                },
-                                shadowElevation = 2.dp,
-                            ) {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier.fillMaxSize()
-                                ) {
-                                    if (isLocating) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(20.dp),
-                                            strokeWidth = 2.dp,
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = myLocationIcon,
-                                            contentDescription = "Recenter on me",
-                                        )
-                                    }
-                                }
-                            }
                         }
 
                         LazyColumn(
@@ -413,6 +367,10 @@ fun HomeScreen(
                             modifier = Modifier.fillMaxWidth().height(searchHeight)
                                 .padding(horizontal = 12.dp),
                             onClick = onOpenSearch,
+                            onUseCurrentLocation = onUseCurrentLocation,
+                            followMap = followMap,
+                            isLocating = isLocating,
+                            focusedPlaceLabel = focusedPlaceLabel,
                         )
                     }
                 }

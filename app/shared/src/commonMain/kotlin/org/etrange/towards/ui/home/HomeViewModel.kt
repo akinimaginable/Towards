@@ -22,6 +22,7 @@ import org.etrange.towards.data.toApiDateTime
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.requests.GeocodeRequest
+import org.etrange.towards.domain.model.requests.ReverseGeocodeRequest
 import org.etrange.towards.domain.model.requests.StopTimesRequest
 import org.etrange.towards.domain.port.Geocoder
 import org.etrange.towards.domain.port.TimetableProvider
@@ -66,6 +67,9 @@ class HomeViewModel(
     private val _followMap = MutableStateFlow(true)
     val followMap: StateFlow<Boolean> = _followMap.asStateFlow()
 
+    private val _focusedPlaceLabel = MutableStateFlow<String?>(null)
+    val focusedPlaceLabel: StateFlow<String?> = _focusedPlaceLabel.asStateFlow()
+
     private val _nearbyStops = MutableStateFlow<List<NearbyStop>>(emptyList())
     val nearbyStops: StateFlow<List<NearbyStop>> = _nearbyStops.asStateFlow()
 
@@ -85,6 +89,7 @@ class HomeViewModel(
     private var locateJob: Job? = null
     private var nearbyJob: Job? = null
     private var nearbyPollJob: Job? = null
+    private var reverseGeocodeJob: Job? = null
 
     init {
         _destination.debounce(300.milliseconds).distinctUntilChanged()
@@ -93,6 +98,9 @@ class HomeViewModel(
         _mapFocus.debounce(300.milliseconds).distinctUntilChanged().onEach { coordinate ->
                 if (_destination.value.isBlank()) {
                     loadNearbyDepartures(coordinate)
+                }
+                if (!_followMap.value) {
+                    reverseGeocodeFocus(coordinate)
                 }
             }.launchIn(viewModelScope)
 
@@ -159,6 +167,7 @@ class HomeViewModel(
                     _errorMessage.value = "Unable to determine your current location"
                     return@launch
                 }
+                clearFocusedPlace()
                 _followMap.value = true
                 applyLocationBias(coordinate, originName = "My location")
             } catch (error: CancellationException) {
@@ -225,6 +234,7 @@ class HomeViewModel(
             _origin.value = TripEndpoint(name = originName, coordinate = coordinate)
         }
         if (_followMap.value) {
+            clearFocusedPlace()
             updateMapFocus(coordinate, force = true)
         }
     }
@@ -232,6 +242,35 @@ class HomeViewModel(
     private fun updateMapFocus(coordinate: Coordinate, force: Boolean = false) {
         if (!force && !shouldUpdateMapFocus(_mapFocus.value, coordinate)) return
         _mapFocus.value = coordinate
+    }
+
+    private fun clearFocusedPlace() {
+        reverseGeocodeJob?.cancel()
+        reverseGeocodeJob = null
+        _focusedPlaceLabel.value = null
+    }
+
+    private fun reverseGeocodeFocus(coordinate: Coordinate) {
+        reverseGeocodeJob?.cancel()
+        reverseGeocodeJob = viewModelScope.launch {
+            try {
+                val result = geocoder.reverseGeocode(
+                    ReverseGeocodeRequest(
+                        coordinate = coordinate,
+                        numberOfResults = 1,
+                    ),
+                ).firstOrNull()
+                if (!_followMap.value && result != null) {
+                    val label = result.name.takeIf { it.isNotBlank() } ?: return@launch
+                    _focusedPlaceLabel.value = label
+                    _origin.value = TripEndpoint(name = label, coordinate = coordinate)
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // Keep "Map center" / previous label; do not surface as a search error.
+            }
+        }
     }
 
     private fun startNearbyPolling() {
