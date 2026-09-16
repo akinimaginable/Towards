@@ -3,7 +3,7 @@ package org.etrange.towards.ui.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,6 +26,7 @@ import org.etrange.towards.data.decodeCoordinates
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.JourneyLeg
 import org.etrange.towards.ui.trip.isStreetMode
+import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
@@ -35,6 +36,7 @@ import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
+import org.maplibre.compose.overlay.LocalCameraPadding
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
@@ -231,6 +233,7 @@ fun HomeMap(
                     end = 28.dp,
                     bottom = cameraBottomPadding + 16.dp,
                 ),
+                animation = CameraAnimation.Ease(),
             )
             return@LaunchedEffect
         }
@@ -251,9 +254,15 @@ fun HomeMap(
         previousCenter = center
         previousFollowCenter = followCenter
         if (isFirstRealCenter || (paddingOnlyChange && !resumedFollow)) {
-            mapState.animateCameraPosition(position = finalPosition, duration = 0.milliseconds)
+            mapState.animateCameraPosition(
+                position = finalPosition,
+                animation = CameraAnimation.Ease(duration = 0.milliseconds),
+            )
         } else {
-            mapState.animateCameraPosition(position = finalPosition)
+            mapState.animateCameraPosition(
+                position = finalPosition,
+                animation = CameraAnimation.Ease(),
+            )
         }
     }
 
@@ -261,16 +270,19 @@ fun HomeMap(
         modifier = modifier,
         state = mapState,
         cameraPadding = contentPadding,
-        contentWindowInsets = WindowInsets(
-            top = cameraTopPadding,
-            bottom = cameraBottomPadding,
-        ),
         overlay = {
             if (userPosition != null) {
                 UserLocationMarker(modifier = Modifier.placedAt(userPosition, Alignment.Center))
             }
             if (!followCenter && !fitRoute) {
-                MapCenterMarker(modifier = Modifier.align(Alignment.Center))
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .padding(LocalCameraPadding.current),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    MapCenterMarker()
+                }
             }
         },
     )
