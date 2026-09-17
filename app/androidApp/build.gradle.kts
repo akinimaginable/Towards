@@ -28,8 +28,8 @@ android {
         applicationId = "org.etrange.towards"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = providers.gradleProperty("towards.versionCode").get().toInt()
+        versionName = providers.gradleProperty("towards.version").get()
     }
     packaging {
         resources {

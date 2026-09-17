@@ -22,23 +22,24 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.etrange.towards.rememberAppVersion
 import org.etrange.towards.ui.icons.arrow_backIcon
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
 
 @Composable
-fun SettingsScreen(
-    viewModel: SettingsViewModel,
-    onBack: () -> Unit,
-) {
+fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val apiEndpointDraft by viewModel.apiEndpointDraft.collectAsStateWithLifecycle()
     val apiEndpointError by viewModel.apiEndpointError.collectAsStateWithLifecycle()
+
     SettingsScreen(
         themeMode = themeMode,
         onThemeModeChange = viewModel::onThemeModeChange,
@@ -46,6 +47,7 @@ fun SettingsScreen(
         apiEndpointError = apiEndpointError,
         onApiEndpointDraftChange = viewModel::onApiEndpointDraftChange,
         onApiEndpointSave = viewModel::onApiEndpointSave,
+        appVersion = rememberAppVersion(),
         onBack = onBack,
     )
 }
@@ -59,6 +61,7 @@ fun SettingsScreen(
     apiEndpointError: String?,
     onApiEndpointDraftChange: (String) -> Unit,
     onApiEndpointSave: () -> Boolean,
+    appVersion: String,
     onBack: () -> Unit,
 ) {
     Scaffold(
@@ -77,9 +80,7 @@ fun SettingsScreen(
         },
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
+            modifier = Modifier.padding(innerPadding).fillMaxSize()
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -89,7 +90,7 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = "Choose how Towards looks. System follows your device setting.",
+                text = "Choose how Towards looks.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -114,7 +115,7 @@ fun SettingsScreen(
                 modifier = Modifier.padding(top = 12.dp),
             )
             Text(
-                text = "Base URL for the Towards API. Changes apply immediately after saving.",
+                text = "Base URL for the Towards API.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -124,7 +125,7 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 label = { Text("URL") },
-                placeholder = { Text("http://127.0.0.1:8081") },
+                placeholder = { Text("https://api.towards.etrange.org") },
                 isError = apiEndpointError != null,
                 supportingText = apiEndpointError?.let { message ->
                     { Text(message) }
@@ -143,6 +144,20 @@ fun SettingsScreen(
             ) {
                 Text("Save endpoint")
             }
+
+            Text(
+                text = "Legal",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+
+            Text(
+                text = "Towards $appVersion",
+                modifier = Modifier.fillMaxWidth(),
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.titleSmall,
+            )
         }
     }
 }
@@ -158,6 +173,7 @@ private fun SettingsScreenLightPreview() {
             apiEndpointError = null,
             onApiEndpointDraftChange = {},
             onApiEndpointSave = { true },
+            appVersion = "2026.9.0",
             onBack = {},
         )
     }
@@ -171,9 +187,10 @@ private fun SettingsScreenDarkPreview() {
             themeMode = ThemeMode.Dark,
             onThemeModeChange = {},
             apiEndpointDraft = "not-a-url",
-            apiEndpointError = "Enter a valid http or https URL with a host, for example http://127.0.0.1:8081",
+            apiEndpointError = "Enter a valid http(s) URL with a host, for example https://api.towards.etrange.org",
             onApiEndpointDraftChange = {},
             onApiEndpointSave = { true },
+            appVersion = "2026.9.0",
             onBack = {},
         )
     }
