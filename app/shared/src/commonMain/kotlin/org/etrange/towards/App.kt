@@ -18,7 +18,7 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.etrange.towards.data.ApiConfig
-import org.etrange.towards.data.ApiEndpointStore
+import org.etrange.towards.data.SettingsStore
 import org.etrange.towards.data.HttpGeocoder
 import org.etrange.towards.data.HttpTimetableProvider
 import org.etrange.towards.data.HttpTripPlanner
@@ -55,7 +55,7 @@ import org.etrange.towards.ui.trip.tripEndpointsAfterPicking
 
 @Composable
 fun App() {
-    val endpointStore = remember { ApiEndpointStore() }
+    val endpointStore = remember { SettingsStore() }
     App(settingsViewModel = viewModel { SettingsViewModel(endpointStore) })
 }
 
@@ -65,7 +65,7 @@ fun App(
 ) {
     val themeMode by settingsViewModel.themeMode.collectAsStateWithLifecycle()
     val navController = rememberNavController()
-    val apiConfig = remember(settingsViewModel) { ApiConfig(settingsViewModel.endpointStore) }
+    val apiConfig = remember(settingsViewModel) { ApiConfig(settingsViewModel.settingsStore) }
     val httpClient = remember { createHttpClient() }
     val geocoder = remember(apiConfig) {
         HttpGeocoder(

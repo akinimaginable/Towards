@@ -1,6 +1,7 @@
 package org.etrange.towards.data
 
 import com.russhwolf.settings.MapSettings
+import org.etrange.towards.ui.theme.ThemeMode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -33,11 +34,11 @@ class ApiEndpointTest {
     }
 }
 
-class ApiEndpointStoreTest {
+class SettingsStoreTest {
 
     @Test
     fun loadsPlatformDefaultWhenNothingPersisted() {
-        val store = ApiEndpointStore(
+        val store = SettingsStore(
             settings = MapSettings(),
             defaultUrl = "http://127.0.0.1:8081",
         )
@@ -48,7 +49,7 @@ class ApiEndpointStoreTest {
     @Test
     fun persistsValidEndpointAndExposesItImmediately() {
         val settings = MapSettings()
-        val store = ApiEndpointStore(
+        val store = SettingsStore(
             settings = settings,
             defaultUrl = "http://127.0.0.1:8081",
         )
@@ -60,14 +61,14 @@ class ApiEndpointStoreTest {
         assertEquals("https://api.example.com", store.endpoint.value)
         assertEquals(
             "https://api.example.com",
-            settings.getString(ApiEndpointStore.KEY_API_ENDPOINT, ""),
+            settings.getString(SettingsStore.KEY_API_ENDPOINT, ""),
         )
     }
 
     @Test
     fun rejectsInvalidEndpointWithoutPersisting() {
         val settings = MapSettings()
-        val store = ApiEndpointStore(
+        val store = SettingsStore(
             settings = settings,
             defaultUrl = "http://127.0.0.1:8081",
         )
@@ -76,16 +77,16 @@ class ApiEndpointStoreTest {
 
         assertTrue(result.isFailure)
         assertEquals("http://127.0.0.1:8081", store.endpoint.value)
-        assertFalse(settings.hasKey(ApiEndpointStore.KEY_API_ENDPOINT))
+        assertFalse(settings.hasKey(SettingsStore.KEY_API_ENDPOINT))
     }
 
     @Test
     fun reloadsPersistedEndpointOnNewStore() {
         val settings = MapSettings(
-            ApiEndpointStore.KEY_API_ENDPOINT to "https://api.example.com",
+            SettingsStore.KEY_API_ENDPOINT to "https://api.example.com",
         )
 
-        val store = ApiEndpointStore(
+        val store = SettingsStore(
             settings = settings,
             defaultUrl = "http://127.0.0.1:8081",
         )
@@ -96,15 +97,67 @@ class ApiEndpointStoreTest {
     @Test
     fun fallsBackToDefaultWhenPersistedValueIsInvalid() {
         val settings = MapSettings(
-            ApiEndpointStore.KEY_API_ENDPOINT to "not-a-url",
+            SettingsStore.KEY_API_ENDPOINT to "not-a-url",
         )
 
-        val store = ApiEndpointStore(
+        val store = SettingsStore(
             settings = settings,
             defaultUrl = "http://10.0.2.2:8081/",
         )
 
         assertEquals("http://10.0.2.2:8081", store.endpoint.value)
+    }
+
+    @Test
+    fun loadsSystemThemeWhenNothingPersisted() {
+        val store = SettingsStore(
+            settings = MapSettings(),
+            defaultUrl = "http://127.0.0.1:8081",
+        )
+
+        assertEquals(ThemeMode.System, store.themeMode.value)
+    }
+
+    @Test
+    fun persistsThemeModeAndExposesItImmediately() {
+        val settings = MapSettings()
+        val store = SettingsStore(
+            settings = settings,
+            defaultUrl = "http://127.0.0.1:8081",
+        )
+
+        store.saveThemeMode(ThemeMode.Dark)
+
+        assertEquals(ThemeMode.Dark, store.themeMode.value)
+        assertEquals(ThemeMode.Dark.name, settings.getString(SettingsStore.KEY_THEME_MODE, ""))
+    }
+
+    @Test
+    fun reloadsPersistedThemeModeOnNewStore() {
+        val settings = MapSettings(
+            SettingsStore.KEY_THEME_MODE to ThemeMode.Light.name,
+        )
+
+        val store = SettingsStore(
+            settings = settings,
+            defaultUrl = "http://127.0.0.1:8081",
+        )
+
+        assertEquals(ThemeMode.Light, store.themeMode.value)
+    }
+
+    @Test
+    fun fallsBackToSystemWhenPersistedThemeModeIsInvalid() {
+        val settings = MapSettings(
+            SettingsStore.KEY_THEME_MODE to "Midnight",
+        )
+
+        val store = SettingsStore(
+            settings = settings,
+            defaultUrl = "http://127.0.0.1:8081",
+        )
+
+        assertEquals(ThemeMode.System, store.themeMode.value)
     }
 }
 
@@ -112,7 +165,7 @@ class ApiConfigLiveUpdateTest {
 
     @Test
     fun resolvesCurrentEndpointOnEachAccess() {
-        val store = ApiEndpointStore(
+        val store = SettingsStore(
             settings = MapSettings(),
             defaultUrl = "http://127.0.0.1:8081",
         )
