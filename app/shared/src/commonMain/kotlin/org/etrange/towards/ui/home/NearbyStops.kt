@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.CircularProgressIndicator
@@ -25,10 +26,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.TransportMode
 import org.etrange.towards.ui.icons.liveIcon
-import org.etrange.towards.ui.theme.TowardsTheme
+import org.etrange.towards.ui.parseHexColor
+import org.etrange.towards.ui.theme.ThemeMode
+import org.etrange.towards.ui.theme.TowardsPreview
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 fun LazyListScope.nearbyStopsSection(
@@ -67,12 +72,8 @@ fun LazyListScope.nearbyStopsSection(
         }
         itemsIndexed(
             items = stop.departures,
-            key = { departureIndex, departure ->
-                "dep-$stopIndex-$departureIndex-${departure.id}"
-            },
-        ) { _, departure ->
-            NearbyDepartureRow(departure = departure)
-        }
+            key = { departureIndex, departure -> "dep-$stopIndex-$departureIndex-${departure.id}" },
+        ) { _, departure -> NearbyDepartureRow(departure = departure) }
     }
 }
 
@@ -86,8 +87,8 @@ fun NearbyStopHeader(stop: NearbyStop, onClick: () -> Unit = {}) {
     ) {
         Text(
             text = stop.name,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.weight(1f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -110,9 +111,10 @@ fun NearbyDepartureRow(departure: NearbyDeparture) {
     }
 
     Row(
-        modifier = Modifier.fillMaxWidth()
-            // .background(color = parseHexColor(departure.routeColor) ?: MaterialTheme.colorScheme.secondaryContainer)
-            .padding(horizontal = 24.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().background(
+                color = parseHexColor(departure.routeColor)
+                    ?: MaterialTheme.colorScheme.secondaryContainer
+            ).padding(horizontal = 24.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -120,6 +122,7 @@ fun NearbyDepartureRow(departure: NearbyDeparture) {
         Text(
             text = departure.headsign.orEmpty(),
             style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.weight(1f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -153,19 +156,82 @@ fun NearbyDepartureRow(departure: NearbyDeparture) {
 
 @Preview
 @Composable
-fun NearbyDepartureRowPreview() {
-    TowardsTheme {
-        NearbyDepartureRow(
-            departure = NearbyDeparture(
-                id = "1",
-                lineName = "1",
-                routeColor = "#af00aa",
-                routeTextColor = "#FFFFFF",
-                headsign = "Headsign",
-                time = Clock.System.now(),
-                realTime = false,
-                mode = TransportMode.TRANSIT
+fun NearbyStopsSectionPreview() {
+    TowardsPreview(themeMode = ThemeMode.Light) {
+        LazyColumn {
+            nearbyStopsSection(
+                nearbyStops = previewNearbyStops(),
+                isLoadingNearby = false,
+                nearbyMessage = null,
             )
-        )
+        }
     }
+}
+
+@Preview
+@Composable
+fun NearbyStopHeaderPreview() {
+    TowardsPreview(themeMode = ThemeMode.Light) {
+        NearbyStopHeader(stop = previewNearbyStops().first())
+    }
+}
+
+@Preview
+@Composable
+fun NearbyDepartureRowPreview() {
+    TowardsPreview(themeMode = ThemeMode.Light) {
+        NearbyDepartureRow(departure = previewNearbyStops().first().departures.first())
+    }
+}
+
+private fun previewNearbyStops(): List<NearbyStop> {
+    val now = Clock.System.now()
+    return listOf(
+        NearbyStop(
+            id = "stop:bourse",
+            name = "Bourse",
+            coordinate = Coordinate(50.8481, 4.3497),
+            distanceMeters = 120,
+            departures = listOf(
+                NearbyDeparture(
+                    id = "1",
+                    lineName = "3",
+                    headsign = "Churchill",
+                    mode = TransportMode.SUBWAY,
+                    routeColor = "FFDD00",
+                    routeTextColor = "000000",
+                    time = now + 3.minutes,
+                    realTime = true,
+                ),
+                NearbyDeparture(
+                    id = "2",
+                    lineName = "4",
+                    headsign = "Stalle",
+                    mode = TransportMode.SUBWAY,
+                    routeColor = "F4C300",
+                    routeTextColor = "000000",
+                    time = now + 7.minutes,
+                    realTime = false,
+                ),
+            ),
+        ),
+        NearbyStop(
+            id = "stop:anneessens",
+            name = "Anneessens",
+            coordinate = Coordinate(50.8469, 4.3458),
+            distanceMeters = 280,
+            departures = listOf(
+                NearbyDeparture(
+                    id = "3",
+                    lineName = "46",
+                    headsign = "Moortebeek",
+                    mode = TransportMode.BUS,
+                    routeColor = "E30613",
+                    routeTextColor = "FFFFFF",
+                    time = now + 5.minutes,
+                    realTime = true,
+                ),
+            ),
+        ),
+    )
 }
