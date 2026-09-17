@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.etrange.towards.domain.model.Itinerary
 import org.etrange.towards.domain.model.JourneyLeg
-import org.etrange.towards.ui.home.LineBadge
+import org.etrange.towards.ui.LineBadge
 import org.etrange.towards.ui.icons.walkIcon
 
 @Composable

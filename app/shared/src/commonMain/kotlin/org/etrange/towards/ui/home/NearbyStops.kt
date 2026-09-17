@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -20,12 +19,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import org.etrange.towards.domain.model.TransportMode
@@ -152,41 +149,6 @@ fun NearbyDepartureRow(departure: NearbyDeparture) {
             }
         }
     }
-}
-
-@Composable
-fun LineBadge(
-    label: String,
-    routeColor: String?,
-    routeTextColor: String?,
-) {
-    val background = parseHexColor(routeColor) ?: MaterialTheme.colorScheme.secondaryContainer
-    val foreground = parseHexColor(routeTextColor) ?: MaterialTheme.colorScheme.onSecondaryContainer
-
-    Box(
-        modifier = Modifier.background(background, RoundedCornerShape(6.dp))
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = label,
-            color = foreground,
-            fontWeight = FontWeight.Bold,
-            fontSize = 13.sp,
-            maxLines = 1,
-        )
-    }
-}
-
-internal fun parseHexColor(value: String?): Color? {
-    if (value.isNullOrBlank()) return null
-    val hex = value.removePrefix("#")
-    val normalized = when (hex.length) {
-        6 -> "FF$hex"
-        8 -> hex
-        else -> return null
-    }
-    return runCatching { Color(normalized.toLong(16)) }.getOrNull()
 }
 
 @Preview

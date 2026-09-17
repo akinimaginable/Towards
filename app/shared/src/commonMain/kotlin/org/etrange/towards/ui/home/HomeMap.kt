@@ -25,6 +25,7 @@ import kotlinx.serialization.json.JsonObject
 import org.etrange.towards.data.decodeCoordinates
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.JourneyLeg
+import org.etrange.towards.ui.parseHexColor
 import org.etrange.towards.ui.trip.isStreetMode
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraMoveReason
