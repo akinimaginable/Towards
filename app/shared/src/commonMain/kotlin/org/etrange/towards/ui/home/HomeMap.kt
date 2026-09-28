@@ -37,7 +37,8 @@ import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
-import org.maplibre.compose.overlay.LocalCameraPadding
+import org.maplibre.compose.overlay.LocalViewportInsets
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
@@ -228,10 +229,10 @@ fun HomeMap(
         if (bounds != null) {
             mapState.animateCameraToBounds(
                 boundingBox = bounds,
-                padding = PaddingValues(
-                    start = 28.dp,
+                fitPadding = DpPadding(
+                    left = 28.dp,
                     top = cameraTopPadding + 16.dp,
-                    end = 28.dp,
+                    right = 28.dp,
                     bottom = cameraBottomPadding + 16.dp,
                 ),
                 animation = CameraAnimation.Ease(),
@@ -255,13 +256,13 @@ fun HomeMap(
         previousCenter = center
         previousFollowCenter = followCenter
         if (isFirstRealCenter || (paddingOnlyChange && !resumedFollow)) {
-            mapState.animateCameraPosition(
-                position = finalPosition,
+            mapState.animateCamera(
+                update = finalPosition.toCameraUpdate(),
                 animation = CameraAnimation.Ease(duration = 0.milliseconds),
             )
         } else {
-            mapState.animateCameraPosition(
-                position = finalPosition,
+            mapState.animateCamera(
+                update = finalPosition.toCameraUpdate(),
                 animation = CameraAnimation.Ease(),
             )
         }
@@ -270,7 +271,7 @@ fun HomeMap(
     MaplibreMap(
         modifier = modifier,
         state = mapState,
-        cameraPadding = contentPadding,
+        viewportInsets = contentPadding,
         overlay = {
             if (userPosition != null) {
                 UserLocationMarker(modifier = Modifier.placedAt(userPosition, Alignment.Center))
@@ -279,7 +280,7 @@ fun HomeMap(
                 Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .padding(LocalCameraPadding.current),
+                        .padding(LocalViewportInsets.current),
                     contentAlignment = Alignment.Center,
                 ) {
                     MapCenterMarker()

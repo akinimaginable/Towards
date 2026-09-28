@@ -3,7 +3,7 @@ import PackageDescription
 let package = Package(
   name: "_app_shared",
   platforms: [
-    .iOS("15.0")
+    .iOS("15.5")
   ],
   products: [
     .library(
@@ -12,21 +12,9 @@ let package = Package(
       targets: ["_app_shared"]
     )
   ],
-  dependencies: [
-    .package(
-      url: "https://github.com/maplibre/maplibre-gl-native-distribution.git",
-      exact: "6.31.0"
-    )
-  ],
   targets: [
     .target(
-      name: "_app_shared",
-      dependencies: [
-        .product(
-          name: "MapLibre",
-          package: "maplibre-gl-native-distribution"
-        )
-      ]
+      name: "_app_shared"
     )
   ]
 )

@@ -20,12 +20,7 @@ kotlin {
     }
 
     swiftPMDependencies {
-        iosMinimumDeploymentTarget.set("15.0")
-        swiftPackage(
-            url = url("https://github.com/maplibre/maplibre-gl-native-distribution.git"),
-            version = exact(libs.versions.maplibre.ios.get()),
-            products = listOf(product("MapLibre")),
-        )
+        iosMinimumDeploymentTarget.set("15.5")
     }
     
     jvm()
