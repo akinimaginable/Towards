@@ -54,6 +54,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 private val DefaultMapCenter = Coordinate(latitude = 50.8503, longitude = 4.3517)
 private const val DefaultZoom = 15.0
+private const val UserLocationOriginOverlapMeters = 30
 
 @Composable
 fun HomeMap(
@@ -110,6 +111,9 @@ fun HomeMap(
     val userPosition = remember(userLocation?.latitude, userLocation?.longitude) {
         userLocation?.let { Position(longitude = it.longitude, latitude = it.latitude) }
     }
+    // When the trip starts at the user's position, the user marker already shows it.
+    val originIsUserLocation = origin != null && userLocation != null &&
+        haversineMeters(origin, userLocation) < UserLocationOriginOverlapMeters
     val destinationDotColor = MaterialTheme.colorScheme.error
     val transitFallbackColor = MaterialTheme.colorScheme.primary
     val onUserMovedCameraState = rememberUpdatedState(onUserMovedCamera)
@@ -167,7 +171,7 @@ fun HomeMap(
             }
         }
 
-        if (origin != null) {
+        if (origin != null && !originIsUserLocation) {
             val originSource = rememberGeoJsonSource(data = originData)
             CircleLayer(
                 id = "trip-origin",

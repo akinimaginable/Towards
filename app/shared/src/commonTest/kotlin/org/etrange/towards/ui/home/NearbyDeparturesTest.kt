@@ -146,7 +146,7 @@ class NearbyDeparturesTest {
             (1..6).map { lineIndex ->
                 stopTime(
                     place = place,
-                    routeId = "route:$lineIndex",
+                    routeId = "route:$stopIndex-$lineIndex",
                     displayName = "$lineIndex",
                     headsign = "Dir $lineIndex",
                     time = "2026-08-06T12:${(lineIndex + 10).toString().padStart(2, '0')}:00Z",
@@ -158,11 +158,144 @@ class NearbyDeparturesTest {
             StopTimes(nearPlace, events, null, null),
             origin,
             maxStops = 5,
-            maxDeparturesPerStop = 4,
         )
 
         assertEquals(5, result.size)
-        assertTrue(result.all { it.departures.size <= 4 })
+        assertEquals(listOf("Stop 1", "Stop 2", "Stop 3", "Stop 4", "Stop 5"), result.map { it.name })
+    }
+
+    @Test
+    fun keepsFollowingDeparturesOfTheSameLine() {
+        val times = listOf("12:03", "12:09", "12:15", "12:21")
+        val stopTimes = StopTimes(
+            place = nearPlace,
+            events = times.map { hhmm ->
+                stopTime(
+                    place = nearPlace,
+                    routeId = "route:1",
+                    displayName = "1",
+                    headsign = "Stockel",
+                    time = "2026-08-06T$hhmm:00Z",
+                )
+            },
+            previousPageCursor = null,
+            nextPageCursor = null,
+        )
+
+        val departure = groupNearbyDepartures(stopTimes, origin).single().departures.single()
+
+        assertEquals(Instant.parse("2026-08-06T12:03:00Z"), departure.time)
+        assertEquals(
+            listOf(Instant.parse("2026-08-06T12:09:00Z"), Instant.parse("2026-08-06T12:15:00Z")),
+            departure.laterTimes,
+        )
+    }
+
+    @Test
+    fun hidesLinesWithNoDepartureForHours() {
+        val idleStop = Place(id = "stop:idle", name = "Idle Stop", coordinate = Coordinate(50.8510, 4.3510))
+        val stopTimes = StopTimes(
+            place = nearPlace,
+            events = listOf(
+                stopTime(nearPlace, "route:1", "1", "A", "2026-08-06T12:05:00Z"),
+                // Night line: first departure is 5 hours away.
+                stopTime(nearPlace, "route:N1", "N1", "B", "2026-08-06T17:00:00Z"),
+                // A stop that only has such a line is not shown at all.
+                stopTime(idleStop, "route:N2", "N2", "C", "2026-08-06T18:00:00Z"),
+            ),
+            previousPageCursor = null,
+            nextPageCursor = null,
+        )
+
+        val result = groupNearbyDepartures(stopTimes, origin, now = baseTime)
+
+        assertEquals(listOf("Near Stop"), result.map { it.name })
+        assertEquals(listOf("1"), result.single().departures.map { it.lineName })
+    }
+
+    @Test
+    fun keepsLineWhoseNextDepartureIsWithinTheWindow() {
+        val stopTimes = StopTimes(
+            place = nearPlace,
+            events = listOf(
+                stopTime(nearPlace, "route:1", "1", "A", "2026-08-06T13:45:00Z"),
+            ),
+            previousPageCursor = null,
+            nextPageCursor = null,
+        )
+
+        val result = groupNearbyDepartures(stopTimes, origin, now = baseTime)
+
+        assertEquals(1, result.single().departures.size)
+    }
+
+    @Test
+    fun mergesSameNamedStopsNearEachOther() {
+        val metro = Place(id = "stop:metro", name = "De Brouckère", coordinate = Coordinate(50.8503, 4.3503))
+        val street = Place(id = "stop:street", name = "De Brouckère", coordinate = Coordinate(50.8506, 4.3506))
+        val stopTimes = StopTimes(
+            place = metro,
+            events = listOf(
+                stopTime(metro, "route:1", "1", "Stockel", "2026-08-06T12:05:00Z"),
+                stopTime(street, "route:29", "29", "Hof ten Berg", "2026-08-06T12:02:00Z"),
+            ),
+            previousPageCursor = null,
+            nextPageCursor = null,
+        )
+
+        val result = groupNearbyDepartures(stopTimes, origin)
+
+        assertEquals(1, result.size)
+        assertEquals("stop:metro", result.single().id)
+        assertEquals(listOf("29", "1"), result.single().departures.map { it.lineName })
+    }
+
+    @Test
+    fun keepsSameNamedStopsFarApart() {
+        val here = Place(id = "stop:a", name = "Gare", coordinate = Coordinate(50.8503, 4.3503))
+        val elsewhere = Place(id = "stop:b", name = "Gare", coordinate = Coordinate(50.8600, 4.3503))
+        val stopTimes = StopTimes(
+            place = here,
+            events = listOf(
+                stopTime(here, "route:1", "1", "A", "2026-08-06T12:05:00Z"),
+                stopTime(elsewhere, "route:2", "2", "B", "2026-08-06T12:05:00Z"),
+            ),
+            previousPageCursor = null,
+            nextPageCursor = null,
+        )
+
+        assertEquals(2, groupNearbyDepartures(stopTimes, origin).size)
+    }
+
+    @Test
+    fun ordersModeGroupsMetroFirst() {
+        val stop = NearbyStop(
+            id = "stop",
+            name = "Stop",
+            coordinate = origin,
+            distanceMeters = 0,
+            departures = listOf(
+                departureOf("29", TransportMode.BUS),
+                departureOf("4", TransportMode.TRAM),
+                departureOf("1", TransportMode.SUBWAY),
+            ),
+        )
+
+        assertEquals(
+            listOf(ModeGroup.METRO, ModeGroup.TRAM, ModeGroup.BUS),
+            stop.departuresByMode().map { it.first },
+        )
+    }
+
+    @Test
+    fun titleCasesAllCapsFeedText() {
+        assertEquals("Gare de l'Ouest", "GARE DE L'OUEST".toDisplayCase())
+        assertEquals("Hof ten Berg", "HOF TEN BERG".toDisplayCase())
+        assertEquals("Herrmann-Debroux", "HERRMANN-DEBROUX".toDisplayCase())
+        assertEquals("Hop. Militaire", "HOP. MILITAIRE".toDisplayCase())
+        assertEquals("De Brouckère", "DE BROUCKÈRE".toDisplayCase())
+        assertEquals("Gare du Midi", "Gare du Midi".toDisplayCase())
+        assertEquals("12", "12".toDisplayCase())
     }
 
     @Test
@@ -228,6 +361,17 @@ class NearbyDeparturesTest {
         assertEquals("1 h", relativeLabel(baseTime + 60.minutes, baseTime))
         assertEquals("1 h 12", relativeLabel(baseTime + 72.minutes, baseTime))
     }
+
+    private fun departureOf(line: String, mode: TransportMode) = NearbyDeparture(
+        id = line,
+        lineName = line,
+        headsign = null,
+        mode = mode,
+        routeColor = null,
+        routeTextColor = null,
+        time = baseTime,
+        realTime = false,
+    )
 
     private fun stopTime(
         place: Place,
