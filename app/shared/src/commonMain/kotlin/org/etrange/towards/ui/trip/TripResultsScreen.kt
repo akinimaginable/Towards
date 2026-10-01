@@ -1,13 +1,11 @@
 package org.etrange.towards.ui.trip
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,13 +18,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -34,19 +28,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.Itinerary
 import org.etrange.towards.domain.model.JourneyLeg
-import org.etrange.towards.domain.model.Place
-import org.etrange.towards.domain.model.TransportMode
 import org.etrange.towards.ui.home.HomeMap
-import org.etrange.towards.ui.icons.arrow_backIcon
-import org.etrange.towards.ui.icons.swapVertIcon
+import org.etrange.towards.ui.preview.previewItineraries
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
 
@@ -81,6 +70,7 @@ fun TripResultsScreen(
         onItineraryClick = viewModel::onItineraryClick,
         onChangeOrigin = onChangeOrigin,
         onChangeDestination = onChangeDestination,
+        userLocation = viewModel.userLocation,
     )
 }
 
@@ -102,71 +92,28 @@ fun TripResultsScreen(
     onItineraryClick: (String) -> Unit,
     onChangeOrigin: () -> Unit = {},
     onChangeDestination: () -> Unit = {},
+    /** The device's own position; distinct from [origin], which may be any searched place. */
+    userLocation: Coordinate? = null,
 ) {
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = originName,
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(onClick = onChangeOrigin)
-                                    .padding(vertical = 2.dp),
-                            )
-                            Text(
-                                text = destinationName,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(onClick = onChangeDestination)
-                                    .padding(vertical = 2.dp),
-                            )
-                        }
-                        IconButton(onClick = onSwap) {
-                            Icon(
-                                imageVector = swapVertIcon,
-                                contentDescription = "Swap origin and destination",
-                            )
-                        }
-                        Text(
-                            text = "Leaving now",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = arrow_backIcon,
-                            contentDescription = "Back",
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent,
-                ),
+            TripHeader(
+                originName = originName,
+                destinationName = destinationName,
+                onBack = onBack,
+                onSwap = onSwap,
+                onChangeOrigin = onChangeOrigin,
+                onChangeDestination = onChangeDestination,
             )
         },
     ) { innerPadding ->
         val layoutDirection = LocalLayoutDirection.current
 
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        // The header is opaque, so the map and list start below it instead of extending underneath.
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding()),
+        ) {
             val mapHeight = (maxHeight * 0.38f).coerceAtLeast(180.dp)
 
             Column(modifier = Modifier.fillMaxSize()) {
@@ -175,9 +122,9 @@ fun TripResultsScreen(
                 ) {
                     HomeMap(
                         center = destination,
-                        userLocation = origin,
+                        userLocation = userLocation,
                         contentPadding = PaddingValues(
-                            top = innerPadding.calculateTopPadding(),
+                            top = 12.dp,
                             bottom = 12.dp,
                         ),
                         routeLegs = selectedLegs,
@@ -273,69 +220,4 @@ private fun TripResultsScreenPreview() {
             onItineraryClick = {},
         )
     }
-}
-
-private fun previewItineraries(): List<Itinerary> {
-    val bourse = Place("stop:bourse", "Bourse", Coordinate(50.848, 4.35))
-    val grandPlace = Place("place:gp", "Grand Place", Coordinate(50.8467, 4.3525))
-    val origin = Place(null, "My location", Coordinate(50.8503, 4.3517))
-    return listOf(
-        Itinerary(
-            id = "opt-1",
-            durationSeconds = 12 * 60,
-            startTime = "2026-09-07T10:04:00+02:00",
-            endTime = "2026-09-07T10:16:00+02:00",
-            transfers = 0,
-            legs = listOf(
-                JourneyLeg(
-                    mode = TransportMode.WALK,
-                    from = origin,
-                    to = bourse,
-                    startTime = "2026-09-07T10:04:00+02:00",
-                    endTime = "2026-09-07T10:08:00+02:00",
-                    scheduledStartTime = "2026-09-07T10:04:00+02:00",
-                    scheduledEndTime = "2026-09-07T10:08:00+02:00",
-                    durationSeconds = 240,
-                    realTime = false,
-                    distanceMeters = 280.0,
-                ),
-                JourneyLeg(
-                    mode = TransportMode.TRAM,
-                    from = bourse,
-                    to = grandPlace,
-                    startTime = "2026-09-07T10:08:00+02:00",
-                    endTime = "2026-09-07T10:16:00+02:00",
-                    scheduledStartTime = "2026-09-07T10:08:00+02:00",
-                    scheduledEndTime = "2026-09-07T10:16:00+02:00",
-                    durationSeconds = 480,
-                    realTime = true,
-                    displayName = "3",
-                    headsign = "Churchill",
-                    routeColor = "FFDD00",
-                    routeTextColor = "000000",
-                ),
-            ),
-        ),
-        Itinerary(
-            id = "opt-2",
-            durationSeconds = 18 * 60,
-            startTime = "2026-09-07T10:06:00+02:00",
-            endTime = "2026-09-07T10:24:00+02:00",
-            transfers = 0,
-            legs = listOf(
-                JourneyLeg(
-                    mode = TransportMode.WALK,
-                    from = origin,
-                    to = grandPlace,
-                    startTime = "2026-09-07T10:06:00+02:00",
-                    endTime = "2026-09-07T10:24:00+02:00",
-                    scheduledStartTime = "2026-09-07T10:06:00+02:00",
-                    scheduledEndTime = "2026-09-07T10:24:00+02:00",
-                    durationSeconds = 18 * 60,
-                    realTime = false,
-                    distanceMeters = 1_200.0,
-                ),
-            ),
-        ),
-    )
 }
