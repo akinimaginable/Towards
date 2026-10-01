@@ -7,12 +7,15 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.etrange.towards.data.ApiException
@@ -21,12 +24,13 @@ import org.etrange.towards.data.LocationProvider
 import org.etrange.towards.data.toApiDateTime
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
-import org.etrange.towards.domain.model.requests.GeocodeRequest
 import org.etrange.towards.domain.model.requests.ReverseGeocodeRequest
 import org.etrange.towards.domain.model.requests.StopTimesRequest
 import org.etrange.towards.domain.port.Geocoder
 import org.etrange.towards.domain.port.TimetableProvider
+import org.etrange.towards.ui.search.PlaceSearch
 import org.etrange.towards.ui.trip.TripEndpoint
+import org.etrange.towards.ui.trip.toTripEndpoint
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -37,32 +41,34 @@ class HomeViewModel(
     private val timetableProvider: TimetableProvider,
     private val locationBiasStore: LocationBiasStore = LocationBiasStore(),
 ) : ViewModel() {
-    private val _destination = MutableStateFlow("")
-    val destination: StateFlow<String> = _destination.asStateFlow()
+    private val _mapFocus = MutableStateFlow(MAP_CENTER)
+    val mapFocus: StateFlow<Coordinate> = _mapFocus.asStateFlow()
 
-    private val _suggestions = MutableStateFlow<List<GeocodeResult>>(emptyList())
-    val suggestions: StateFlow<List<GeocodeResult>> = _suggestions.asStateFlow()
-
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    private val search = PlaceSearch(
+        geocoder = geocoder,
+        scope = viewModelScope,
+        bias = { _mapFocus.value },
+    )
+    val destination: StateFlow<String> = search.query
+    val suggestions: StateFlow<List<GeocodeResult>> = search.suggestions
+    val isLoading: StateFlow<Boolean> = search.isLoading
 
     private val _isLocating = MutableStateFlow(false)
     val isLocating: StateFlow<Boolean> = _isLocating.asStateFlow()
 
-    private val _errorMessage = MutableStateFlow<String?>(null)
-    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+    private val _localError = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> =
+        combine(_localError, search.errorMessage) { local, searchError -> local ?: searchError }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    private val _selected = MutableStateFlow<GeocodeResult?>(null)
-    val selected: StateFlow<GeocodeResult?> = _selected.asStateFlow()
+    private val _searchTarget = MutableStateFlow<HomeSearchTarget?>(null)
+    val searchTarget: StateFlow<HomeSearchTarget?> = _searchTarget.asStateFlow()
 
     private val _locationBias = MutableStateFlow<Coordinate?>(null)
     val locationBias: StateFlow<Coordinate?> = _locationBias.asStateFlow()
 
     private val _userLocation = MutableStateFlow<Coordinate?>(null)
     val userLocation: StateFlow<Coordinate?> = _userLocation.asStateFlow()
-
-    private val _mapFocus = MutableStateFlow(MAP_CENTER)
-    val mapFocus: StateFlow<Coordinate> = _mapFocus.asStateFlow()
 
     private val _followMap = MutableStateFlow(true)
     val followMap: StateFlow<Boolean> = _followMap.asStateFlow()
@@ -85,18 +91,14 @@ class HomeViewModel(
     private val _shortcuts = MutableStateFlow<List<DestinationShortcutItem>>(emptyList())
     val shortcuts: StateFlow<List<DestinationShortcutItem>> = _shortcuts.asStateFlow()
 
-    private var searchJob: Job? = null
     private var locateJob: Job? = null
     private var nearbyJob: Job? = null
     private var nearbyPollJob: Job? = null
     private var reverseGeocodeJob: Job? = null
 
     init {
-        _destination.debounce(300.milliseconds).distinctUntilChanged()
-            .onEach { query -> search(query) }.launchIn(viewModelScope)
-
         _mapFocus.debounce(300.milliseconds).distinctUntilChanged().onEach { coordinate ->
-                if (_destination.value.isBlank()) {
+                if (search.query.value.isBlank()) {
                     loadNearbyDepartures(coordinate)
                 }
                 if (!_followMap.value) {
@@ -112,37 +114,85 @@ class HomeViewModel(
     fun hasLocationPermission(): Boolean = locationProvider.hasPermission()
 
     fun onDestinationChange(value: String) {
-        _destination.value = value
-        _selected.value = null
+        _localError.value = null
+        search.onQueryChange(value)
         if (value.isBlank()) {
-            _suggestions.value = emptyList()
-            _errorMessage.value = null
-            _isLoading.value = false
             loadNearbyDepartures(_mapFocus.value)
         }
     }
 
-    fun onShortcutClick(shortcut: DestinationShortcutItem) {
-        _destination.value = shortcut.label
-        _selected.value = null
+    fun openSearch() {
+        _searchTarget.value = HomeSearchTarget.Destination
     }
 
-    fun onSuggestionClick(result: GeocodeResult) {
-        _destination.value = result.name
-        _selected.value = result
-        _suggestions.value = emptyList()
-        _errorMessage.value = null
+    fun pickOrigin() {
+        _searchTarget.value = HomeSearchTarget.Origin
+        onDestinationChange("")
     }
 
-    fun routingOrigin(): TripEndpoint = _origin.value
+    /** Switches the open sheet back to destination search, keeping the query. */
+    fun returnToDestinationSearch() {
+        if (_searchTarget.value == HomeSearchTarget.Origin) {
+            _searchTarget.value = HomeSearchTarget.Destination
+        }
+    }
 
-    fun setOrigin(endpoint: TripEndpoint) {
+    fun searchDestination() {
+        _searchTarget.value = HomeSearchTarget.Destination
+        onDestinationChange("")
+    }
+
+    fun dismissSearch() {
+        _searchTarget.value = null
+        onDestinationChange("")
+    }
+
+    /**
+     * Handles a shortcut tap. Returns the trip to plan, or null when the tap only fills the
+     * search or changes the origin.
+     */
+    fun onShortcutSelected(shortcut: DestinationShortcutItem): Pair<TripEndpoint, TripEndpoint>? {
+        val coordinate = shortcut.coordinate ?: run {
+            onDestinationChange(shortcut.label)
+            if (_searchTarget.value == null) openSearch()
+            return null
+        }
+        return acceptPlace(
+            TripEndpoint(name = shortcut.label, coordinate = coordinate, stopId = shortcut.stopId),
+        )
+    }
+
+    /** Handles a suggestion tap. Returns the trip to plan, or null when it sets the origin. */
+    fun onSuggestionSelected(result: GeocodeResult): Pair<TripEndpoint, TripEndpoint>? =
+        acceptPlace(result.toTripEndpoint())
+
+    /** Handles a nearby stop tap. Returns the trip to plan, or null when it is the same place. */
+    fun onNearbyStopSelected(stop: NearbyStop): Pair<TripEndpoint, TripEndpoint>? =
+        tripFor(stop.toTripEndpoint())
+
+    private fun acceptPlace(place: TripEndpoint): Pair<TripEndpoint, TripEndpoint>? {
+        if (_searchTarget.value == HomeSearchTarget.Origin) {
+            setOrigin(place)
+            searchDestination()
+            return null
+        }
+        val trip = tripFor(place) ?: return null
+        dismissSearch()
+        return trip
+    }
+
+    private fun tripFor(destination: TripEndpoint): Pair<TripEndpoint, TripEndpoint>? {
+        val origin = _origin.value
+        if (origin.isSamePlace(destination)) {
+            _localError.value = "Choose a different destination"
+            return null
+        }
+        return origin to destination
+    }
+
+    private fun setOrigin(endpoint: TripEndpoint) {
         _origin.value = endpoint
-        _errorMessage.value = null
-    }
-
-    fun onSamePlaceSelected() {
-        _errorMessage.value = "Choose a different destination"
+        _localError.value = null
     }
 
     fun onUserMovedCamera() {
@@ -160,11 +210,12 @@ class HomeViewModel(
         locateJob?.cancel()
         locateJob = viewModelScope.launch {
             _isLocating.value = true
-            _errorMessage.value = null
+            _localError.value = null
+            search.clearError()
             try {
                 val coordinate = locationProvider.currentCoordinate()
                 if (coordinate == null) {
-                    _errorMessage.value = "Unable to determine your current location"
+                    _localError.value = "Unable to determine your current location"
                     return@launch
                 }
                 clearFocusedPlace()
@@ -173,9 +224,9 @@ class HomeViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: ApiException) {
-                _errorMessage.value = error.message
+                _localError.value = error.message
             } catch (error: Exception) {
-                _errorMessage.value = error.message ?: "Unable to determine your current location"
+                _localError.value = error.message ?: "Unable to determine your current location"
             } finally {
                 _isLocating.value = false
             }
@@ -184,7 +235,7 @@ class HomeViewModel(
 
     fun onLocationPermissionDenied(fromUserAction: Boolean = true) {
         if (fromUserAction) {
-            _errorMessage.value = "Location permission is required to use your current position"
+            _localError.value = "Location permission is required to use your current position"
         }
     }
 
@@ -278,7 +329,7 @@ class HomeViewModel(
         nearbyPollJob = viewModelScope.launch {
             while (isActive) {
                 delay(NEARBY_POLL_INTERVAL_MS.milliseconds)
-                if (_destination.value.isBlank()) {
+                if (search.query.value.isBlank()) {
                     loadNearbyDepartures(_mapFocus.value)
                 }
             }
@@ -322,46 +373,6 @@ class HomeViewModel(
         }
     }
 
-    private fun search(query: String) {
-        searchJob?.cancel()
-        val trimmed = query.trim()
-        if (trimmed.length < 2) {
-            _suggestions.value = emptyList()
-            _errorMessage.value = null
-            _isLoading.value = false
-            return
-        }
-        // Skip re-search when the field was filled from a selection.
-        if (_selected.value?.name == trimmed) {
-            return
-        }
-
-        searchJob = viewModelScope.launch {
-            _isLoading.value = true
-            _errorMessage.value = null
-            try {
-                _suggestions.value = geocoder.geocode(
-                    GeocodeRequest(
-                        text = trimmed,
-                        bias = _mapFocus.value,
-                        numberOfResults = 10,
-                    ),
-                )
-                _isLoading.value = false
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: ApiException) {
-                _suggestions.value = emptyList()
-                _errorMessage.value = error.message
-                _isLoading.value = false
-            } catch (error: Exception) {
-                _suggestions.value = emptyList()
-                _errorMessage.value = error.message ?: "Search failed"
-                _isLoading.value = false
-            }
-        }
-    }
-
     companion object {
         private val MAP_CENTER = Coordinate(latitude = 50.8503, longitude = 4.3517)
         private const val NEARBY_RADIUS_METERS = 1_500
@@ -370,3 +381,6 @@ class HomeViewModel(
         private const val NEARBY_POLL_INTERVAL_MS = 60_000L
     }
 }
+
+/** Which field the home search sheet is editing, or null when the sheet is closed. */
+enum class HomeSearchTarget { Origin, Destination }

@@ -3,7 +3,6 @@ package org.etrange.towards
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -14,9 +13,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.minutes
-import kotlinx.coroutines.flow.MutableStateFlow
 import org.etrange.towards.data.ApiConfig
 import org.etrange.towards.data.SettingsStore
 import org.etrange.towards.data.HttpGeocoder
@@ -25,8 +21,6 @@ import org.etrange.towards.data.HttpTripPlanner
 import org.etrange.towards.data.LocationBiasStore
 import org.etrange.towards.data.createHttpClient
 import org.etrange.towards.data.rememberLocationProvider
-import org.etrange.towards.domain.model.Coordinate
-import org.etrange.towards.domain.model.TransportMode
 import org.etrange.towards.navigation.HomeRoute
 import org.etrange.towards.navigation.LocationPickerRoute
 import org.etrange.towards.navigation.SettingsRoute
@@ -34,8 +28,7 @@ import org.etrange.towards.navigation.TripResultsRoute
 import org.etrange.towards.ui.home.DestinationShortcutItem
 import org.etrange.towards.ui.home.HomeScreen
 import org.etrange.towards.ui.home.HomeViewModel
-import org.etrange.towards.ui.home.NearbyDeparture
-import org.etrange.towards.ui.home.NearbyStop
+import org.etrange.towards.ui.preview.previewNearbyStops
 import org.etrange.towards.ui.settings.SettingsScreen
 import org.etrange.towards.ui.settings.SettingsViewModel
 import org.etrange.towards.ui.theme.ThemeMode
@@ -46,7 +39,7 @@ import org.etrange.towards.ui.trip.LocationPickerViewModel
 import org.etrange.towards.ui.trip.TripEndpoint
 import org.etrange.towards.ui.trip.TripResultsScreen
 import org.etrange.towards.ui.trip.TripResultsViewModel
-import org.etrange.towards.ui.trip.counterpartOrNull
+import org.etrange.towards.ui.trip.counterpart
 import org.etrange.towards.ui.trip.destination
 import org.etrange.towards.ui.trip.origin
 import org.etrange.towards.ui.trip.toPickerRoute
@@ -87,7 +80,6 @@ fun App(
     }
     val locationProvider = rememberLocationProvider()
     val locationBiasStore = remember { LocationBiasStore() }
-    val pickedOrigin = remember { MutableStateFlow<TripEndpoint?>(null) }
 
     TowardsTheme(themeMode = themeMode) {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -103,12 +95,6 @@ fun App(
                             timetableProvider = timetableProvider,
                             locationBiasStore = locationBiasStore,
                         )
-                    }
-                    val incomingOrigin by pickedOrigin.collectAsStateWithLifecycle()
-                    LaunchedEffect(incomingOrigin) {
-                        val origin = incomingOrigin ?: return@LaunchedEffect
-                        homeViewModel.setOrigin(origin)
-                        pickedOrigin.value = null
                     }
                     HomeScreen(
                         viewModel = homeViewModel,
@@ -128,6 +114,11 @@ fun App(
                             tripPlanner = tripPlanner,
                             origin = route.origin(),
                             destination = route.destination(),
+                            userLocation = if (locationProvider.hasPermission()) {
+                                locationProvider.lastKnownCoordinate()
+                            } else {
+                                null
+                            },
                         )
                     }
                     TripResultsScreen(
@@ -160,27 +151,22 @@ fun App(
                             geocoder = geocoder,
                             locationProvider = locationProvider,
                             locationBiasStore = locationBiasStore,
-                            otherPlace = route.counterpartOrNull(),
+                            otherPlace = route.counterpart(),
                         )
                     }
                     LocationPickerScreen(
                         viewModel = pickerViewModel,
                         editingOrigin = route.editingOrigin,
+                        counterpartName = route.counterpartName,
                         onBack = { navController.popBackStack() },
                         onPlacePicked = { picked ->
-                            val counterpart = route.counterpartOrNull()
-                            if (counterpart == null) {
-                                pickedOrigin.value = picked
-                                navController.popBackStack()
-                            } else {
-                                val (origin, destination) = tripEndpointsAfterPicking(
-                                    editingOrigin = route.editingOrigin,
-                                    picked = picked,
-                                    counterpart = counterpart,
-                                )
-                                navController.navigate(origin.toResultsRoute(destination)) {
-                                    popUpTo<TripResultsRoute> { inclusive = true }
-                                }
+                            val (origin, destination) = tripEndpointsAfterPicking(
+                                editingOrigin = route.editingOrigin,
+                                picked = picked,
+                                counterpart = route.counterpart(),
+                            )
+                            navController.navigate(origin.toResultsRoute(destination)) {
+                                popUpTo<TripResultsRoute> { inclusive = true }
                             }
                         },
                     )
@@ -249,26 +235,3 @@ private fun AppDarkPreview() {
     }
 }
 
-private fun previewNearbyStops(): List<NearbyStop> {
-    val now = Clock.System.now()
-    return listOf(
-        NearbyStop(
-            id = "stop:bourse",
-            name = "Bourse",
-            coordinate = Coordinate(50.8481, 4.3497),
-            distanceMeters = 120,
-            departures = listOf(
-                NearbyDeparture(
-                    id = "1",
-                    lineName = "3",
-                    headsign = "Churchill",
-                    mode = TransportMode.SUBWAY,
-                    routeColor = "FFDD00",
-                    routeTextColor = "000000",
-                    time = now + 3.minutes,
-                    realTime = true,
-                ),
-            ),
-        ),
-    )
-}

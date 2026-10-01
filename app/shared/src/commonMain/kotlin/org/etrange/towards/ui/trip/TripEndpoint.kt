@@ -66,31 +66,22 @@ fun TripResultsRoute.destination(): TripEndpoint = TripEndpoint(
     stopId = toStopId.takeIf { it.isNotBlank() },
 )
 
-fun TripEndpoint.toOriginPickerRoute() = LocationPickerRoute(
-    editingOrigin = true,
-    hasCounterpart = false,
-)
-
 fun TripEndpoint.toPickerRoute(
     editingOrigin: Boolean,
     counterpart: TripEndpoint,
 ) = LocationPickerRoute(
     editingOrigin = editingOrigin,
-    hasCounterpart = true,
     counterpartLatitude = counterpart.coordinate.latitude,
     counterpartLongitude = counterpart.coordinate.longitude,
     counterpartName = counterpart.name,
     counterpartStopId = counterpart.stopId.orEmpty(),
 )
 
-fun LocationPickerRoute.counterpartOrNull(): TripEndpoint? {
-    if (!hasCounterpart) return null
-    return TripEndpoint(
-        name = counterpartName,
-        coordinate = Coordinate(counterpartLatitude, counterpartLongitude),
-        stopId = counterpartStopId.takeIf { it.isNotBlank() },
-    )
-}
+fun LocationPickerRoute.counterpart(): TripEndpoint = TripEndpoint(
+    name = counterpartName,
+    coordinate = Coordinate(counterpartLatitude, counterpartLongitude),
+    stopId = counterpartStopId.takeIf { it.isNotBlank() },
+)
 
 fun tripEndpointsAfterPicking(
     editingOrigin: Boolean,

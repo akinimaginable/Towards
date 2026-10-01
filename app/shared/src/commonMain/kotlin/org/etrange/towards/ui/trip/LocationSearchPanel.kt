@@ -2,7 +2,6 @@ package org.etrange.towards.ui.trip
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -23,8 +21,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -67,17 +63,21 @@ fun LocationSearchField(
     active: Boolean = true,
     displayText: String? = null,
     autoFocus: Boolean = false,
+    /** When false, the field is display-only while [active] is false (it can't take over editing). */
+    switchable: Boolean = true,
+    leadingIcon: (@Composable () -> Unit)? = null,
     onActivate: () -> Unit = {},
 ) {
-    var fieldValue by remember(active) { mutableStateOf(TextFieldValue(query)) }
+    // The field owns its text while active. The external query is applied only when it differs
+    // from what this field last reported, so typing never fights the echoed state.
+    var fieldValue by remember(active) { mutableStateOf(TextFieldValue(query, TextRange(query.length))) }
+    var reportedText by remember(active) { mutableStateOf(query) }
     var hasEdited by remember(active) { mutableStateOf(false) }
 
     LaunchedEffect(active, query) {
-        if (!active) return@LaunchedEffect
-        val reconciled = reconcileSearchQuery(fieldValue.text, query)
-        if (reconciled != fieldValue.text) {
-            fieldValue = TextFieldValue(reconciled, TextRange(reconciled.length))
-        }
+        if (!active || query == reportedText) return@LaunchedEffect
+        reportedText = query
+        fieldValue = TextFieldValue(query, TextRange(query.length))
     }
 
     LaunchedEffect(active, autoFocus, focusRequester) {
@@ -109,19 +109,16 @@ fun LocationSearchField(
             value = fieldValue,
             onValueChange = { incoming ->
                 hasEdited = true
-                val merged = mergeSearchInput(fieldValue.text, incoming.text)
-                fieldValue = if (merged == incoming.text) {
-                    incoming
-                } else {
-                    TextFieldValue(merged, TextRange(merged.length))
-                }
-                if (merged != query) {
-                    onQueryChange(merged)
+                fieldValue = incoming
+                if (incoming.text != reportedText) {
+                    reportedText = incoming.text
+                    onQueryChange(incoming.text)
                 }
             },
             placeholder = placeholder,
             isLoading = isLoading,
             modifier = fieldModifier,
+            leadingIcon = leadingIcon ?: { DefaultSearchLeadingIcon() },
         )
     } else {
         SearchTextField(
@@ -130,8 +127,19 @@ fun LocationSearchField(
             placeholder = placeholder,
             isLoading = false,
             modifier = fieldModifier,
+            readOnly = !switchable,
+            leadingIcon = leadingIcon ?: { DefaultSearchLeadingIcon() },
         )
     }
+}
+
+@Composable
+private fun DefaultSearchLeadingIcon() {
+    Icon(
+        imageVector = searchIcon,
+        contentDescription = "Search",
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable
@@ -139,31 +147,15 @@ fun LocationSearchPanel(
     query: String,
     suggestions: List<GeocodeResult>,
     shortcuts: List<DestinationShortcutItem>,
-    isLoading: Boolean,
     isLocating: Boolean,
     errorMessage: String?,
     showMyLocation: Boolean,
-    onQueryChange: (String) -> Unit,
     onMyLocationClick: () -> Unit,
     onShortcutClick: (DestinationShortcutItem) -> Unit,
     onSuggestionClick: (GeocodeResult) -> Unit,
     modifier: Modifier = Modifier,
-    focusRequester: FocusRequester? = null,
-    placeholder: String = "Stop, address, or place",
-    showQueryField: Boolean = true,
 ) {
     Column(modifier = modifier) {
-        if (showQueryField) {
-            LocationSearchField(
-                query = query,
-                onQueryChange = onQueryChange,
-                placeholder = placeholder,
-                focusRequester = focusRequester,
-                isLoading = isLoading,
-                autoFocus = focusRequester != null,
-            )
-        }
-
         if (errorMessage != null) {
             Text(
                 text = errorMessage,
@@ -305,23 +297,6 @@ fun LazyListScope.locationSearchResults(
     }
 }
 
-internal fun mergeSearchInput(previous: String, incoming: String): String {
-    if (incoming == previous) return incoming
-    if (incoming.startsWith(previous) || previous.startsWith(incoming)) return incoming
-    if (incoming.endsWith(previous) && incoming.length > previous.length) {
-        return previous + incoming.removeSuffix(previous)
-    }
-    return incoming
-}
-
-internal fun reconcileSearchQuery(fieldText: String, externalQuery: String): String {
-    if (externalQuery == fieldText) return fieldText
-    val inFlightTyping = fieldText.isNotEmpty() &&
-        externalQuery.isNotEmpty() &&
-        (fieldText.startsWith(externalQuery) || externalQuery.startsWith(fieldText))
-    return if (inFlightTyping) fieldText else externalQuery
-}
-
 @Preview(showBackground = true)
 @Composable
 private fun LocationSearchPanelPreview() {
@@ -334,11 +309,9 @@ private fun LocationSearchPanelPreview() {
                     DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
                     DestinationShortcutItem(label = "Grand Place", detail = "7 min"),
                 ),
-                isLoading = false,
                 isLocating = false,
                 errorMessage = null,
                 showMyLocation = true,
-                onQueryChange = {},
                 onMyLocationClick = {},
                 onShortcutClick = {},
                 onSuggestionClick = {},
@@ -366,11 +339,9 @@ private fun LocationSearchPanelSuggestionsPreview() {
                     ),
                 ),
                 shortcuts = emptyList(),
-                isLoading = false,
                 isLocating = false,
                 errorMessage = null,
                 showMyLocation = false,
-                onQueryChange = {},
                 onMyLocationClick = {},
                 onShortcutClick = {},
                 onSuggestionClick = {},

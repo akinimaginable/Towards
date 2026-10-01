@@ -24,24 +24,21 @@ fun SearchTextField(
     placeholder: String,
     isLoading: Boolean,
     modifier: Modifier,
+    readOnly: Boolean = false,
+    leadingIcon: @Composable () -> Unit = { DefaultSearchLeadingIcon() },
 ) {
     TextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier,
+        readOnly = readOnly,
         placeholder = {
             Text(
                 text = placeholder,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
-        leadingIcon = {
-            Icon(
-                imageVector = searchIcon,
-                contentDescription = "Search",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
+        leadingIcon = leadingIcon,
         trailingIcon = {
             if (isLoading) {
                 CircularProgressIndicator(
@@ -60,6 +57,15 @@ fun SearchTextField(
             disabledIndicatorColor = Color.Transparent,
             cursorColor = MaterialTheme.colorScheme.primary,
         ),
+    )
+}
+
+@Composable
+private fun DefaultSearchLeadingIcon() {
+    Icon(
+        imageVector = searchIcon,
+        contentDescription = "Search",
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
 

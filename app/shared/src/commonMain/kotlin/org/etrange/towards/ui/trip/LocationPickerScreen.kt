@@ -1,6 +1,5 @@
 package org.etrange.towards.ui.trip
 
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -21,6 +20,7 @@ import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.LocationKind
 import org.etrange.towards.ui.home.DestinationShortcutItem
 import org.etrange.towards.ui.icons.arrow_backIcon
+import org.etrange.towards.ui.search.PlaceSearchContent
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
 
@@ -28,6 +28,7 @@ import org.etrange.towards.ui.theme.TowardsPreview
 fun LocationPickerScreen(
     viewModel: LocationPickerViewModel,
     editingOrigin: Boolean,
+    counterpartName: String,
     onBack: () -> Unit,
     onPlacePicked: (TripEndpoint) -> Unit,
 ) {
@@ -39,6 +40,7 @@ fun LocationPickerScreen(
 
     LocationPickerScreen(
         editingOrigin = editingOrigin,
+        counterpartName = counterpartName,
         query = query,
         suggestions = suggestions,
         shortcuts = viewModel.shortcuts,
@@ -63,10 +65,15 @@ fun LocationPickerScreen(
     )
 }
 
+/**
+ * Full-screen place picker for an existing trip. It renders the same [PlaceSearchContent] as the
+ * Home search sheet; the field that is not being edited shows the trip's other endpoint.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LocationPickerScreen(
     editingOrigin: Boolean,
+    counterpartName: String,
     query: String,
     suggestions: List<GeocodeResult>,
     shortcuts: List<DestinationShortcutItem>,
@@ -79,13 +86,14 @@ fun LocationPickerScreen(
     onShortcutClick: (DestinationShortcutItem) -> Unit,
     onSuggestionClick: (GeocodeResult) -> Unit,
 ) {
-    val focusRequester = remember { FocusRequester() }
+    val originFocusRequester = remember { FocusRequester() }
+    val destinationFocusRequester = remember { FocusRequester() }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(if (editingOrigin) "Starting from" else "Going to")
+                    Text(if (editingOrigin) "Change starting point" else "Change destination")
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -98,19 +106,22 @@ fun LocationPickerScreen(
             )
         },
     ) { innerPadding ->
-        LocationSearchPanel(
+        PlaceSearchContent(
             query = query,
+            originText = if (editingOrigin) "" else counterpartName,
+            destinationText = if (editingOrigin) counterpartName else "",
+            pickingOrigin = editingOrigin,
             suggestions = suggestions,
             shortcuts = shortcuts,
             isLoading = isLoading,
             isLocating = isLocating,
             errorMessage = errorMessage,
-            showMyLocation = editingOrigin,
             onQueryChange = onQueryChange,
             onMyLocationClick = onMyLocationClick,
             onShortcutClick = onShortcutClick,
             onSuggestionClick = onSuggestionClick,
-            focusRequester = focusRequester,
+            originFocusRequester = originFocusRequester,
+            destinationFocusRequester = destinationFocusRequester,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
@@ -124,6 +135,7 @@ private fun LocationPickerScreenPreview() {
     TowardsPreview(themeMode = ThemeMode.Light) {
         LocationPickerScreen(
             editingOrigin = true,
+            counterpartName = "Grand Place",
             query = "",
             suggestions = emptyList(),
             shortcuts = listOf(
@@ -148,6 +160,7 @@ private fun LocationPickerScreenSuggestionsPreview() {
     TowardsPreview(themeMode = ThemeMode.Light) {
         LocationPickerScreen(
             editingOrigin = false,
+            counterpartName = "My location",
             query = "Grand",
             suggestions = listOf(
                 GeocodeResult(

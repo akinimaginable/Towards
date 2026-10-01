@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.etrange.towards.data.ApiException
 import org.etrange.towards.data.toApiDateTime
+import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.Itinerary
 import org.etrange.towards.domain.model.requests.TripPlanningRequest
 import org.etrange.towards.domain.port.TripPlanner
@@ -19,6 +20,8 @@ class TripResultsViewModel(
     private val tripPlanner: TripPlanner,
     origin: TripEndpoint,
     destination: TripEndpoint,
+    /** The device's last known position, shown as the "you are here" marker; null when unknown. */
+    val userLocation: Coordinate? = null,
 ) : ViewModel() {
     private val _origin = MutableStateFlow(origin)
     val origin: StateFlow<TripEndpoint> = _origin.asStateFlow()

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -35,23 +36,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.etrange.towards.data.rememberLocationPermissionLauncher
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
-import org.etrange.towards.domain.model.LocationKind
-import org.etrange.towards.domain.model.TransportMode
 import org.etrange.towards.ui.icons.settingsIcon
 import org.etrange.towards.ui.search.DestinationSearchSheet
+import org.etrange.towards.ui.preview.previewNearbyStops
+import org.etrange.towards.ui.preview.previewSuggestions
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
 import org.etrange.towards.ui.trip.TripEndpoint
-import org.etrange.towards.ui.trip.toTripEndpoint
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.minutes
 
 @Composable
 fun HomeScreen(
@@ -73,11 +74,10 @@ fun HomeScreen(
     val nearbyStops by viewModel.nearbyStops.collectAsStateWithLifecycle()
     val isLoadingNearby by viewModel.isLoadingNearby.collectAsStateWithLifecycle()
     val nearbyMessage by viewModel.nearbyMessage.collectAsStateWithLifecycle()
+    val searchTarget by viewModel.searchTarget.collectAsStateWithLifecycle()
 
     var pendingLocationRequest by remember { mutableStateOf(false) }
     var autoPermissionRequested by rememberSaveable { mutableStateOf(false) }
-    var searchSheetVisible by rememberSaveable { mutableStateOf(false) }
-    var pickingOrigin by rememberSaveable { mutableStateOf(false) }
 
     val requestLocationPermission = rememberLocationPermissionLauncher { granted ->
         if (pendingLocationRequest) {
@@ -124,98 +124,37 @@ fun HomeScreen(
         onUserMovedCamera = viewModel::onUserMovedCamera,
         onMapCameraIdle = viewModel::onMapCameraIdle,
         onShortcutClick = { shortcut ->
-            val coordinate = shortcut.coordinate
-            if (coordinate != null) {
-                val place = TripEndpoint(
-                    name = shortcut.label,
-                    coordinate = coordinate,
-                    stopId = shortcut.stopId,
-                )
-                if (pickingOrigin) {
-                    viewModel.setOrigin(place)
-                    pickingOrigin = false
-                    viewModel.onDestinationChange("")
-                } else {
-                    planTrip(
-                        viewModel = viewModel,
-                        destination = place,
-                        onPlanTrip = onPlanTrip,
-                    )
-                    viewModel.onDestinationChange("")
-                    searchSheetVisible = false
-                }
-            } else {
-                viewModel.onShortcutClick(shortcut)
-                searchSheetVisible = true
+            viewModel.onShortcutSelected(shortcut)?.let { (origin, destination) ->
+                onPlanTrip(origin, destination)
             }
         },
         onSuggestionClick = { result ->
-            if (pickingOrigin) {
-                viewModel.setOrigin(result.toTripEndpoint())
-                pickingOrigin = false
-                viewModel.onDestinationChange("")
-            } else {
-                viewModel.onSuggestionClick(result)
-                planTrip(
-                    viewModel = viewModel,
-                    destination = result.toTripEndpoint(),
-                    onPlanTrip = onPlanTrip,
-                )
-                viewModel.onDestinationChange("")
-                searchSheetVisible = false
+            viewModel.onSuggestionSelected(result)?.let { (origin, destination) ->
+                onPlanTrip(origin, destination)
             }
         },
         onNearbyStopClick = { stop ->
-            planTrip(
-                viewModel = viewModel,
-                destination = stop.toTripEndpoint(),
-                onPlanTrip = onPlanTrip,
-            )
+            viewModel.onNearbyStopSelected(stop)?.let { (origin, destination) ->
+                onPlanTrip(origin, destination)
+            }
         },
         onUseCurrentLocation = {
             pendingLocationRequest = true
             requestLocationPermission()
         },
         onOpenSettings = onOpenSettings,
-        searchSheetVisible = searchSheetVisible,
-        pickingOrigin = pickingOrigin,
-        onOpenSearch = {
-            pickingOrigin = false
-            searchSheetVisible = true
-        },
-        onPickOrigin = {
-            pickingOrigin = true
-            viewModel.onDestinationChange("")
-            searchSheetVisible = true
-        },
-        onSearchDestination = {
-            pickingOrigin = false
-            viewModel.onDestinationChange("")
-        },
+        searchSheetVisible = searchTarget != null,
+        pickingOrigin = searchTarget == HomeSearchTarget.Origin,
+        onOpenSearch = viewModel::openSearch,
+        onPickOrigin = viewModel::pickOrigin,
+        onSearchDestination = viewModel::searchDestination,
         onMyLocationAsOrigin = {
             pendingLocationRequest = true
             requestLocationPermission()
-            pickingOrigin = false
+            viewModel.returnToDestinationSearch()
         },
-        onDismissSearch = {
-            searchSheetVisible = false
-            pickingOrigin = false
-            viewModel.onDestinationChange("")
-        },
+        onDismissSearch = viewModel::dismissSearch,
     )
-}
-
-private fun planTrip(
-    viewModel: HomeViewModel,
-    destination: TripEndpoint,
-    onPlanTrip: (TripEndpoint, TripEndpoint) -> Unit,
-) {
-    val origin = viewModel.routingOrigin()
-    if (origin.isSamePlace(destination)) {
-        viewModel.onSamePlaceSelected()
-        return
-    }
-    onPlanTrip(origin, destination)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -275,13 +214,19 @@ fun HomeScreen(
             val layoutDirection = LocalLayoutDirection.current
             val topPadding = innerPadding.calculateTopPadding()
 
+            val density = LocalDensity.current
+            // Height of the shortcuts + search overlay as actually laid out. It grows with the
+            // system font size, so the map and list insets follow it instead of fixed constants.
+            var measuredOverlayHeight by remember(density) { mutableStateOf<Dp?>(null) }
+
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 val mapPeekHeight = maxHeight / 5
-                val shortcutsHeight = 48.dp
-                val searchHeight = 56.dp
+                val shortcutsMinHeight = 48.dp
+                val searchMinHeight = 56.dp
                 val sectionSpacing = 4.dp
                 val searchListOverlap = 16.dp
-                val overlayHeight = shortcutsHeight + sectionSpacing + searchHeight
+                val overlayHeight = measuredOverlayHeight
+                    ?: (shortcutsMinHeight + sectionSpacing + searchMinHeight)
                 val mapHeight =
                     (topPadding + mapPeekHeight + overlayHeight).coerceAtMost(maxHeight * 0.58f)
                 val mapBodyHeight = (mapHeight - searchListOverlap).coerceAtLeast(0.dp)
@@ -344,14 +289,18 @@ fun HomeScreen(
                             top = mapHeight - overlayHeight,
                             start = horizontalPadding,
                             end = innerPadding.calculateEndPadding(layoutDirection),
-                        ),
+                        ).onSizeChanged { size ->
+                            val measured = with(density) { size.height.toDp() }
+                            if (measured != measuredOverlayHeight) measuredOverlayHeight = measured
+                        },
                         verticalArrangement = Arrangement.spacedBy(sectionSpacing),
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().height(shortcutsHeight)
+                            modifier = Modifier.fillMaxWidth().heightIn(min = shortcutsMinHeight)
                                 .horizontalScroll(rememberScrollState())
                                 .padding(horizontal = 12.dp),
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             for (shortcut in shortcuts) {
                                 DestinationShortcut(
@@ -364,7 +313,7 @@ fun HomeScreen(
                         }
 
                         SearchLaunchBar(
-                            modifier = Modifier.fillMaxWidth().height(searchHeight)
+                            modifier = Modifier.fillMaxWidth().heightIn(min = searchMinHeight)
                                 .padding(horizontal = 12.dp),
                             onClick = onOpenSearch,
                             onUseCurrentLocation = onUseCurrentLocation,
@@ -397,76 +346,6 @@ fun HomeScreen(
             )
         }
     }
-}
-
-private fun previewSuggestions() = listOf(
-    GeocodeResult(
-        id = "stop:bru",
-        kind = LocationKind.STOP,
-        name = "Bruxelles-Central",
-        coordinate = Coordinate(50.8453, 4.3570),
-        country = "Belgium",
-    ),
-    GeocodeResult(
-        id = "place:gp",
-        kind = LocationKind.PLACE,
-        name = "Grand Place",
-        coordinate = Coordinate(50.8467, 4.3525),
-        street = "Grand Place",
-        country = "Belgium",
-    ),
-)
-
-private fun previewNearbyStops(): List<NearbyStop> {
-    val now = Clock.System.now()
-    return listOf(
-        NearbyStop(
-            id = "stop:bourse",
-            name = "Bourse",
-            coordinate = Coordinate(50.8481, 4.3497),
-            distanceMeters = 120,
-            departures = listOf(
-                NearbyDeparture(
-                    id = "1",
-                    lineName = "3",
-                    headsign = "Churchill",
-                    mode = TransportMode.SUBWAY,
-                    routeColor = "FFDD00",
-                    routeTextColor = "000000",
-                    time = now + 3.minutes,
-                    realTime = true,
-                ),
-                NearbyDeparture(
-                    id = "2",
-                    lineName = "4",
-                    headsign = "Stalle",
-                    mode = TransportMode.SUBWAY,
-                    routeColor = "F4C300",
-                    routeTextColor = "000000",
-                    time = now + 7.minutes,
-                    realTime = false,
-                ),
-            ),
-        ),
-        NearbyStop(
-            id = "stop:anneessens",
-            name = "Anneessens",
-            coordinate = Coordinate(50.8469, 4.3458),
-            distanceMeters = 280,
-            departures = listOf(
-                NearbyDeparture(
-                    id = "3",
-                    lineName = "46",
-                    headsign = "Moortebeek",
-                    mode = TransportMode.BUS,
-                    routeColor = "E30613",
-                    routeTextColor = "FFFFFF",
-                    time = now + 5.minutes,
-                    realTime = true,
-                ),
-            ),
-        ),
-    )
 }
 
 @Preview

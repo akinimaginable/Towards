@@ -23,9 +23,8 @@ data class TripResultsRoute(
 @Serializable
 data class LocationPickerRoute(
     val editingOrigin: Boolean,
-    val hasCounterpart: Boolean = false,
-    val counterpartLatitude: Double = 0.0,
-    val counterpartLongitude: Double = 0.0,
-    val counterpartName: String = "",
+    val counterpartLatitude: Double,
+    val counterpartLongitude: Double,
+    val counterpartName: String,
     val counterpartStopId: String = "",
 )
