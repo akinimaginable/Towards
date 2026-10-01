@@ -6,6 +6,7 @@ import io.ktor.server.netty.*
 import org.etrange.towards.application.AuditService
 import org.etrange.towards.application.MobilityService
 import org.etrange.towards.config.AppConfig
+import org.etrange.towards.config.DatabaseConfig
 import org.etrange.towards.di.applicationModule
 import org.etrange.towards.infrastructure.database.DatabaseResources
 import org.etrange.towards.plugins.configureHttpPlugins
@@ -18,6 +19,10 @@ fun main(args: Array<String>) = EngineMain.main(args)
 
 fun Application.module() {
     val config = AppConfig.from(environment.config)
+    when (val database = config.database) {
+        is DatabaseConfig.Enabled -> log.info("Database enabled url={}", database.url)
+        DatabaseConfig.Disabled -> log.info("Database disabled")
+    }
 
     install(Koin) {
         slf4jLogger()

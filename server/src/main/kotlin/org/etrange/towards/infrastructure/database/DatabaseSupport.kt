@@ -47,7 +47,7 @@ class DatabaseResources(
 }
 
 object DatabaseFactorySupport {
-    fun initialize(config: DatabaseConfig): DatabaseResources {
+    fun initialize(config: DatabaseConfig.Enabled): DatabaseResources {
         val dataSource = createDataSource(config)
         runMigrations(dataSource)
         return DatabaseResources(
@@ -56,7 +56,7 @@ object DatabaseFactorySupport {
         )
     }
 
-    private fun createDataSource(config: DatabaseConfig): HikariDataSource {
+    private fun createDataSource(config: DatabaseConfig.Enabled): HikariDataSource {
         val hikariConfig = HikariConfig().apply {
             jdbcUrl = config.url
             username = config.user

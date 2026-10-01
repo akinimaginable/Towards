@@ -15,6 +15,7 @@ import org.etrange.towards.application.NoOpAuditRepository
 import org.etrange.towards.application.PassThroughTripPlanCache
 import org.etrange.towards.application.TripPlanCache
 import org.etrange.towards.config.AppConfig
+import org.etrange.towards.config.DatabaseConfig
 import org.etrange.towards.domain.port.Geocoder
 import org.etrange.towards.domain.port.TransitDataProvider
 import org.etrange.towards.domain.port.TripInformationProvider
@@ -59,8 +60,9 @@ fun applicationModule(config: AppConfig) = module {
     single<Geocoder> { get<MotisClient>() }
     single<TransitDataProvider> { get<MotisClient>() }
 
-    if (config.database.enabled) {
-        single { DatabaseFactorySupport.initialize(config.database) }
+    when (val database = config.database) {
+        is DatabaseConfig.Enabled -> single { DatabaseFactorySupport.initialize(database) }
+        DatabaseConfig.Disabled -> Unit
     }
     single<AuditRepository> {
         val resources = getOrNull<DatabaseResources>()

@@ -15,13 +15,44 @@ data class DatabasePoolConfig(
     val maxLifetimeMillis: Long,
 )
 
-data class DatabaseConfig(
-    val enabled: Boolean,
-    val url: String,
-    val user: String,
-    val password: String,
-    val pool: DatabasePoolConfig,
-)
+sealed interface DatabaseConfig {
+    data object Disabled : DatabaseConfig
+
+    data class Enabled(
+        val url: String,
+        val user: String,
+        val password: String,
+        val pool: DatabasePoolConfig,
+    ) : DatabaseConfig
+
+    companion object {
+        fun from(config: ApplicationConfig): DatabaseConfig {
+            val enabled = config.propertyOrNull("enabled")?.getString()?.toBooleanStrict() ?: false
+            if (!enabled) {
+                return Disabled
+            }
+
+            val url = config.property("url").getString().trim()
+            val user = config.property("user").getString().trim()
+            require(url.isNotEmpty()) { "database url is required when the database is enabled" }
+            require(user.isNotEmpty()) { "database user is required when the database is enabled" }
+
+            val pool = config.config("pool")
+            return Enabled(
+                url = url,
+                user = user,
+                password = config.propertyOrNull("password")?.getString().orEmpty(),
+                pool = DatabasePoolConfig(
+                    maximumPoolSize = pool.property("maximumPoolSize").getString().toInt(),
+                    minimumIdle = pool.property("minimumIdle").getString().toInt(),
+                    connectionTimeoutMillis = pool.property("connectionTimeoutMillis").getString().toLong(),
+                    idleTimeoutMillis = pool.property("idleTimeoutMillis").getString().toLong(),
+                    maxLifetimeMillis = pool.property("maxLifetimeMillis").getString().toLong(),
+                ),
+            )
+        }
+    }
+}
 
 data class RateLimitConfig(
     val requests: Int,
@@ -42,29 +73,20 @@ data class AppConfig(
         fun from(config: ApplicationConfig): AppConfig {
             val root = config.config("towards")
             val motis = root.config("motis")
-            val database = root.config("database")
-            val pool = database.config("pool")
             val rateLimit = root.config("rateLimit")
             val audit = root.config("audit")
+            val database = if (root.keys().any { it == "database" || it.startsWith("database.") }) {
+                DatabaseConfig.from(root.config("database"))
+            } else {
+                DatabaseConfig.Disabled
+            }
 
             return AppConfig(
                 motis = MotisConfig(
                     baseUrl = motis.property("baseUrl").getString().trimEnd('/'),
                     requestTimeoutMillis = motis.property("requestTimeoutMillis").getString().toLong(),
                 ),
-                database = DatabaseConfig(
-                    enabled = database.property("enabled").getString().toBooleanStrict(),
-                    url = database.property("url").getString(),
-                    user = database.property("user").getString(),
-                    password = database.property("password").getString(),
-                    pool = DatabasePoolConfig(
-                        maximumPoolSize = pool.property("maximumPoolSize").getString().toInt(),
-                        minimumIdle = pool.property("minimumIdle").getString().toInt(),
-                        connectionTimeoutMillis = pool.property("connectionTimeoutMillis").getString().toLong(),
-                        idleTimeoutMillis = pool.property("idleTimeoutMillis").getString().toLong(),
-                        maxLifetimeMillis = pool.property("maxLifetimeMillis").getString().toLong(),
-                    ),
-                ),
+                database = database,
                 rateLimit = RateLimitConfig(
                     requests = rateLimit.property("requests").getString().toInt(),
                     periodSeconds = rateLimit.property("periodSeconds").getString().toLong(),

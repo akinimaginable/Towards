@@ -1,5 +1,6 @@
 services:
   db:
+    profiles: ["database"]
     image: postgres:18
     container_name: towards-db
     restart: unless-stopped
@@ -28,13 +29,14 @@ services:
     depends_on:
       db:
         condition: service_healthy
+        required: false
     ports:
       - "${BACKEND_PORT:-8081}:8081"
     environment:
       PORT: 8081
       MOTIS_BASE_URL: ${MOTIS_BASE_URL:-https://api.transitous.org}
       MOTIS_REQUEST_TIMEOUT_MS: ${MOTIS_REQUEST_TIMEOUT_MS:-15000}
-      DATABASE_ENABLED: ${DATABASE_ENABLED:-true}
+      DATABASE_ENABLED: ${DATABASE_ENABLED:-false}
       DATABASE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-towards}
       DATABASE_USER: ${POSTGRES_USER:-towards}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-towards}
