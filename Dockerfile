@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM eclipse-temurin:25-jdk-jammy AS build
+FROM eclipse-temurin:25-jdk-resolute AS build
 WORKDIR /workspace
 
 ENV GRADLE_OPTS="-Dorg.gradle.daemon=false -Dkotlin.daemon.enabled=false"
@@ -23,7 +23,7 @@ RUN rm -f gradle/gradle-daemon-jvm.properties \
         --max-workers=1 \
         -x test
 
-FROM eclipse-temurin:25-jre-jammy AS runtime
+FROM eclipse-temurin:25-jre-resolute AS runtime
 WORKDIR /app
 
 RUN apt-get update \
@@ -39,4 +39,4 @@ EXPOSE 8081
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
     CMD curl -fsS http://127.0.0.1:8081/health | grep -q '"status":"UP"'
 
-ENTRYPOINT ["java", "--illegal-native-access=deny", "-XX:+UseCompactObjectHeaders", ""-XX:+UseContainerSupport", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "--illegal-native-access=deny", "-XX:+UseCompactObjectHeaders", "-XX:+UseContainerSupport", "-jar", "/app/app.jar"]
