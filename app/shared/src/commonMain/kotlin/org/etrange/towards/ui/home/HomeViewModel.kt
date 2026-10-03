@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 import org.etrange.towards.data.ApiException
 import org.etrange.towards.data.LocationBiasStore
 import org.etrange.towards.data.LocationProvider
+import org.etrange.towards.data.SearchHistoryStore
 import org.etrange.towards.data.toApiDateTime
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
@@ -40,6 +41,7 @@ class HomeViewModel(
     private val locationProvider: LocationProvider,
     private val timetableProvider: TimetableProvider,
     private val locationBiasStore: LocationBiasStore = LocationBiasStore(),
+    private val searchHistoryStore: SearchHistoryStore = SearchHistoryStore(),
 ) : ViewModel() {
     private val _mapFocus = MutableStateFlow(MAP_CENTER)
     val mapFocus: StateFlow<Coordinate> = _mapFocus.asStateFlow()
@@ -51,6 +53,7 @@ class HomeViewModel(
     )
     val destination: StateFlow<String> = search.query
     val suggestions: StateFlow<List<GeocodeResult>> = search.suggestions
+    val history: StateFlow<List<GeocodeResult>> = searchHistoryStore.entries
     val isLoading: StateFlow<Boolean> = search.isLoading
 
     private val _isLocating = MutableStateFlow(false)
@@ -163,8 +166,18 @@ class HomeViewModel(
     }
 
     /** Handles a suggestion tap. Returns the trip to plan, or null when it sets the origin. */
-    fun onSuggestionSelected(result: GeocodeResult): Pair<TripEndpoint, TripEndpoint>? =
-        acceptPlace(result.toTripEndpoint())
+    fun onSuggestionSelected(result: GeocodeResult): Pair<TripEndpoint, TripEndpoint>? {
+        val place = result.toTripEndpoint()
+        if (_searchTarget.value == HomeSearchTarget.Origin) {
+            searchHistoryStore.record(result)
+            return acceptPlace(place)
+        }
+        return acceptPlace(place)?.also { searchHistoryStore.record(result) }
+    }
+
+    fun clearHistory() {
+        searchHistoryStore.clear()
+    }
 
     /** Handles a nearby stop tap. Returns the trip to plan, or null when it is the same place. */
     fun onNearbyStopSelected(stop: NearbyStop): Pair<TripEndpoint, TripEndpoint>? =

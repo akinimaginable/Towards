@@ -22,6 +22,7 @@ import org.etrange.towards.ui.home.DestinationShortcutItem
 fun DestinationSearchSheet(
     query: String,
     suggestions: List<GeocodeResult>,
+    history: List<GeocodeResult>,
     shortcuts: List<DestinationShortcutItem>,
     isLoading: Boolean,
     isLocating: Boolean,
@@ -35,6 +36,7 @@ fun DestinationSearchSheet(
     onMyLocationClick: () -> Unit,
     onShortcutClick: (DestinationShortcutItem) -> Unit,
     onSuggestionClick: (GeocodeResult) -> Unit,
+    onClearHistory: () -> Unit,
 ) {
     val sheetState = rememberBottomSheetState(
         initialValue = SheetValue.Expanded,
@@ -55,6 +57,7 @@ fun DestinationSearchSheet(
             destinationText = null,
             pickingOrigin = pickingOrigin,
             suggestions = suggestions,
+            history = history,
             shortcuts = shortcuts,
             isLoading = isLoading,
             isLocating = isLocating,
@@ -63,6 +66,7 @@ fun DestinationSearchSheet(
             onMyLocationClick = onMyLocationClick,
             onShortcutClick = onShortcutClick,
             onSuggestionClick = onSuggestionClick,
+            onClearHistory = onClearHistory,
             originFocusRequester = originFocusRequester,
             destinationFocusRequester = destinationFocusRequester,
             onPickOrigin = onPickOrigin,

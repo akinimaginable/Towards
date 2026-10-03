@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.etrange.towards.data.LocationBiasStore
 import org.etrange.towards.data.LocationProvider
+import org.etrange.towards.data.SearchHistoryStore
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.port.Geocoder
@@ -23,6 +24,7 @@ class LocationPickerViewModel(
     private val geocoder: Geocoder,
     private val locationProvider: LocationProvider,
     private val locationBiasStore: LocationBiasStore = LocationBiasStore(),
+    private val searchHistoryStore: SearchHistoryStore = SearchHistoryStore(),
     private val otherPlace: TripEndpoint? = null,
 ) : ViewModel() {
     private val locationBias: Coordinate? =
@@ -35,6 +37,7 @@ class LocationPickerViewModel(
     )
     val query: StateFlow<String> = search.query
     val suggestions: StateFlow<List<GeocodeResult>> = search.suggestions
+    val history: StateFlow<List<GeocodeResult>> = searchHistoryStore.entries
     val isLoading: StateFlow<Boolean> = search.isLoading
 
     private val _isLocating = MutableStateFlow(false)
@@ -68,7 +71,15 @@ class LocationPickerViewModel(
         )
     }
 
-    fun onSuggestionClick(result: GeocodeResult): TripEndpoint? = accept(result.toTripEndpoint())
+    fun onSuggestionClick(result: GeocodeResult): TripEndpoint? {
+        val endpoint = accept(result.toTripEndpoint()) ?: return null
+        searchHistoryStore.record(result)
+        return endpoint
+    }
+
+    fun clearHistory() {
+        searchHistoryStore.clear()
+    }
 
     fun onMyLocationClick(onResult: (TripEndpoint?) -> Unit) {
         locateJob?.cancel()
