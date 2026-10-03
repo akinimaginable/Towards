@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -146,6 +147,7 @@ private fun DefaultSearchLeadingIcon() {
 fun LocationSearchPanel(
     query: String,
     suggestions: List<GeocodeResult>,
+    history: List<GeocodeResult>,
     shortcuts: List<DestinationShortcutItem>,
     isLocating: Boolean,
     errorMessage: String?,
@@ -153,6 +155,7 @@ fun LocationSearchPanel(
     onMyLocationClick: () -> Unit,
     onShortcutClick: (DestinationShortcutItem) -> Unit,
     onSuggestionClick: (GeocodeResult) -> Unit,
+    onClearHistory: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
@@ -171,12 +174,14 @@ fun LocationSearchPanel(
             locationSearchResults(
                 query = query,
                 suggestions = suggestions,
+                history = history,
                 shortcuts = shortcuts,
                 isLocating = isLocating,
                 showMyLocation = showMyLocation,
                 onMyLocationClick = onMyLocationClick,
                 onShortcutClick = onShortcutClick,
                 onSuggestionClick = onSuggestionClick,
+                onClearHistory = onClearHistory,
             )
         }
     }
@@ -185,12 +190,14 @@ fun LocationSearchPanel(
 fun LazyListScope.locationSearchResults(
     query: String,
     suggestions: List<GeocodeResult>,
+    history: List<GeocodeResult>,
     shortcuts: List<DestinationShortcutItem>,
     isLocating: Boolean,
     showMyLocation: Boolean,
     onMyLocationClick: () -> Unit,
     onShortcutClick: (DestinationShortcutItem) -> Unit,
     onSuggestionClick: (GeocodeResult) -> Unit,
+    onClearHistory: () -> Unit,
 ) {
     if (query.isBlank()) {
         if (showMyLocation) {
@@ -262,40 +269,75 @@ fun LazyListScope.locationSearchResults(
         item(key = "divider") {
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
         }
+
+        if (history.isNotEmpty()) {
+            item(key = "recent-header") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Recent",
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = onClearHistory) {
+                        Text("Clear")
+                    }
+                }
+            }
+            itemsIndexed(
+                items = history,
+                key = { index, result -> "recent:${placeResultKey(index, result)}" },
+            ) { _, result ->
+                PlaceResultRow(result = result, onClick = { onSuggestionClick(result) })
+            }
+        }
     }
 
     itemsIndexed(
         items = suggestions,
-        key = { index, result ->
-            result.id.ifBlank {
-                "geo:$index:${result.kind}:${result.coordinate.latitude}," +
-                    "${result.coordinate.longitude}:${result.name}"
-            }
-        },
+        key = { index, result -> placeResultKey(index, result) },
     ) { _, result ->
-        Button(
-            onClick = { onSuggestionClick(result) },
-            shape = RectangleShape,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Transparent,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-            ),
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = result.name,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = result.subtitle(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+        PlaceResultRow(result = result, onClick = { onSuggestionClick(result) })
+    }
+}
+
+@Composable
+private fun PlaceResultRow(
+    result: GeocodeResult,
+    onClick: () -> Unit,
+) {
+    Button(
+        onClick = onClick,
+        shape = RectangleShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ),
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = result.name,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = result.subtitle(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
+
+private fun placeResultKey(index: Int, result: GeocodeResult): String =
+    result.id.ifBlank {
+        "geo:$index:${result.kind}:${result.coordinate.latitude}," +
+            "${result.coordinate.longitude}:${result.name}"
+    }
 
 @Preview(showBackground = true)
 @Composable
@@ -305,6 +347,16 @@ private fun LocationSearchPanelPreview() {
             LocationSearchPanel(
                 query = "",
                 suggestions = emptyList(),
+                history = listOf(
+                    GeocodeResult(
+                        id = "place:gp",
+                        kind = LocationKind.PLACE,
+                        name = "Grand Place",
+                        coordinate = Coordinate(50.8467, 4.3525),
+                        street = "Grand Place",
+                        country = "Belgium",
+                    ),
+                ),
                 shortcuts = listOf(
                     DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
                     DestinationShortcutItem(label = "Grand Place", detail = "7 min"),
@@ -315,6 +367,7 @@ private fun LocationSearchPanelPreview() {
                 onMyLocationClick = {},
                 onShortcutClick = {},
                 onSuggestionClick = {},
+                onClearHistory = {},
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -338,6 +391,7 @@ private fun LocationSearchPanelSuggestionsPreview() {
                         country = "Belgium",
                     ),
                 ),
+                history = emptyList(),
                 shortcuts = emptyList(),
                 isLocating = false,
                 errorMessage = null,
@@ -345,6 +399,7 @@ private fun LocationSearchPanelSuggestionsPreview() {
                 onMyLocationClick = {},
                 onShortcutClick = {},
                 onSuggestionClick = {},
+                onClearHistory = {},
                 modifier = Modifier.fillMaxSize(),
             )
         }

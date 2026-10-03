@@ -63,6 +63,7 @@ fun HomeScreen(
     val destination by viewModel.destination.collectAsStateWithLifecycle()
     val shortcuts by viewModel.shortcuts.collectAsStateWithLifecycle()
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
+    val history by viewModel.history.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val isLocating by viewModel.isLocating.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
@@ -109,6 +110,7 @@ fun HomeScreen(
         destination = destination,
         shortcuts = shortcuts,
         suggestions = suggestions,
+        history = history,
         isLoading = isLoading,
         isLocating = isLocating,
         errorMessage = errorMessage,
@@ -133,6 +135,7 @@ fun HomeScreen(
                 onPlanTrip(origin, destination)
             }
         },
+        onClearHistory = viewModel::clearHistory,
         onNearbyStopClick = { stop ->
             viewModel.onNearbyStopSelected(stop)?.let { (origin, destination) ->
                 onPlanTrip(origin, destination)
@@ -163,6 +166,7 @@ fun HomeScreen(
     destination: String,
     shortcuts: List<DestinationShortcutItem>,
     suggestions: List<GeocodeResult>,
+    history: List<GeocodeResult> = emptyList(),
     isLoading: Boolean,
     isLocating: Boolean,
     errorMessage: String?,
@@ -177,6 +181,7 @@ fun HomeScreen(
     onDestinationChange: (String) -> Unit,
     onShortcutClick: (DestinationShortcutItem) -> Unit,
     onSuggestionClick: (GeocodeResult) -> Unit,
+    onClearHistory: () -> Unit = {},
     onUseCurrentLocation: () -> Unit,
     onOpenSettings: () -> Unit,
     onNearbyStopClick: (NearbyStop) -> Unit = {},
@@ -330,6 +335,7 @@ fun HomeScreen(
             DestinationSearchSheet(
                 query = destination,
                 suggestions = suggestions,
+                history = history,
                 shortcuts = shortcuts,
                 isLoading = isLoading,
                 isLocating = isLocating,
@@ -343,6 +349,7 @@ fun HomeScreen(
                 onMyLocationClick = onMyLocationAsOrigin,
                 onShortcutClick = onShortcutClick,
                 onSuggestionClick = onSuggestionClick,
+                onClearHistory = onClearHistory,
             )
         }
     }

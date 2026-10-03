@@ -67,6 +67,7 @@ fun PlaceSearchContent(
     destinationText: String?,
     pickingOrigin: Boolean,
     suggestions: List<GeocodeResult>,
+    history: List<GeocodeResult>,
     shortcuts: List<DestinationShortcutItem>,
     isLoading: Boolean,
     isLocating: Boolean,
@@ -75,6 +76,7 @@ fun PlaceSearchContent(
     onMyLocationClick: () -> Unit,
     onShortcutClick: (DestinationShortcutItem) -> Unit,
     onSuggestionClick: (GeocodeResult) -> Unit,
+    onClearHistory: () -> Unit,
     originFocusRequester: FocusRequester,
     destinationFocusRequester: FocusRequester,
     modifier: Modifier = Modifier,
@@ -112,6 +114,7 @@ fun PlaceSearchContent(
         LocationSearchPanel(
             query = query,
             suggestions = suggestions,
+            history = history,
             shortcuts = shortcuts,
             isLocating = isLocating,
             errorMessage = errorMessage,
@@ -119,6 +122,7 @@ fun PlaceSearchContent(
             onMyLocationClick = onMyLocationClick,
             onShortcutClick = onShortcutClick,
             onSuggestionClick = onSuggestionClick,
+            onClearHistory = onClearHistory,
             modifier = Modifier.fillMaxWidth().weight(1f),
         )
     }
@@ -135,6 +139,7 @@ private fun PlaceSearchContentPreview() {
                 destinationText = null,
                 pickingOrigin = false,
                 suggestions = emptyList(),
+                history = emptyList(),
                 shortcuts = listOf(
                     DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
                     DestinationShortcutItem(label = "Grand Place", detail = "7 min"),
@@ -146,6 +151,7 @@ private fun PlaceSearchContentPreview() {
                 onMyLocationClick = {},
                 onShortcutClick = {},
                 onSuggestionClick = {},
+                onClearHistory = {},
                 originFocusRequester = remember { FocusRequester() },
                 destinationFocusRequester = remember { FocusRequester() },
                 onPickOrigin = {},

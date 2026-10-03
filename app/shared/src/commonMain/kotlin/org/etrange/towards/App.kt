@@ -19,6 +19,7 @@ import org.etrange.towards.data.HttpGeocoder
 import org.etrange.towards.data.HttpTimetableProvider
 import org.etrange.towards.data.HttpTripPlanner
 import org.etrange.towards.data.LocationBiasStore
+import org.etrange.towards.data.SearchHistoryStore
 import org.etrange.towards.data.createHttpClient
 import org.etrange.towards.data.rememberLocationProvider
 import org.etrange.towards.navigation.HomeRoute
@@ -80,6 +81,7 @@ fun App(
     }
     val locationProvider = rememberLocationProvider()
     val locationBiasStore = remember { LocationBiasStore() }
+    val searchHistoryStore = remember { SearchHistoryStore() }
 
     TowardsTheme(themeMode = themeMode) {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -94,6 +96,7 @@ fun App(
                             locationProvider = locationProvider,
                             timetableProvider = timetableProvider,
                             locationBiasStore = locationBiasStore,
+                            searchHistoryStore = searchHistoryStore,
                         )
                     }
                     HomeScreen(
@@ -151,6 +154,7 @@ fun App(
                             geocoder = geocoder,
                             locationProvider = locationProvider,
                             locationBiasStore = locationBiasStore,
+                            searchHistoryStore = searchHistoryStore,
                             otherPlace = route.counterpart(),
                         )
                     }

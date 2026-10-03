@@ -34,6 +34,7 @@ fun LocationPickerScreen(
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
+    val history by viewModel.history.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val isLocating by viewModel.isLocating.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
@@ -43,6 +44,7 @@ fun LocationPickerScreen(
         counterpartName = counterpartName,
         query = query,
         suggestions = suggestions,
+        history = history,
         shortcuts = viewModel.shortcuts,
         isLoading = isLoading,
         isLocating = isLocating,
@@ -62,6 +64,7 @@ fun LocationPickerScreen(
             val endpoint = viewModel.onSuggestionClick(result)
             if (endpoint != null) onPlacePicked(endpoint)
         },
+        onClearHistory = viewModel::clearHistory,
     )
 }
 
@@ -76,6 +79,7 @@ fun LocationPickerScreen(
     counterpartName: String,
     query: String,
     suggestions: List<GeocodeResult>,
+    history: List<GeocodeResult>,
     shortcuts: List<DestinationShortcutItem>,
     isLoading: Boolean,
     isLocating: Boolean,
@@ -85,6 +89,7 @@ fun LocationPickerScreen(
     onMyLocationClick: () -> Unit,
     onShortcutClick: (DestinationShortcutItem) -> Unit,
     onSuggestionClick: (GeocodeResult) -> Unit,
+    onClearHistory: () -> Unit,
 ) {
     val originFocusRequester = remember { FocusRequester() }
     val destinationFocusRequester = remember { FocusRequester() }
@@ -112,6 +117,7 @@ fun LocationPickerScreen(
             destinationText = if (editingOrigin) counterpartName else "",
             pickingOrigin = editingOrigin,
             suggestions = suggestions,
+            history = history,
             shortcuts = shortcuts,
             isLoading = isLoading,
             isLocating = isLocating,
@@ -120,6 +126,7 @@ fun LocationPickerScreen(
             onMyLocationClick = onMyLocationClick,
             onShortcutClick = onShortcutClick,
             onSuggestionClick = onSuggestionClick,
+            onClearHistory = onClearHistory,
             originFocusRequester = originFocusRequester,
             destinationFocusRequester = destinationFocusRequester,
             modifier = Modifier
@@ -138,6 +145,16 @@ private fun LocationPickerScreenPreview() {
             counterpartName = "Grand Place",
             query = "",
             suggestions = emptyList(),
+            history = listOf(
+                GeocodeResult(
+                    id = "place:gp",
+                    kind = LocationKind.PLACE,
+                    name = "Grand Place",
+                    coordinate = Coordinate(50.8467, 4.3525),
+                    street = "Grand Place",
+                    country = "Belgium",
+                ),
+            ),
             shortcuts = listOf(
                 DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
                 DestinationShortcutItem(label = "Grand Place", detail = "7 min"),
@@ -150,6 +167,7 @@ private fun LocationPickerScreenPreview() {
             onMyLocationClick = {},
             onShortcutClick = {},
             onSuggestionClick = {},
+            onClearHistory = {},
         )
     }
 }
@@ -162,6 +180,7 @@ private fun LocationPickerScreenSuggestionsPreview() {
             editingOrigin = false,
             counterpartName = "My location",
             query = "Grand",
+            history = emptyList(),
             suggestions = listOf(
                 GeocodeResult(
                     id = "place:gp",
@@ -181,6 +200,7 @@ private fun LocationPickerScreenSuggestionsPreview() {
             onMyLocationClick = {},
             onShortcutClick = {},
             onSuggestionClick = {},
+            onClearHistory = {},
         )
     }
 }
