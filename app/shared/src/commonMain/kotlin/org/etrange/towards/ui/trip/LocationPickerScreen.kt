@@ -10,7 +10,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.tooling.preview.Preview
@@ -21,6 +23,7 @@ import org.etrange.towards.domain.model.LocationKind
 import org.etrange.towards.ui.home.DestinationShortcutItem
 import org.etrange.towards.ui.icons.arrow_backIcon
 import org.etrange.towards.ui.search.PlaceSearchContent
+import org.etrange.towards.ui.settings.AddPlaceLabelDialog
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
 
@@ -31,9 +34,12 @@ fun LocationPickerScreen(
     counterpartName: String,
     onBack: () -> Unit,
     onPlacePicked: (TripEndpoint) -> Unit,
+    onAddShortcut: (String) -> Unit,
 ) {
+    var addShortcutOpen by remember { mutableStateOf(false) }
     val query by viewModel.query.collectAsStateWithLifecycle()
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
+    val shortcuts by viewModel.shortcuts.collectAsStateWithLifecycle()
     val history by viewModel.history.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val isLocating by viewModel.isLocating.collectAsStateWithLifecycle()
@@ -45,7 +51,7 @@ fun LocationPickerScreen(
         query = query,
         suggestions = suggestions,
         history = history,
-        shortcuts = viewModel.shortcuts,
+        shortcuts = shortcuts,
         isLoading = isLoading,
         isLocating = isLocating,
         errorMessage = errorMessage,
@@ -64,8 +70,20 @@ fun LocationPickerScreen(
             val endpoint = viewModel.onSuggestionClick(result)
             if (endpoint != null) onPlacePicked(endpoint)
         },
-        onClearHistory = viewModel::clearHistory,
+        onAddShortcut = { addShortcutOpen = true },
     )
+
+    if (addShortcutOpen) {
+        AddPlaceLabelDialog(
+            onDismiss = { addShortcutOpen = false },
+            onConfirm = { label ->
+                addShortcutOpen = false
+                onAddShortcut(label)
+            },
+            labelError = viewModel::shortcutLabelError,
+            onClearHistory = viewModel::clearHistory,
+    )
+    }
 }
 
 /**
@@ -89,6 +107,7 @@ fun LocationPickerScreen(
     onMyLocationClick: () -> Unit,
     onShortcutClick: (DestinationShortcutItem) -> Unit,
     onSuggestionClick: (GeocodeResult) -> Unit,
+    onAddShortcut: (() -> Unit)? = null,
     onClearHistory: () -> Unit,
 ) {
     val originFocusRequester = remember { FocusRequester() }
@@ -126,6 +145,7 @@ fun LocationPickerScreen(
             onMyLocationClick = onMyLocationClick,
             onShortcutClick = onShortcutClick,
             onSuggestionClick = onSuggestionClick,
+            onAddShortcut = onAddShortcut,
             onClearHistory = onClearHistory,
             originFocusRequester = originFocusRequester,
             destinationFocusRequester = destinationFocusRequester,

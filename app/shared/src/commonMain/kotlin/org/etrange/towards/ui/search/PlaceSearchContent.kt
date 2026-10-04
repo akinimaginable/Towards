@@ -83,6 +83,7 @@ fun PlaceSearchContent(
     onPickOrigin: (() -> Unit)? = null,
     onPickDestination: (() -> Unit)? = null,
     autoFocus: Boolean = true,
+    onAddShortcut: (() -> Unit)? = null,
 ) {
     Column(modifier = modifier) {
         LocationSearchField(
@@ -121,6 +122,7 @@ fun PlaceSearchContent(
             showMyLocation = pickingOrigin,
             onMyLocationClick = onMyLocationClick,
             onShortcutClick = onShortcutClick,
+            onAddShortcut = onAddShortcut,
             onSuggestionClick = onSuggestionClick,
             onClearHistory = onClearHistory,
             modifier = Modifier.fillMaxWidth().weight(1f),

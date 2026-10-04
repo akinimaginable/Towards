@@ -9,6 +9,12 @@ data object HomeRoute
 data object SettingsRoute
 
 @Serializable
+data class FavoritePlacePickerRoute(
+    val target: String,
+    val label: String = "",
+)
+
+@Serializable
 data class TripResultsRoute(
     val fromLatitude: Double,
     val fromLongitude: Double,

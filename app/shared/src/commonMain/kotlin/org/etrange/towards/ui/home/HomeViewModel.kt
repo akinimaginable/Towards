@@ -14,11 +14,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.etrange.towards.data.ApiException
+import org.etrange.towards.data.FavoritePlacesStore
 import org.etrange.towards.data.LocationBiasStore
 import org.etrange.towards.data.LocationProvider
 import org.etrange.towards.data.SearchHistoryStore
@@ -41,6 +43,7 @@ class HomeViewModel(
     private val locationProvider: LocationProvider,
     private val timetableProvider: TimetableProvider,
     private val locationBiasStore: LocationBiasStore = LocationBiasStore(),
+    private val favoritePlacesStore: FavoritePlacesStore = FavoritePlacesStore(),
     private val searchHistoryStore: SearchHistoryStore = SearchHistoryStore(),
 ) : ViewModel() {
     private val _mapFocus = MutableStateFlow(MAP_CENTER)
@@ -91,8 +94,16 @@ class HomeViewModel(
     private val _origin = MutableStateFlow(TripEndpoint("Map center", MAP_CENTER))
     val origin: StateFlow<TripEndpoint> = _origin.asStateFlow()
 
-    private val _shortcuts = MutableStateFlow<List<DestinationShortcutItem>>(emptyList())
-    val shortcuts: StateFlow<List<DestinationShortcutItem>> = _shortcuts.asStateFlow()
+    val shortcuts: StateFlow<List<DestinationShortcutItem>> =
+        favoritePlacesStore.places
+            .map { it.toShortcutItems() }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.Eagerly,
+                favoritePlacesStore.places.value.toShortcutItems(),
+            )
+
+    fun shortcutLabelError(label: String): String? = favoritePlacesStore.labelError(label)
 
     private var locateJob: Job? = null
     private var nearbyJob: Job? = null

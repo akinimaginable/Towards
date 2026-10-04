@@ -14,6 +14,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import org.etrange.towards.data.ApiConfig
+import org.etrange.towards.data.FavoritePlacesStore
 import org.etrange.towards.data.SettingsStore
 import org.etrange.towards.data.HttpGeocoder
 import org.etrange.towards.data.HttpTimetableProvider
@@ -22,6 +23,7 @@ import org.etrange.towards.data.LocationBiasStore
 import org.etrange.towards.data.SearchHistoryStore
 import org.etrange.towards.data.createHttpClient
 import org.etrange.towards.data.rememberLocationProvider
+import org.etrange.towards.navigation.FavoritePlacePickerRoute
 import org.etrange.towards.navigation.HomeRoute
 import org.etrange.towards.navigation.LocationPickerRoute
 import org.etrange.towards.navigation.SettingsRoute
@@ -30,8 +32,11 @@ import org.etrange.towards.ui.home.DestinationShortcutItem
 import org.etrange.towards.ui.home.HomeScreen
 import org.etrange.towards.ui.home.HomeViewModel
 import org.etrange.towards.ui.preview.previewNearbyStops
+import org.etrange.towards.ui.settings.FavoritePlacePickerScreen
+import org.etrange.towards.ui.settings.FavoritePlacePickerViewModel
 import org.etrange.towards.ui.settings.SettingsScreen
 import org.etrange.towards.ui.settings.SettingsViewModel
+import org.etrange.towards.ui.settings.favoritePickerTarget
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
 import org.etrange.towards.ui.theme.TowardsTheme
@@ -50,12 +55,22 @@ import org.etrange.towards.ui.trip.tripEndpointsAfterPicking
 @Composable
 fun App() {
     val endpointStore = remember { SettingsStore() }
-    App(settingsViewModel = viewModel { SettingsViewModel(endpointStore) })
+    val favoritePlacesStore = remember { FavoritePlacesStore() }
+    App(
+        settingsViewModel = viewModel {
+            SettingsViewModel(
+                settingsStore = endpointStore,
+                favoritePlacesStore = favoritePlacesStore,
+            )
+        },
+        favoritePlacesStore = favoritePlacesStore,
+    )
 }
 
 @Composable
 fun App(
     settingsViewModel: SettingsViewModel,
+    favoritePlacesStore: FavoritePlacesStore,
 ) {
     val themeMode by settingsViewModel.themeMode.collectAsStateWithLifecycle()
     val navController = rememberNavController()
@@ -96,6 +111,7 @@ fun App(
                             locationProvider = locationProvider,
                             timetableProvider = timetableProvider,
                             locationBiasStore = locationBiasStore,
+                            favoritePlacesStore = favoritePlacesStore,
                             searchHistoryStore = searchHistoryStore,
                         )
                     }
@@ -104,6 +120,14 @@ fun App(
                         onOpenSettings = { navController.navigate(SettingsRoute) },
                         onPlanTrip = { origin, destination ->
                             navController.navigate(origin.toResultsRoute(destination))
+                        },
+                        onAddShortcut = { label ->
+                            navController.navigate(
+                                FavoritePlacePickerRoute(
+                                    target = FavoritePlacesStore.NEW_TARGET,
+                                    label = label,
+                                ),
+                            )
                         },
                     )
                 }
@@ -154,6 +178,7 @@ fun App(
                             geocoder = geocoder,
                             locationProvider = locationProvider,
                             locationBiasStore = locationBiasStore,
+                            favoritePlacesStore = favoritePlacesStore,
                             searchHistoryStore = searchHistoryStore,
                             otherPlace = route.counterpart(),
                         )
@@ -163,6 +188,14 @@ fun App(
                         editingOrigin = route.editingOrigin,
                         counterpartName = route.counterpartName,
                         onBack = { navController.popBackStack() },
+                        onAddShortcut = { label ->
+                            navController.navigate(
+                                FavoritePlacePickerRoute(
+                                    target = FavoritePlacesStore.NEW_TARGET,
+                                    label = label,
+                                ),
+                            )
+                        },
                         onPlacePicked = { picked ->
                             val (origin, destination) = tripEndpointsAfterPicking(
                                 editingOrigin = route.editingOrigin,
@@ -179,6 +212,58 @@ fun App(
                     SettingsScreen(
                         viewModel = settingsViewModel,
                         onBack = { navController.popBackStack() },
+                        onPickHome = {
+                            navController.navigate(
+                                FavoritePlacePickerRoute(
+                                    target = FavoritePlacesStore.HOME_ID,
+                                    label = FavoritePlacesStore.HOME_LABEL,
+                                ),
+                            )
+                        },
+                        onPickWork = {
+                            navController.navigate(
+                                FavoritePlacePickerRoute(
+                                    target = FavoritePlacesStore.WORK_ID,
+                                    label = FavoritePlacesStore.WORK_LABEL,
+                                ),
+                            )
+                        },
+                        onAddPlace = { label ->
+                            navController.navigate(
+                                FavoritePlacePickerRoute(
+                                    target = FavoritePlacesStore.NEW_TARGET,
+                                    label = label,
+                                ),
+                            )
+                        },
+                        onReplacePlace = { place ->
+                            navController.navigate(
+                                FavoritePlacePickerRoute(
+                                    target = place.id,
+                                    label = place.label,
+                                ),
+                            )
+                        },
+                    )
+                }
+                composable<FavoritePlacePickerRoute> { entry ->
+                    val route = entry.toRoute<FavoritePlacePickerRoute>()
+                    val pickerViewModel: FavoritePlacePickerViewModel = viewModel(
+                        key = "favorite:${route.target}:${route.label}",
+                    ) {
+                        FavoritePlacePickerViewModel(
+                            geocoder = geocoder,
+                            locationProvider = locationProvider,
+                            favoritePlacesStore = favoritePlacesStore,
+                            target = favoritePickerTarget(route.target, route.label),
+                            locationBiasStore = locationBiasStore,
+                        )
+                    }
+                    FavoritePlacePickerScreen(
+                        viewModel = pickerViewModel,
+                        title = route.label.ifBlank { "Place" },
+                        onBack = { navController.popBackStack() },
+                        onSaved = { navController.popBackStack() },
                     )
                 }
             }

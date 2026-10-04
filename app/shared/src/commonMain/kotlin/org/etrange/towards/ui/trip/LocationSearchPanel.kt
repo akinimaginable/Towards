@@ -157,6 +157,7 @@ fun LocationSearchPanel(
     onSuggestionClick: (GeocodeResult) -> Unit,
     onClearHistory: () -> Unit,
     modifier: Modifier = Modifier,
+    onAddShortcut: (() -> Unit)? = null,
 ) {
     Column(modifier = modifier) {
         if (errorMessage != null) {
@@ -180,6 +181,7 @@ fun LocationSearchPanel(
                 showMyLocation = showMyLocation,
                 onMyLocationClick = onMyLocationClick,
                 onShortcutClick = onShortcutClick,
+                onAddShortcut = onAddShortcut,
                 onSuggestionClick = onSuggestionClick,
                 onClearHistory = onClearHistory,
             )
@@ -197,6 +199,7 @@ fun LazyListScope.locationSearchResults(
     onMyLocationClick: () -> Unit,
     onShortcutClick: (DestinationShortcutItem) -> Unit,
     onSuggestionClick: (GeocodeResult) -> Unit,
+    onAddShortcut: (() -> Unit)? = null,
     onClearHistory: () -> Unit,
 ) {
     if (query.isBlank()) {
@@ -245,7 +248,7 @@ fun LazyListScope.locationSearchResults(
             }
         }
 
-        if (shortcuts.isNotEmpty()) {
+        if (shortcuts.isNotEmpty() || onAddShortcut != null) {
             item(key = "shortcuts") {
                 Row(
                     modifier = Modifier
@@ -260,6 +263,13 @@ fun LazyListScope.locationSearchResults(
                             detail = shortcut.detail,
                             onClick = { onShortcutClick(shortcut) },
                             highlightDetail = shortcut.highlightDetail,
+                        )
+                    }
+                    if (onAddShortcut != null) {
+                        DestinationShortcut(
+                            label = "Add shortcut",
+                            detail = "",
+                            onClick = onAddShortcut,
                         )
                     }
                 }

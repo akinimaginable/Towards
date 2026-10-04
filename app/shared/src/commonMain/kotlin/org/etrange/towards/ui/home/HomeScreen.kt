@@ -48,6 +48,7 @@ import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.ui.icons.settingsIcon
 import org.etrange.towards.ui.search.DestinationSearchSheet
+import org.etrange.towards.ui.settings.AddPlaceLabelDialog
 import org.etrange.towards.ui.preview.previewNearbyStops
 import org.etrange.towards.ui.preview.previewSuggestions
 import org.etrange.towards.ui.theme.ThemeMode
@@ -59,7 +60,9 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onOpenSettings: () -> Unit,
     onPlanTrip: (origin: TripEndpoint, destination: TripEndpoint) -> Unit,
+    onAddShortcut: (String) -> Unit,
 ) {
+    var addShortcutOpen by remember { mutableStateOf(false) }
     val destination by viewModel.destination.collectAsStateWithLifecycle()
     val shortcuts by viewModel.shortcuts.collectAsStateWithLifecycle()
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
@@ -146,6 +149,7 @@ fun HomeScreen(
             requestLocationPermission()
         },
         onOpenSettings = onOpenSettings,
+        onAddShortcut = { addShortcutOpen = true },
         searchSheetVisible = searchTarget != null,
         pickingOrigin = searchTarget == HomeSearchTarget.Origin,
         onOpenSearch = viewModel::openSearch,
@@ -158,6 +162,17 @@ fun HomeScreen(
         },
         onDismissSearch = viewModel::dismissSearch,
     )
+
+    if (addShortcutOpen) {
+        AddPlaceLabelDialog(
+            onDismiss = { addShortcutOpen = false },
+            onConfirm = { label ->
+                addShortcutOpen = false
+                onAddShortcut(label)
+            },
+            labelError = viewModel::shortcutLabelError,
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -184,6 +199,7 @@ fun HomeScreen(
     onClearHistory: () -> Unit = {},
     onUseCurrentLocation: () -> Unit,
     onOpenSettings: () -> Unit,
+    onAddShortcut: () -> Unit = {},
     onNearbyStopClick: (NearbyStop) -> Unit = {},
     onUserMovedCamera: () -> Unit = {},
     onMapCameraIdle: (Coordinate) -> Unit = {},
@@ -315,6 +331,11 @@ fun HomeScreen(
                                     highlightDetail = shortcut.highlightDetail,
                                 )
                             }
+                            DestinationShortcut(
+                                label = "Add shortcut",
+                                detail = "",
+                                onClick = onAddShortcut,
+                            )
                         }
 
                         SearchLaunchBar(
@@ -348,6 +369,7 @@ fun HomeScreen(
                 onSearchDestination = onSearchDestination,
                 onMyLocationClick = onMyLocationAsOrigin,
                 onShortcutClick = onShortcutClick,
+                onAddShortcut = onAddShortcut,
                 onSuggestionClick = onSuggestionClick,
                 onClearHistory = onClearHistory,
             )

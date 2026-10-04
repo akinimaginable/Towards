@@ -4,12 +4,18 @@ import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.etrange.towards.data.FavoritePlace
+import org.etrange.towards.data.FavoritePlacesStore
 import org.etrange.towards.data.SettingsStore
 import org.etrange.towards.ui.theme.ThemeMode
 
-class SettingsViewModel(val settingsStore: SettingsStore = SettingsStore()) : ViewModel() {
+class SettingsViewModel(
+    val settingsStore: SettingsStore = SettingsStore(),
+    private val favoritePlacesStore: FavoritePlacesStore = FavoritePlacesStore(),
+) : ViewModel() {
     val themeMode: StateFlow<ThemeMode> = settingsStore.themeMode
     val apiEndpoint: StateFlow<String> = settingsStore.endpoint
+    val places: StateFlow<List<FavoritePlace>> = favoritePlacesStore.places
 
     private val _apiEndpointDraft = MutableStateFlow(settingsStore.endpoint.value)
     val apiEndpointDraft: StateFlow<String> = _apiEndpointDraft.asStateFlow()
@@ -20,6 +26,12 @@ class SettingsViewModel(val settingsStore: SettingsStore = SettingsStore()) : Vi
     fun onThemeModeChange(mode: ThemeMode) {
         settingsStore.saveThemeMode(mode)
     }
+
+    fun removePlace(id: String) {
+        favoritePlacesStore.remove(id)
+    }
+
+    fun labelError(label: String): String? = favoritePlacesStore.labelError(label)
 
     fun onApiEndpointDraftChange(value: String) {
         _apiEndpointDraft.value = value

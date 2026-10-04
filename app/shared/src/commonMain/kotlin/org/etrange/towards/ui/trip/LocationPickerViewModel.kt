@@ -9,8 +9,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.etrange.towards.data.FavoritePlacesStore
 import org.etrange.towards.data.LocationBiasStore
 import org.etrange.towards.data.LocationProvider
 import org.etrange.towards.data.SearchHistoryStore
@@ -18,12 +20,14 @@ import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.port.Geocoder
 import org.etrange.towards.ui.home.DestinationShortcutItem
+import org.etrange.towards.ui.home.toShortcutItems
 import org.etrange.towards.ui.search.PlaceSearch
 
 class LocationPickerViewModel(
     private val geocoder: Geocoder,
     private val locationProvider: LocationProvider,
     private val locationBiasStore: LocationBiasStore = LocationBiasStore(),
+    private val favoritePlacesStore: FavoritePlacesStore = FavoritePlacesStore(),
     private val searchHistoryStore: SearchHistoryStore = SearchHistoryStore(),
     private val otherPlace: TripEndpoint? = null,
 ) : ViewModel() {
@@ -48,7 +52,16 @@ class LocationPickerViewModel(
         combine(_localError, search.errorMessage) { local, searchError -> local ?: searchError }
             .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    val shortcuts: List<DestinationShortcutItem> = emptyList()
+    val shortcuts: StateFlow<List<DestinationShortcutItem>> =
+        favoritePlacesStore.places
+            .map { it.toShortcutItems() }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.Eagerly,
+                favoritePlacesStore.places.value.toShortcutItems(),
+            )
+
+    fun shortcutLabelError(label: String): String? = favoritePlacesStore.labelError(label)
 
     private var locateJob: Job? = null
 

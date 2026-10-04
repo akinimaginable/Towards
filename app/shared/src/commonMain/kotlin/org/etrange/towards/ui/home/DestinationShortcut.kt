@@ -44,14 +44,6 @@ fun DestinationShortcut(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(label)
-            Text(
-                text = detail,
-                color = if (highlightDetail) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
         }
     }
 }

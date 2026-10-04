@@ -36,6 +36,7 @@ fun DestinationSearchSheet(
     onMyLocationClick: () -> Unit,
     onShortcutClick: (DestinationShortcutItem) -> Unit,
     onSuggestionClick: (GeocodeResult) -> Unit,
+    onAddShortcut: (() -> Unit)? = null,
     onClearHistory: () -> Unit,
 ) {
     val sheetState = rememberBottomSheetState(
@@ -65,6 +66,7 @@ fun DestinationSearchSheet(
             onQueryChange = onQueryChange,
             onMyLocationClick = onMyLocationClick,
             onShortcutClick = onShortcutClick,
+            onAddShortcut = onAddShortcut,
             onSuggestionClick = onSuggestionClick,
             onClearHistory = onClearHistory,
             originFocusRequester = originFocusRequester,
