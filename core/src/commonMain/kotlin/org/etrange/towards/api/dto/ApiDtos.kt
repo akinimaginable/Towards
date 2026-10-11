@@ -31,6 +31,8 @@ data class PlaceDto(
     val timezone: String? = null,
     val platform: String? = null,
     val modes: List<String> = emptyList(),
+    val arrival: String? = null,
+    val departure: String? = null,
 )
 
 @Serializable

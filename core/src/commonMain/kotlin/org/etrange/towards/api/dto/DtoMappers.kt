@@ -28,6 +28,8 @@ fun PlaceDto.toDomain() = Place(
     modes = modes.mapNotNull { mode ->
         runCatching { TransportMode.valueOf(mode) }.getOrNull()
     }.toSet(),
+    arrival = arrival,
+    departure = departure,
 )
 
 fun StopTimeDto.toDomain() = StopTime(

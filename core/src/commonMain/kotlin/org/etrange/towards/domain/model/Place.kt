@@ -8,4 +8,6 @@ data class Place(
     val timezone: String? = null,
     val platform: String? = null,
     val modes: Set<TransportMode> = emptySet(),
+    val arrival: String? = null,
+    val departure: String? = null,
 )
