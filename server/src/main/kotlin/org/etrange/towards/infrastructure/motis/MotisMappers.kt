@@ -39,6 +39,8 @@ internal fun MotisPlace.toDomain(): Place = Place(
     timezone = tz,
     platform = track ?: scheduledTrack,
     modes = modes.toDomainModes(),
+    arrival = arrival ?: scheduledArrival,
+    departure = departure ?: scheduledDeparture,
 )
 
 internal fun MotisEncodedPolyline.toDomain(): EncodedPath = EncodedPath(

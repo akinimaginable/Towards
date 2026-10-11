@@ -33,6 +33,8 @@ fun Place.toDto() = PlaceDto(
     timezone = timezone,
     platform = platform,
     modes = modes.map { it.name },
+    arrival = arrival,
+    departure = departure,
 )
 
 fun EncodedPath.toDto() = EncodedPathDto(points, precision, length)

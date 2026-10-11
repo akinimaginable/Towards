@@ -62,9 +62,11 @@ class MotisClient(
     override suspend fun getTrip(request: TripLookupRequest): Itinerary =
         get<MotisItinerary>("/api/v6/trip") {
             parameter("tripId", request.tripId)
+            parameter("joinInterlinedLegs", false)
             parameter("withScheduledSkippedStops", request.includeScheduledSkippedStops)
             request.language.takeIf { it.isNotEmpty() }?.let { parameter("language", it.joinToString(",")) }
         }.toDomain()
+            ?.onlyTrip(request.tripId)
             ?: throw NotFoundException("Trip is unavailable or uses unsupported transport modes")
 
     override suspend fun refreshItinerary(request: ItineraryRefreshRequest): Itinerary =
@@ -174,6 +176,11 @@ class MotisClient(
             else -> UpstreamServiceException(HttpStatusCode.BadGateway, message)
         }
     }
+}
+
+private fun Itinerary.onlyTrip(tripId: String): Itinerary {
+    val direction = legs.filter { it.tripId == tripId }
+    return if (direction.isEmpty() || direction.size == legs.size) this else copy(legs = direction)
 }
 
 private fun LocationReference.toMotisParameter(): String = when (this) {
