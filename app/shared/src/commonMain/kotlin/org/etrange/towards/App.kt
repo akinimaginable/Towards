@@ -110,6 +110,7 @@ fun App(
                             geocoder = geocoder,
                             locationProvider = locationProvider,
                             timetableProvider = timetableProvider,
+                            tripInformation = tripPlanner,
                             locationBiasStore = locationBiasStore,
                             favoritePlacesStore = favoritePlacesStore,
                             searchHistoryStore = searchHistoryStore,
@@ -278,7 +279,7 @@ private fun AppLightPreview() {
         HomeScreen(
             destination = "",
             shortcuts = listOf(
-                DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
+                DestinationShortcutItem(label = "Home", detail = "0 min", highlightDetail = true),
                 DestinationShortcutItem(label = "Work", detail = "17 min"),
                 DestinationShortcutItem(label = "School", detail = "47 min"),
                 DestinationShortcutItem(label = "Grand Place", detail = "7 min"),
@@ -306,7 +307,7 @@ private fun AppDarkPreview() {
         HomeScreen(
             destination = "Centraal Station",
             shortcuts = listOf(
-                DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
+                DestinationShortcutItem(label = "Home", detail = "0 min", highlightDetail = true),
                 DestinationShortcutItem(label = "Work", detail = "17 min"),
                 DestinationShortcutItem(label = "School", detail = "47 min"),
                 DestinationShortcutItem(label = "Grand Place", detail = "7 min"),

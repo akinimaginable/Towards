@@ -1,6 +1,7 @@
 package org.etrange.towards.ui.home
 
 import org.etrange.towards.domain.model.Coordinate
+import org.etrange.towards.ui.home.nearby.haversineMeters
 
 /** Minimum camera-target move before nearby focus is refreshed. */
 internal const val MAP_FOCUS_MIN_DISTANCE_METERS = 50

@@ -6,8 +6,8 @@ import org.etrange.towards.domain.model.LocationKind
 import org.etrange.towards.domain.model.LocationReference
 import org.etrange.towards.navigation.LocationPickerRoute
 import org.etrange.towards.navigation.TripResultsRoute
-import org.etrange.towards.ui.home.NearbyStop
-import org.etrange.towards.ui.home.haversineMeters
+import org.etrange.towards.ui.home.nearby.NearbyStop
+import org.etrange.towards.ui.home.nearby.haversineMeters
 
 data class TripEndpoint(
     val name: String,

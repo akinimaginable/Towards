@@ -107,6 +107,7 @@ fun FavoritePlacePickerScreen(
             LocationSearchPanel(
                 query = query,
                 suggestions = suggestions,
+                history = emptyList(),
                 shortcuts = emptyList(),
                 isLocating = isLocating,
                 errorMessage = errorMessage,
@@ -114,6 +115,7 @@ fun FavoritePlacePickerScreen(
                 onMyLocationClick = onMyLocationClick,
                 onShortcutClick = {},
                 onSuggestionClick = onSuggestionClick,
+                onClearHistory = {},
                 modifier = Modifier.fillMaxWidth().weight(1f),
             )
         }
