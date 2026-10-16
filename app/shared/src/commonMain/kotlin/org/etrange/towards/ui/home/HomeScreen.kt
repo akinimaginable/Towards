@@ -1,5 +1,15 @@
 package org.etrange.towards.ui.home
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -17,19 +27,24 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -37,7 +52,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -46,7 +63,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.etrange.towards.data.rememberLocationPermissionLauncher
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
+import org.etrange.towards.ui.icons.closeIcon
 import org.etrange.towards.ui.icons.settingsIcon
+import org.etrange.towards.ui.preview.previewLinePreview
 import org.etrange.towards.ui.search.DestinationSearchSheet
 import org.etrange.towards.ui.settings.AddPlaceLabelDialog
 import org.etrange.towards.ui.preview.previewNearbyStops
@@ -54,6 +73,12 @@ import org.etrange.towards.ui.preview.previewSuggestions
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
 import org.etrange.towards.ui.trip.TripEndpoint
+import kotlinx.coroutines.launch
+import org.etrange.towards.ui.home.nearby.LinePreview
+import org.etrange.towards.ui.home.nearby.LineSheet
+import org.etrange.towards.ui.home.nearby.NearbyDeparture
+import org.etrange.towards.ui.home.nearby.NearbyStop
+import org.etrange.towards.ui.home.nearby.nearbyStopsSection
 
 @Composable
 fun HomeScreen(
@@ -78,6 +103,11 @@ fun HomeScreen(
     val nearbyStops by viewModel.nearbyStops.collectAsStateWithLifecycle()
     val isLoadingNearby by viewModel.isLoadingNearby.collectAsStateWithLifecycle()
     val nearbyMessage by viewModel.nearbyMessage.collectAsStateWithLifecycle()
+    val linePreview by viewModel.linePreview.collectAsStateWithLifecycle()
+    val focusedStopIndex by viewModel.focusedStopIndex.collectAsStateWithLifecycle()
+    val selectedDepartureId by viewModel.selectedDepartureId.collectAsStateWithLifecycle()
+    val isLoadingLinePreview by viewModel.isLoadingLinePreview.collectAsStateWithLifecycle()
+    val haptic = LocalHapticFeedback.current
     val searchTarget by viewModel.searchTarget.collectAsStateWithLifecycle()
 
     var pendingLocationRequest by remember { mutableStateOf(false) }
@@ -124,6 +154,10 @@ fun HomeScreen(
         nearbyStops = nearbyStops,
         isLoadingNearby = isLoadingNearby,
         nearbyMessage = nearbyMessage,
+        linePreview = linePreview,
+        focusedStop = linePreview?.stops?.getOrNull(focusedStopIndex ?: -1)?.coordinate,
+        selectedDepartureId = selectedDepartureId,
+        isLoadingLinePreview = isLoadingLinePreview,
         originName = origin.name,
         onDestinationChange = viewModel::onDestinationChange,
         onUserMovedCamera = viewModel::onUserMovedCamera,
@@ -144,6 +178,13 @@ fun HomeScreen(
                 onPlanTrip(origin, destination)
             }
         },
+        onDepartureClick = { stop, departure ->
+            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+            viewModel.onDepartureSelected(stop, departure)
+        },
+        onDismissLinePreview = viewModel::onDismissLinePreview,
+        onLineStopSelected = viewModel::onLineStopSelected,
+        onLineDepartureSelected = viewModel::onLineDepartureSelected,
         onUseCurrentLocation = {
             pendingLocationRequest = true
             requestLocationPermission()
@@ -192,6 +233,10 @@ fun HomeScreen(
     nearbyStops: List<NearbyStop> = emptyList(),
     isLoadingNearby: Boolean = false,
     nearbyMessage: String? = null,
+    linePreview: LinePreview? = null,
+    focusedStop: Coordinate? = null,
+    selectedDepartureId: String? = null,
+    isLoadingLinePreview: Boolean = false,
     originName: String = "My location",
     onDestinationChange: (String) -> Unit,
     onShortcutClick: (DestinationShortcutItem) -> Unit,
@@ -201,6 +246,10 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onAddShortcut: () -> Unit = {},
     onNearbyStopClick: (NearbyStop) -> Unit = {},
+    onDepartureClick: (NearbyStop, NearbyDeparture) -> Unit = { _, _ -> },
+    onDismissLinePreview: () -> Unit = {},
+    onLineStopSelected: (Int) -> Unit = {},
+    onLineDepartureSelected: (Int) -> Unit = {},
     onUserMovedCamera: () -> Unit = {},
     onMapCameraIdle: (Coordinate) -> Unit = {},
     searchSheetVisible: Boolean = false,
@@ -221,7 +270,7 @@ fun HomeScreen(
                         IconButton(onClick = onOpenSettings) {
                             Icon(
                                 imageVector = settingsIcon,
-                                contentDescription = "Settings",
+                                contentDescription = "Settings"
                             )
                         }
                     },
@@ -241,6 +290,7 @@ fun HomeScreen(
             var measuredOverlayHeight by remember(density) { mutableStateOf<Dp?>(null) }
 
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val lineOpen = linePreview != null
                 val mapPeekHeight = maxHeight / 5
                 val shortcutsMinHeight = 48.dp
                 val searchMinHeight = 56.dp
@@ -248,9 +298,43 @@ fun HomeScreen(
                 val searchListOverlap = 16.dp
                 val overlayHeight = measuredOverlayHeight
                     ?: (shortcutsMinHeight + sectionSpacing + searchMinHeight)
-                val mapHeight =
+                val restingMapHeight =
                     (topPadding + mapPeekHeight + overlayHeight).coerceAtMost(maxHeight * 0.58f)
-                val mapBodyHeight = (mapHeight - searchListOverlap).coerceAtLeast(0.dp)
+                val scope = rememberCoroutineScope()
+                var sheetDragPx by remember { mutableFloatStateOf(0f) }
+                var sheetDragGeneration by remember { mutableIntStateOf(0) }
+                val dismissDistancePx = with(density) { 120.dp.toPx() }
+                if (!lineOpen && sheetDragPx != 0f) sheetDragPx = 0f
+                val onSheetDrag: (Float) -> Unit = { delta ->
+                    sheetDragGeneration += 1
+                    sheetDragPx = (sheetDragPx + delta).coerceAtLeast(0f)
+                }
+                val onSheetDragEnd: (Float) -> Unit = { velocity ->
+                    val generation = sheetDragGeneration
+                    val dragged = sheetDragPx
+                    val dismiss = dragged > dismissDistancePx || (dragged > 0f && velocity > 1_400f)
+                    if (dismiss) {
+                        sheetDragPx = 0f
+                        onDismissLinePreview()
+                    } else {
+                        scope.launch {
+                            animate(dragged, 0f, animationSpec = tween(220)) { value, _ ->
+                                if (sheetDragGeneration == generation) sheetDragPx = value
+                            }
+                        }
+                    }
+                }
+                val mapHeight by animateDpAsState(
+                    targetValue = if (lineOpen) maxHeight * LineOpenMapFraction else restingMapHeight,
+                    animationSpec = tween(320),
+                    label = "mapHeight",
+                )
+                val sheetDrag = with(density) { sheetDragPx.toDp() }
+                val mapBodyHeight = if (lineOpen) {
+                    (mapHeight + sheetDrag).coerceAtMost(maxHeight - 72.dp)
+                } else {
+                    (mapHeight - searchListOverlap).coerceAtLeast(0.dp)
+                }
                 val overlayOnMapHeight = (overlayHeight - searchListOverlap).coerceAtLeast(0.dp)
                 val horizontalPadding = innerPadding.calculateStartPadding(layoutDirection)
 
@@ -262,57 +346,112 @@ fun HomeScreen(
                             HomeMap(
                                 center = mapCenter,
                                 userLocation = userLocation,
-                                followCenter = followMap,
+                                followCenter = followMap && linePreview == null && !isLoadingLinePreview,
+                                linePreview = linePreview,
+                                holdingLinePreview = linePreview != null || isLoadingLinePreview,
+                                focusStop = focusedStop,
                                 onUserMovedCamera = onUserMovedCamera,
                                 onMapCameraIdle = onMapCameraIdle,
                                 contentPadding = PaddingValues(
                                     top = topPadding,
-                                    bottom = overlayOnMapHeight,
+                                    bottom = if (lineOpen) 0.dp else overlayOnMapHeight,
                                 ),
                                 modifier = Modifier.fillMaxSize(),
                             )
+                            LineCloseButton(
+                                visible = lineOpen,
+                                onClick = onDismissLinePreview,
+                                modifier = Modifier.align(Alignment.TopStart)
+                                    .padding(top = topPadding + 8.dp, start = 12.dp),
+                            )
                         }
 
-                        LazyColumn(
+                        Column(
                             modifier = Modifier.weight(1f).fillMaxWidth()
                                 .background(MaterialTheme.colorScheme.background),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            contentPadding = PaddingValues(
-                                start = innerPadding.calculateStartPadding(layoutDirection),
-                                end = innerPadding.calculateEndPadding(layoutDirection),
-                                top = searchListOverlap,
-                                bottom = innerPadding.calculateBottomPadding(),
-                            ),
                         ) {
                             if (errorMessage != null) {
-                                item(key = "error") {
-                                    Text(
-                                        text = errorMessage,
-                                        color = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.fillMaxWidth()
-                                            .padding(horizontal = 24.dp, vertical = 4.dp),
-                                        style = MaterialTheme.typography.bodyMedium,
+                                Text(
+                                    text = errorMessage,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.fillMaxWidth()
+                                        .padding(horizontal = 24.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                            AnimatedContent(
+                                targetState = linePreview,
+                                contentKey = { it != null },
+                                modifier = Modifier.weight(1f).fillMaxWidth(),
+                                transitionSpec = {
+                                    val opening = targetState != null
+                                    val enter = fadeIn(tween(280)) + slideInVertically(tween(280)) { full ->
+                                        if (opening) full / 3 else -full / 5
+                                    }
+                                    val exit = fadeOut(tween(220)) + slideOutVertically(tween(220)) { full ->
+                                        if (opening) -full / 5 else full / 3
+                                    }
+                                    enter togetherWith exit
+                                },
+                                label = "lineSheet",
+                            ) { preview ->
+                                if (preview != null) {
+                                    LineSheet(
+                                        preview = preview,
+                                        loading = isLoadingLinePreview,
+                                        onStopClick = onLineStopSelected,
+                                        onDepartureClick = onLineDepartureSelected,
+                                        sheetDragPx = sheetDragPx,
+                                        onSheetDrag = onSheetDrag,
+                                        onSheetDragEnd = onSheetDragEnd,
+                                        contentPadding = PaddingValues(
+                                            bottom = innerPadding.calculateBottomPadding(),
+                                        ),
+                                        modifier = Modifier.fillMaxSize(),
                                     )
+                                } else {
+                                    LazyColumn(
+                                        modifier = Modifier.fillMaxSize(),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        contentPadding = PaddingValues(
+                                            start = innerPadding.calculateStartPadding(layoutDirection),
+                                            end = innerPadding.calculateEndPadding(layoutDirection),
+                                            top = searchListOverlap,
+                                            bottom = innerPadding.calculateBottomPadding(),
+                                        ),
+                                    ) {
+                                        nearbyStopsSection(
+                                            nearbyStops = nearbyStops,
+                                            isLoadingNearby = isLoadingNearby,
+                                            nearbyMessage = nearbyMessage,
+                                            onStopClick = onNearbyStopClick,
+                                            selectedDepartureId = selectedDepartureId,
+                                            isLoadingLinePreview = isLoadingLinePreview,
+                                            onDepartureClick = onDepartureClick,
+                                        )
+                                    }
                                 }
                             }
-
-                            nearbyStopsSection(
-                                nearbyStops = nearbyStops,
-                                isLoadingNearby = isLoadingNearby,
-                                nearbyMessage = nearbyMessage,
-                                onStopClick = onNearbyStopClick,
-                            )
                         }
                     }
 
-                    Column(
+                    AnimatedVisibility(
+                        visible = !lineOpen,
+                        enter = fadeIn(tween(280)) + slideInVertically(tween(280)) { -it / 2 },
+                        exit = fadeOut(tween(220)) + slideOutVertically(tween(220)) { -it },
                         modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(
-                            top = mapHeight - overlayHeight,
+                            top = ((if (lineOpen) restingMapHeight else mapHeight) - overlayHeight)
+                                .coerceAtLeast(0.dp),
                             start = horizontalPadding,
                             end = innerPadding.calculateEndPadding(layoutDirection),
-                        ).onSizeChanged { size ->
+                        ),
+                    ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().onSizeChanged { size ->
                             val measured = with(density) { size.height.toDp() }
-                            if (measured != measuredOverlayHeight) measuredOverlayHeight = measured
+                            if (measured > 0.dp && measured != measuredOverlayHeight) {
+                                measuredOverlayHeight = measured
+                            }
                         },
                         verticalArrangement = Arrangement.spacedBy(sectionSpacing),
                     ) {
@@ -348,6 +487,7 @@ fun HomeScreen(
                             focusedPlaceLabel = focusedPlaceLabel,
                         )
                     }
+                    }
                 }
             }
         }
@@ -377,6 +517,37 @@ fun HomeScreen(
     }
 }
 
+/** Share of the screen the map keeps while a line sheet is open. The sheet fills the rest. */
+private const val LineOpenMapFraction = 0.30f
+
+@Composable
+private fun LineCloseButton(
+    visible: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(220)),
+        exit = fadeOut(tween(180)),
+        modifier = modifier,
+    ) {
+        Surface(
+            onClick = onClick,
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 3.dp,
+            shadowElevation = 2.dp,
+        ) {
+            Icon(
+                imageVector = closeIcon,
+                contentDescription = "Close line preview",
+                modifier = Modifier.padding(12.dp),
+            )
+        }
+    }
+}
+
 @Preview
 @Composable
 private fun HomeScreenLightPreview() {
@@ -384,7 +555,7 @@ private fun HomeScreenLightPreview() {
         HomeScreen(
             destination = "Centraal Station",
             shortcuts = listOf(
-                DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
+                DestinationShortcutItem(label = "Home", detail = "0 min", highlightDetail = true),
                 DestinationShortcutItem(label = "Work", detail = "17 min"),
                 DestinationShortcutItem(label = "School", detail = "47 min"),
             ),
@@ -408,7 +579,7 @@ private fun HomeScreenNearbyPreview() {
         HomeScreen(
             destination = "",
             shortcuts = listOf(
-                DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
+                DestinationShortcutItem(label = "Home", detail = "0 min", highlightDetail = true),
                 DestinationShortcutItem(label = "Work", detail = "17 min"),
             ),
             suggestions = emptyList(),
@@ -418,6 +589,30 @@ private fun HomeScreenNearbyPreview() {
             nearbyStops = previewNearbyStops(),
             isLoadingNearby = false,
             nearbyMessage = null,
+            onDestinationChange = {},
+            onShortcutClick = {},
+            onSuggestionClick = {},
+            onUseCurrentLocation = {},
+            onOpenSettings = {},
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun HomeScreenLinePreview() {
+    TowardsPreview(themeMode = ThemeMode.Light) {
+        HomeScreen(
+            destination = "",
+            shortcuts = listOf(
+                DestinationShortcutItem(label = "Home", detail = "0 min", highlightDetail = true),
+                DestinationShortcutItem(label = "Work", detail = "17 min"),
+            ),
+            suggestions = emptyList(),
+            isLoading = false,
+            isLocating = false,
+            errorMessage = null,
+            linePreview = previewLinePreview(),
             onDestinationChange = {},
             onShortcutClick = {},
             onSuggestionClick = {},

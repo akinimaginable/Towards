@@ -7,8 +7,11 @@ import org.etrange.towards.domain.model.JourneyLeg
 import org.etrange.towards.domain.model.LocationKind
 import org.etrange.towards.domain.model.Place
 import org.etrange.towards.domain.model.TransportMode
-import org.etrange.towards.ui.home.NearbyDeparture
-import org.etrange.towards.ui.home.NearbyStop
+import org.etrange.towards.ui.home.nearby.LinePreview
+import org.etrange.towards.ui.home.nearby.LinePreviewStop
+import org.etrange.towards.ui.home.nearby.NearbyDeparture
+import org.etrange.towards.ui.home.nearby.NearbyStop
+import org.etrange.towards.ui.home.nearby.TripDeparture
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 
@@ -44,6 +47,7 @@ internal fun previewNearbyStops(): List<NearbyStop> {
         later: List<Int> = emptyList(),
     ) = NearbyDeparture(
         id = id,
+        tripId = id,
         lineName = line,
         headsign = headsign,
         mode = mode,
@@ -142,5 +146,50 @@ internal fun previewItineraries(): List<Itinerary> {
                 ),
             ),
         ),
+    )
+}
+
+internal fun previewLinePreview(): LinePreview {
+    val board = Clock.System.now() + 7.minutes
+    fun stop(
+        name: String,
+        latitude: Double,
+        current: Boolean,
+        upcoming: Boolean,
+        terminus: Boolean,
+        minutesFromBoard: Int,
+    ) = LinePreviewStop(
+        name = name,
+        coordinate = Coordinate(latitude, -1.5534),
+        current = current,
+        upcoming = upcoming,
+        terminus = terminus,
+        time = board + minutesFromBoard.minutes,
+    )
+    val stops = listOf(
+        stop("Médiathèque", 47.218, current = false, upcoming = false, terminus = false, minutesFromBoard = -6),
+        stop("Saint-Donatien", 47.222, current = false, upcoming = false, terminus = false, minutesFromBoard = -3),
+        stop("Plessis Tison", 47.226, current = true, upcoming = true, terminus = false, minutesFromBoard = 0),
+        stop("Rond-Point de Paris", 47.230, current = false, upcoming = true, terminus = false, minutesFromBoard = 2),
+        stop("Chalatres", 47.234, current = false, upcoming = true, terminus = false, minutesFromBoard = 4),
+        stop("Gare de Chantenay", 47.246, current = false, upcoming = true, terminus = true, minutesFromBoard = 24),
+    )
+    return LinePreview(
+        stop = stops.first { it.current }.coordinate,
+        routeColor = "00A9E0",
+        routeTextColor = "FFFFFF",
+        lineName = "C1",
+        headsign = "Gare de Chantenay",
+        departures = listOf(
+            TripDeparture("trip:c1:1", board, realTime = true),
+            TripDeparture("trip:c1:2", board + 25.minutes, realTime = true),
+            TripDeparture("trip:c1:3", board + 50.minutes, realTime = false),
+            TripDeparture("trip:c1:4", board + 75.minutes, realTime = true),
+            TripDeparture("trip:c1:5", board + 100.minutes, realTime = false),
+        ),
+        walkMinutes = 2,
+        passed = emptyList(),
+        ahead = emptyList(),
+        stops = stops,
     )
 }

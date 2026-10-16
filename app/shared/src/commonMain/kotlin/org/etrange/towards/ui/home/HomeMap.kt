@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -17,11 +18,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.etrange.towards.data.decodeCoordinates
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.JourneyLeg
@@ -30,11 +37,18 @@ import org.etrange.towards.ui.trip.isStreetMode
 import org.maplibre.compose.camera.CameraAnimation
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.expressions.dsl.asString
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.feature
+import org.maplibre.compose.expressions.dsl.format
+import org.maplibre.compose.expressions.dsl.span
+import org.maplibre.compose.expressions.dsl.textOffset
 import org.maplibre.compose.expressions.value.LineCap
 import org.maplibre.compose.expressions.value.LineJoin
+import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
+import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.overlay.LocalViewportInsets
@@ -49,11 +63,17 @@ import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.LineString
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
+import kotlinx.coroutines.delay
+import org.etrange.towards.ui.home.nearby.LinePreview
+import org.etrange.towards.ui.home.nearby.LinePreviewStop
+import org.etrange.towards.ui.home.nearby.haversineMeters
 import towards.app.shared.generated.resources.Res
 import kotlin.time.Duration.Companion.milliseconds
 
 private val DefaultMapCenter = Coordinate(latitude = 50.8503, longitude = 4.3517)
 private const val DefaultZoom = 15.0
+private const val LinePreviewZoom = 14.5
+private const val FocusStopZoom = 16.0
 private const val UserLocationOriginOverlapMeters = 30
 
 @Composable
@@ -67,6 +87,9 @@ fun HomeMap(
     destination: Coordinate? = null,
     fitRoute: Boolean = false,
     followCenter: Boolean = true,
+    linePreview: LinePreview? = null,
+    holdingLinePreview: Boolean = false,
+    focusStop: Coordinate? = null,
     onUserMovedCamera: () -> Unit = {},
     onMapCameraIdle: (Coordinate) -> Unit = {},
 ) {
@@ -95,6 +118,7 @@ fun HomeMap(
     var previousFollowCenter by remember { mutableStateOf(followCenter) }
     val cameraTopPadding = contentPadding.calculateTopPadding()
     val cameraBottomPadding = contentPadding.calculateBottomPadding()
+    var viewportHeightPx by remember { mutableIntStateOf(0) }
     val routeSignature = routeLegs.joinToString("|") { leg ->
         "${leg.startTime}:${leg.to.name}:${leg.geometry?.points.orEmpty().take(24)}"
     }
@@ -116,6 +140,8 @@ fun HomeMap(
         haversineMeters(origin, userLocation) < UserLocationOriginOverlapMeters
     val destinationDotColor = MaterialTheme.colorScheme.error
     val transitFallbackColor = MaterialTheme.colorScheme.primary
+    val passedColor = if (darkTheme) Color(0xFFAEAEB2) else Color(0xFF8E8E93)
+    val previewColor = parseHexColor(linePreview?.routeColor) ?: transitFallbackColor
     val onUserMovedCameraState = rememberUpdatedState(onUserMovedCamera)
     val onMapCameraIdleState = rememberUpdatedState(onMapCameraIdle)
     val followLatitude = if (followCenter) target.latitude else null
@@ -168,6 +194,96 @@ fun HomeMap(
                         )
                     }
                 }
+            }
+        }
+
+        if (linePreview != null) {
+            key("line-preview") {
+                if (linePreview.passed.size >= 2) {
+                    PreviewLine(
+                        id = "line-preview-passed",
+                        coordinates = linePreview.passed,
+                        color = passedColor.copy(alpha = 0.5f),
+                        casingColor = casingColor.copy(alpha = 0.5f),
+                        width = 4.dp,
+                        casingWidth = 6.dp,
+                    )
+                }
+                if (linePreview.ahead.size >= 2) {
+                    PreviewLine(
+                        id = "line-preview-ahead",
+                        coordinates = linePreview.ahead,
+                        color = previewColor,
+                        casingColor = casingColor,
+                        width = 6.dp,
+                        casingWidth = 9.dp,
+                    )
+                }
+                val passedStops = linePreview.stops.filterNot { it.upcoming }
+                val upcomingStops = linePreview.stops.filter { it.upcoming && !it.current && !it.terminus }
+                val terminusStops = linePreview.stops.filter { it.terminus && !it.current }
+                val boarding = linePreview.stops.firstOrNull { it.current }?.coordinate ?: linePreview.stop
+                val labelStops = linePreview.stops.filter { it.upcoming }
+                val passedStopsSource = rememberGeoJsonSource(
+                    data = pointsGeoJson(passedStops.map { it.coordinate }),
+                )
+                CircleLayer(
+                    id = "line-preview-passed-stops",
+                    source = passedStopsSource,
+                    color = const(passedColor),
+                    radius = const(3.5.dp),
+                )
+                val upcomingSource = rememberGeoJsonSource(
+                    data = pointsGeoJson(upcomingStops.map { it.coordinate }),
+                )
+                CircleLayer(
+                    id = "line-preview-stops",
+                    source = upcomingSource,
+                    color = const(Color.White),
+                    radius = const(5.dp),
+                    strokeColor = const(previewColor),
+                    strokeWidth = const(2.dp),
+                )
+                val terminusSource = rememberGeoJsonSource(
+                    data = pointsGeoJson(terminusStops.map { it.coordinate }),
+                )
+                CircleLayer(
+                    id = "line-preview-terminus",
+                    source = terminusSource,
+                    color = const(previewColor),
+                    radius = const(6.dp),
+                    strokeColor = const(Color.White),
+                    strokeWidth = const(1.5.dp),
+                )
+                val stopSource = rememberGeoJsonSource(data = pointGeoJson(boarding))
+                CircleLayer(
+                    id = "line-preview-stop-halo",
+                    source = stopSource,
+                    color = const(previewColor.copy(alpha = 0.2f)),
+                    radius = const(14.dp),
+                )
+                CircleLayer(
+                    id = "line-preview-stop",
+                    source = stopSource,
+                    color = const(previewColor),
+                    radius = const(7.dp),
+                    strokeColor = const(Color.White),
+                    strokeWidth = const(2.dp),
+                )
+                val labelSource = rememberGeoJsonSource(data = namedPointsGeoJson(labelStops))
+                SymbolLayer(
+                    id = "line-preview-labels",
+                    source = labelSource,
+                    minZoom = 14.5f,
+                    textField = format(span(feature["name"].asString())),
+                    textFont = const(listOf("Noto Sans Regular")),
+                    textSize = const(11.sp),
+                    textColor = const(if (darkTheme) Color.White else Color(0xFF1C1C1E)),
+                    textHaloColor = const(casingColor),
+                    textHaloWidth = const(1.5.dp),
+                    textAnchor = const(SymbolAnchor.Left),
+                    textOffset = textOffset(0.8f.em, 0f.em),
+                )
             }
         }
 
@@ -227,8 +343,30 @@ fun HomeMap(
         routeSignature,
         fitRoute,
         followCenter,
+        linePreview,
+        focusStop,
+        viewportHeightPx,
     ) {
         mapState.awaitViewport()
+        // The sheet changes the map's height after this effect starts. Wait until that height
+        // settles so the stop is framed in the map you actually see.
+        if (linePreview != null || focusStop != null) {
+            if (viewportHeightPx == 0) return@LaunchedEffect
+            delay(80.milliseconds)
+        }
+        val previewTarget = focusStop ?: linePreview?.stop
+        if (previewTarget != null) {
+            mapState.animateCamera(
+                update = CameraPosition(
+                    target = Position(longitude = previewTarget.longitude, latitude = previewTarget.latitude),
+                    zoom = if (focusStop != null) FocusStopZoom else LinePreviewZoom,
+                    bearing = mapState.cameraPosition.bearing,
+                    tilt = mapState.cameraPosition.tilt,
+                ).toCameraUpdate(),
+                animation = CameraAnimation.Ease(),
+            )
+            return@LaunchedEffect
+        }
         val bounds = if (fitRoute) routeBoundingBox(routeLegs) else null
         if (bounds != null) {
             mapState.animateCameraToBounds(
@@ -273,14 +411,14 @@ fun HomeMap(
     }
 
     MaplibreMap(
-        modifier = modifier,
+        modifier = modifier.onSizeChanged { viewportHeightPx = it.height },
         state = mapState,
         viewportInsets = contentPadding,
         overlay = {
             if (userPosition != null) {
                 UserLocationMarker(modifier = Modifier.placedAt(userPosition, Alignment.Center))
             }
-            if (!followCenter && !fitRoute) {
+            if (!followCenter && !fitRoute && linePreview == null && !holdingLinePreview) {
                 Box(
                     modifier = Modifier
                         .matchParentSize()
@@ -294,8 +432,10 @@ fun HomeMap(
     )
 }
 
-internal fun routeBoundingBox(legs: List<JourneyLeg>): BoundingBox? {
-    val points = legs.flatMap { legPositions(it) }
+internal fun routeBoundingBox(legs: List<JourneyLeg>): BoundingBox? =
+    positionsBoundingBox(legs.flatMap { legPositions(it) })
+
+private fun positionsBoundingBox(points: List<Position>): BoundingBox? {
     if (points.isEmpty()) return null
     var west = points.minOf { it.longitude }
     var east = points.maxOf { it.longitude }
@@ -310,6 +450,40 @@ internal fun routeBoundingBox(legs: List<JourneyLeg>): BoundingBox? {
         north += 0.002
     }
     return BoundingBox(west = west, south = south, east = east, north = north)
+}
+
+private fun List<Coordinate>.toPositions(): List<Position> =
+    map { coordinate ->
+        Position(longitude = coordinate.longitude, latitude = coordinate.latitude)
+    }
+
+@Composable
+private fun PreviewLine(
+    id: String,
+    coordinates: List<Coordinate>,
+    color: Color,
+    casingColor: Color,
+    width: Dp,
+    casingWidth: Dp,
+) {
+    val positions = remember(coordinates) { coordinates.toPositions() }
+    val source = rememberGeoJsonSource(data = lineGeoJson(positions))
+    LineLayer(
+        id = "$id-casing",
+        source = source,
+        color = const(casingColor),
+        width = const(casingWidth),
+        cap = const(LineCap.Round),
+        join = const(LineJoin.Round),
+    )
+    LineLayer(
+        id = id,
+        source = source,
+        color = const(color),
+        width = const(width),
+        cap = const(LineCap.Round),
+        join = const(LineJoin.Round),
+    )
 }
 
 private fun legPositions(leg: JourneyLeg): List<Position> {
@@ -327,6 +501,36 @@ private fun lineGeoJson(positions: List<Position>): GeoJsonData =
         Feature(
             geometry = LineString(positions),
             properties = null,
+        ),
+    )
+
+private fun namedPointsGeoJson(stops: List<LinePreviewStop>): GeoJsonData =
+    GeoJsonData.Features(
+        FeatureCollection<Geometry, JsonObject?>(
+            stops.map { stop ->
+                Feature(
+                    geometry = Point(
+                        longitude = stop.coordinate.longitude,
+                        latitude = stop.coordinate.latitude,
+                    ),
+                    properties = buildJsonObject { put("name", stop.name) },
+                )
+            },
+        ),
+    )
+
+private fun pointsGeoJson(coordinates: List<Coordinate>): GeoJsonData =
+    GeoJsonData.Features(
+        FeatureCollection<Geometry, JsonObject?>(
+            coordinates.map { coordinate ->
+                Feature(
+                    geometry = Point(
+                        longitude = coordinate.longitude,
+                        latitude = coordinate.latitude,
+                    ),
+                    properties = null,
+                )
+            },
         ),
     )
 

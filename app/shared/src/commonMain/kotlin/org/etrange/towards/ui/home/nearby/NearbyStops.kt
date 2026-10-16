@@ -1,5 +1,6 @@
-package org.etrange.towards.ui.home
+package org.etrange.towards.ui.home.nearby
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -31,7 +33,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.datetime.LocalTime
@@ -57,6 +58,9 @@ fun LazyListScope.nearbyStopsSection(
     isLoadingNearby: Boolean,
     nearbyMessage: String?,
     onStopClick: (NearbyStop) -> Unit = {},
+    selectedDepartureId: String? = null,
+    isLoadingLinePreview: Boolean = false,
+    onDepartureClick: (NearbyStop, NearbyDeparture) -> Unit = { _, _ -> },
 ) {
     if (isLoadingNearby && nearbyStops.isEmpty()) {
         item(key = "nearby-loading") {
@@ -102,6 +106,9 @@ fun LazyListScope.nearbyStopsSection(
                 NearbyDepartureRow(
                     departure = departure,
                     showDivider = departureIndex < departures.lastIndex,
+                    selected = departure.id == selectedDepartureId,
+                    loading = departure.id == selectedDepartureId && isLoadingLinePreview,
+                    onClick = { onDepartureClick(stop, departure) },
                 )
             }
         }
@@ -154,7 +161,13 @@ private fun ModeGroupLabel(group: ModeGroup) {
 }
 
 @Composable
-fun NearbyDepartureRow(departure: NearbyDeparture, showDivider: Boolean = false) {
+fun NearbyDepartureRow(
+    departure: NearbyDeparture,
+    showDivider: Boolean = false,
+    selected: Boolean = false,
+    loading: Boolean = false,
+    onClick: () -> Unit = {},
+) {
     val now by produceState(initialValue = Clock.System.now(), key1 = departure.id) {
         while (isActive) {
             value = Clock.System.now()
@@ -170,13 +183,25 @@ fun NearbyDepartureRow(departure: NearbyDeparture, showDivider: Boolean = false)
         append(", ${countdown.spoken}")
         if (departure.realTime) append(", live")
         if (laterLabel != null) append(", $laterLabel")
+        if (selected) append(", selected")
     }
+    val selectedColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
 
     Column {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 56.dp)
+                .clickable(
+                    onClickLabel = if (selected) {
+                        "Hide line preview"
+                    } else {
+                        "Preview line ${departure.lineName}"
+                    },
+                    role = Role.Button,
+                    onClick = onClick,
+                )
+                .background(if (selected) selectedColor else Color.Transparent)
                 .clearAndSetSemantics { contentDescription = description }
                 .padding(horizontal = ListInset, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(BadgeGap),
@@ -195,6 +220,9 @@ fun NearbyDepartureRow(departure: NearbyDeparture, showDivider: Boolean = false)
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+            if (loading) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+            }
             DepartureCountdown(
                 countdown = countdown,
                 realTime = departure.realTime,
@@ -213,7 +241,6 @@ fun NearbyDepartureRow(departure: NearbyDeparture, showDivider: Boolean = false)
 @Composable
 private fun DepartureCountdown(countdown: Countdown, realTime: Boolean, laterLabel: String?) {
     val accent = MaterialTheme.colorScheme.primary
-    val emphasized = realTime || countdown.isNow
     Column(horizontalAlignment = Alignment.End) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(3.dp),
@@ -229,13 +256,9 @@ private fun DepartureCountdown(countdown: Countdown, realTime: Boolean, laterLab
             }
             Text(
                 text = countdown.value,
-                style = if (countdown.isNow) {
-                    MaterialTheme.typography.titleMedium
-                } else {
-                    MaterialTheme.typography.titleLarge
-                }.copy(fontFeatureSettings = "tnum"),
+                style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"),
                 fontWeight = FontWeight.SemiBold,
-                color = if (emphasized) accent else MaterialTheme.colorScheme.onSurface,
+                color = if (realTime) accent else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.alignByBaseline(),
             )
             if (countdown.unit != null) {
@@ -257,9 +280,7 @@ private fun DepartureCountdown(countdown: Countdown, realTime: Boolean, laterLab
     }
 }
 
-private data class Countdown(val value: String, val unit: String?, val spoken: String) {
-    val isNow: Boolean get() = unit == null && value == "now"
-}
+internal data class Countdown(val value: String, val unit: String?, val spoken: String)
 
 private val clockFormat = LocalTime.Format {
     hour()
@@ -267,12 +288,12 @@ private val clockFormat = LocalTime.Format {
     minute()
 }
 
-private fun Instant.clockLabel(): String =
+internal fun Instant.clockLabel(): String =
     clockFormat.format(toLocalDateTime(TimeZone.currentSystemDefault()).time)
 
 /** Minutes for the next hour, then a clock time, which is easier to read than "1 h 12". */
-private fun countdownOf(time: Instant, now: Instant): Countdown {
-    val minutes = minutesUntil(time, now) ?: return Countdown("now", null, "now")
+internal fun countdownOf(time: Instant, now: Instant): Countdown {
+    val minutes = minutesUntil(time, now)
     if (minutes >= 60) {
         val clock = time.clockLabel()
         return Countdown(clock, null, "at $clock")
@@ -280,8 +301,8 @@ private fun countdownOf(time: Instant, now: Instant): Countdown {
     return Countdown(minutes.toString(), "min", "in $minutes min")
 }
 
-private fun laterTimesLabel(times: List<Instant>, now: Instant): String? {
-    val minutes = times.mapNotNull { minutesUntil(it, now) }.filter { it < 60 }
+internal fun laterTimesLabel(times: List<Instant>, now: Instant): String? {
+    val minutes = times.map { minutesUntil(it, now) }.filter { it < 60 }
     if (minutes.isEmpty()) return null
     return "then ${minutes.joinToString(", ")} min"
 }
@@ -294,7 +315,7 @@ private fun ModeGroup.label(): String = when (this) {
     ModeGroup.OTHER -> "Other"
 }
 
-@Preview
+@Preview(showBackground = true)
 @Composable
 fun NearbyStopsSectionPreview() {
     TowardsPreview(themeMode = ThemeMode.Light) {

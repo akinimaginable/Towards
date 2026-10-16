@@ -15,6 +15,8 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.etrange.towards.ui.theme.ThemeMode
@@ -26,6 +28,8 @@ fun LineBadge(
     routeColor: String?,
     routeTextColor: String?,
     modifier: Modifier = Modifier,
+    minHeight: Dp = 24.dp,
+    fontSize: TextUnit = 13.sp,
 ) {
     val routeBackground = parseHexColor(routeColor)
     val background = routeBackground ?: MaterialTheme.colorScheme.secondaryContainer
@@ -35,7 +39,7 @@ fun LineBadge(
 
     Box(
         modifier = modifier
-            .defaultMinSize(minWidth = 32.dp, minHeight = 24.dp)
+            .defaultMinSize(minWidth = 32.dp, minHeight = minHeight)
             .background(background, RoundedCornerShape(6.dp))
             .padding(horizontal = 6.dp, vertical = 3.dp),
         contentAlignment = Alignment.Center,
@@ -44,7 +48,7 @@ fun LineBadge(
             text = label,
             color = foreground,
             fontWeight = FontWeight.Bold,
-            fontSize = 13.sp,
+            fontSize = fontSize,
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
             maxLines = 1,

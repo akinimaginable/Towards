@@ -1,4 +1,4 @@
-package org.etrange.towards.ui.home
+package org.etrange.towards.ui.home.nearby
 
 import kotlin.math.PI
 import kotlin.math.atan2
@@ -17,6 +17,7 @@ import org.etrange.towards.domain.model.TransportMode
 
 data class NearbyDeparture(
     val id: String,
+    val tripId: String,
     val lineName: String,
     val headsign: String?,
     val mode: TransportMode,
@@ -26,7 +27,20 @@ data class NearbyDeparture(
     val realTime: Boolean,
     /** The following departures of the same line and direction, earliest first. */
     val laterTimes: List<Instant> = emptyList(),
+    /** The trips behind [laterTimes], in the same order. */
+    val laterTrips: List<TripDeparture> = emptyList(),
 )
+
+/** One trip leaving a stop. */
+data class TripDeparture(
+    val tripId: String,
+    val time: Instant,
+    val realTime: Boolean,
+)
+
+/** This departure followed by the later ones of the same line and direction. */
+fun NearbyDeparture.upcomingTrips(): List<TripDeparture> =
+    listOf(TripDeparture(tripId, time, realTime)) + laterTrips
 
 data class NearbyStop(
     val id: String,
@@ -125,19 +139,21 @@ fun groupNearbyDepartures(
 
 fun relativeLabel(time: Instant, now: Instant): String {
     val delta: Duration = time - now
-    if (delta < 1.minutes) return "now"
-    val totalMinutes = delta.inWholeMinutes
+    val totalMinutes = if (delta < 1.minutes) 0 else delta.inWholeMinutes
     if (totalMinutes < 60) return "$totalMinutes min"
     val hours = totalMinutes / 60
     val minutes = totalMinutes % 60
     return if (minutes == 0L) "$hours h" else "$hours h $minutes"
 }
 
-/** Whole minutes until [time], or null when it leaves within the minute ("now"). */
-fun minutesUntil(time: Instant, now: Instant): Long? {
+/** Whole minutes until [time]. A departure within the current minute is zero. */
+fun minutesUntil(time: Instant, now: Instant): Long {
     val delta = time - now
-    return if (delta < 1.minutes) null else delta.inWholeMinutes
+    return if (delta < 1.minutes) 0 else delta.inWholeMinutes
 }
+
+/** Minutes to walk [meters] at about 4.8 km/h, at least one. */
+fun walkingMinutes(meters: Int): Int = ((meters + 79) / 80).coerceAtLeast(1)
 
 fun formatDistanceMeters(meters: Int): String =
     if (meters < 1000) "$meters m" else "${(meters / 100.0).roundToInt() / 10.0} km"
@@ -229,8 +245,10 @@ private fun List<Pair<StopTime, Instant>>.toDeparture(
 ): NearbyDeparture {
     val ordered = distinctBy { (event, _) -> event.tripId }.sortedBy { it.second }
     val (event, instant) = ordered.first()
+    val later = ordered.drop(1).take(laterTimesPerLine)
     return NearbyDeparture(
         id = "${stopId}:${event.routeId ?: event.displayName}:${event.headsign}:${event.tripId}",
+        tripId = event.tripId,
         lineName = event.displayName ?: event.routeId ?: event.mode.name,
         headsign = event.headsign,
         mode = event.mode,
@@ -238,7 +256,10 @@ private fun List<Pair<StopTime, Instant>>.toDeparture(
         routeTextColor = event.routeTextColor,
         time = instant,
         realTime = event.realTime,
-        laterTimes = ordered.drop(1).take(laterTimesPerLine).map { it.second },
+        laterTimes = later.map { it.second },
+        laterTrips = later.map { (laterEvent, laterInstant) ->
+            TripDeparture(laterEvent.tripId, laterInstant, laterEvent.realTime)
+        },
     )
 }
 
