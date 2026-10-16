@@ -11,6 +11,14 @@ import org.etrange.towards.domain.model.Place
 import org.etrange.towards.domain.model.StopTime
 import org.etrange.towards.domain.model.StopTimes
 import org.etrange.towards.domain.model.TransportMode
+import org.etrange.towards.ui.home.nearby.ModeGroup
+import org.etrange.towards.ui.home.nearby.NearbyDeparture
+import org.etrange.towards.ui.home.nearby.NearbyStop
+import org.etrange.towards.ui.home.nearby.departuresByMode
+import org.etrange.towards.ui.home.nearby.groupNearbyDepartures
+import org.etrange.towards.ui.home.nearby.relativeLabel
+import org.etrange.towards.ui.home.nearby.toDisplayCase
+import org.etrange.towards.ui.home.nearby.upcomingTrips
 
 class NearbyDeparturesTest {
 
@@ -67,6 +75,7 @@ class NearbyDeparturesTest {
         assertEquals(1, result.size)
         assertEquals(2, result.single().departures.size)
         assertEquals("Churchill", result.single().departures[0].headsign)
+        assertEquals("trip:early", result.single().departures[0].tripId)
         assertEquals(Instant.parse("2026-08-06T12:03:00Z"), result.single().departures[0].time)
         assertEquals("Erasme", result.single().departures[1].headsign)
     }
@@ -189,6 +198,9 @@ class NearbyDeparturesTest {
             listOf(Instant.parse("2026-08-06T12:09:00Z"), Instant.parse("2026-08-06T12:15:00Z")),
             departure.laterTimes,
         )
+        assertEquals(departure.laterTimes, departure.laterTrips.map { it.time })
+        assertEquals(3, departure.upcomingTrips().map { it.tripId }.distinct().size)
+        assertEquals(departure.tripId, departure.upcomingTrips().first().tripId)
     }
 
     @Test
@@ -356,7 +368,7 @@ class NearbyDeparturesTest {
 
     @Test
     fun relativeLabelBoundaries() {
-        assertEquals("now", relativeLabel(baseTime + 30.seconds, baseTime))
+        assertEquals("0 min", relativeLabel(baseTime + 30.seconds, baseTime))
         assertEquals("3 min", relativeLabel(baseTime + 3.minutes, baseTime))
         assertEquals("1 h", relativeLabel(baseTime + 60.minutes, baseTime))
         assertEquals("1 h 12", relativeLabel(baseTime + 72.minutes, baseTime))
@@ -364,6 +376,7 @@ class NearbyDeparturesTest {
 
     private fun departureOf(line: String, mode: TransportMode) = NearbyDeparture(
         id = line,
+        tripId = "trip:$line",
         lineName = line,
         headsign = null,
         mode = mode,

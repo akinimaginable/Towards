@@ -36,6 +36,8 @@ class TripPlanDtoMapperTest {
                             to = PlaceDto(
                                 name = "B",
                                 coordinate = CoordinateDto(50.84, 4.36),
+                                arrival = "2026-09-07T10:10:00+02:00",
+                                departure = "2026-09-07T10:11:00+02:00",
                             ),
                             startTime = "2026-09-07T10:00:00+02:00",
                             endTime = "2026-09-07T10:10:00+02:00",
@@ -56,5 +58,8 @@ class TripPlanDtoMapperTest {
         assertEquals("itin-1", plan.itineraries.single().id)
         assertEquals(TransportMode.TRAM, plan.itineraries.single().legs.single().mode)
         assertEquals("abc", plan.itineraries.single().legs.single().geometry?.points)
+        val destination = plan.itineraries.single().legs.single().to
+        assertEquals("2026-09-07T10:10:00+02:00", destination.arrival)
+        assertEquals("2026-09-07T10:11:00+02:00", destination.departure)
     }
 }

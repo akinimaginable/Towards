@@ -143,7 +143,7 @@ private fun PlaceSearchContentPreview() {
                 suggestions = emptyList(),
                 history = emptyList(),
                 shortcuts = listOf(
-                    DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
+                    DestinationShortcutItem(label = "Home", detail = "0 min", highlightDetail = true),
                     DestinationShortcutItem(label = "Grand Place", detail = "7 min"),
                 ),
                 isLoading = false,

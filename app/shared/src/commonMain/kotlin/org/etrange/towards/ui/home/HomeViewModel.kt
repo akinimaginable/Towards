@@ -27,21 +27,35 @@ import org.etrange.towards.data.SearchHistoryStore
 import org.etrange.towards.data.toApiDateTime
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
+import org.etrange.towards.domain.model.StopTime
 import org.etrange.towards.domain.model.requests.ReverseGeocodeRequest
 import org.etrange.towards.domain.model.requests.StopTimesRequest
+import org.etrange.towards.domain.model.requests.TripLookupRequest
 import org.etrange.towards.domain.port.Geocoder
 import org.etrange.towards.domain.port.TimetableProvider
+import org.etrange.towards.domain.port.TripInformationProvider
+import org.etrange.towards.ui.home.nearby.LinePreview
+import org.etrange.towards.ui.home.nearby.NearbyDeparture
+import org.etrange.towards.ui.home.nearby.NearbyStop
+import org.etrange.towards.ui.home.nearby.TripDeparture
+import org.etrange.towards.ui.home.nearby.groupNearbyDepartures
+import org.etrange.towards.ui.home.nearby.haversineMeters
+import org.etrange.towards.ui.home.nearby.linePreviewOf
+import org.etrange.towards.ui.home.nearby.walkingMinutes
 import org.etrange.towards.ui.search.PlaceSearch
 import org.etrange.towards.ui.trip.TripEndpoint
 import org.etrange.towards.ui.trip.toTripEndpoint
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 @OptIn(FlowPreview::class)
 class HomeViewModel(
     private val geocoder: Geocoder,
     private val locationProvider: LocationProvider,
     private val timetableProvider: TimetableProvider,
+    private val tripInformation: TripInformationProvider,
     private val locationBiasStore: LocationBiasStore = LocationBiasStore(),
     private val favoritePlacesStore: FavoritePlacesStore = FavoritePlacesStore(),
     private val searchHistoryStore: SearchHistoryStore = SearchHistoryStore(),
@@ -91,6 +105,18 @@ class HomeViewModel(
     private val _nearbyMessage = MutableStateFlow<String?>(null)
     val nearbyMessage: StateFlow<String?> = _nearbyMessage.asStateFlow()
 
+    private val _selectedDepartureId = MutableStateFlow<String?>(null)
+    val selectedDepartureId: StateFlow<String?> = _selectedDepartureId.asStateFlow()
+
+    private val _linePreview = MutableStateFlow<LinePreview?>(null)
+    val linePreview: StateFlow<LinePreview?> = _linePreview.asStateFlow()
+
+    private val _isLoadingLinePreview = MutableStateFlow(false)
+    val isLoadingLinePreview: StateFlow<Boolean> = _isLoadingLinePreview.asStateFlow()
+
+    private val _focusedStopIndex = MutableStateFlow<Int?>(null)
+    val focusedStopIndex: StateFlow<Int?> = _focusedStopIndex.asStateFlow()
+
     private val _origin = MutableStateFlow(TripEndpoint("Map center", MAP_CENTER))
     val origin: StateFlow<TripEndpoint> = _origin.asStateFlow()
 
@@ -109,6 +135,10 @@ class HomeViewModel(
     private var nearbyJob: Job? = null
     private var nearbyPollJob: Job? = null
     private var reverseGeocodeJob: Job? = null
+    private var linePreviewJob: Job? = null
+    private var linePreviewSource: Pair<NearbyStop, NearbyDeparture>? = null
+    private var linePreviewRequest = 0
+    private var lineDepartures: List<TripDeparture>? = null
 
     init {
         _mapFocus.debounce(300.milliseconds).distinctUntilChanged().onEach { coordinate ->
@@ -193,6 +223,144 @@ class HomeViewModel(
     /** Handles a nearby stop tap. Returns the trip to plan, or null when it is the same place. */
     fun onNearbyStopSelected(stop: NearbyStop): Pair<TripEndpoint, TripEndpoint>? =
         tripFor(stop.toTripEndpoint())
+
+    /** Shows the tapped line on the map. Tapping the selected row again clears it. */
+    fun onDepartureSelected(stop: NearbyStop, departure: NearbyDeparture) {
+        if (_selectedDepartureId.value == departure.id) {
+            clearLinePreview()
+            return
+        }
+        if (departure.tripId.isBlank()) {
+            clearLinePreview()
+            _localError.value = "Unable to load this line"
+            return
+        }
+        _selectedDepartureId.value = departure.id
+        _linePreview.value = null
+        linePreviewSource = stop to departure
+        lineDepartures = null
+        loadLinePreview(stop, departure, tripIndex = 0)
+    }
+
+    /** Shows the stops and times of one of the line's upcoming trips. */
+    fun onLineDepartureSelected(index: Int) {
+        val (stop, departure) = linePreviewSource ?: return
+        val preview = _linePreview.value ?: return
+        if (index == preview.selectedDeparture || preview.departures.getOrNull(index) == null) return
+        loadLinePreview(stop, departure, tripIndex = index)
+    }
+
+    private fun loadLinePreview(stop: NearbyStop, departure: NearbyDeparture, tripIndex: Int) {
+        val previous = linePreviewJob
+        linePreviewJob = null
+        previous?.cancel()
+        val departureId = departure.id
+        val request = ++linePreviewRequest
+        val isCurrent = { _selectedDepartureId.value == departureId && linePreviewRequest == request }
+        _focusedStopIndex.value = null
+        _isLoadingLinePreview.value = true
+        _localError.value = null
+        linePreviewJob = viewModelScope.launch {
+            try {
+                val trips = departuresForLine(stop, departure)
+                val trip = trips.getOrNull(tripIndex) ?: return@launch
+                val itinerary = tripInformation.getTrip(TripLookupRequest(tripId = trip.tripId))
+                if (!isCurrent()) return@launch
+                val rider = _userLocation.value
+                _linePreview.value = linePreviewOf(
+                    itinerary = itinerary,
+                    stop = stop.coordinate,
+                    routeColor = departure.routeColor,
+                    routeTextColor = departure.routeTextColor,
+                    lineName = departure.lineName,
+                    headsign = departure.headsign,
+                    tripId = trip.tripId,
+                    departures = trips,
+                    selectedDeparture = tripIndex,
+                    walkMinutes = rider?.let {
+                        walkingMinutes(haversineMeters(it, stop.coordinate))
+                    },
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: ApiException) {
+                if (isCurrent()) {
+                    if (_linePreview.value == null) resetLinePreview()
+                    _localError.value = error.message
+                }
+            } catch (error: Exception) {
+                if (isCurrent()) {
+                    if (_linePreview.value == null) resetLinePreview()
+                    _localError.value = error.message ?: "Unable to load this line"
+                }
+            } finally {
+                if (isCurrent()) {
+                    _isLoadingLinePreview.value = false
+                }
+            }
+        }
+    }
+
+    fun onDismissLinePreview() = clearLinePreview()
+
+    /** Moves the map to a stop in the open line preview. */
+    fun onLineStopSelected(index: Int) {
+        if (_linePreview.value?.stops?.getOrNull(index) == null) return
+        _focusedStopIndex.value = index
+    }
+
+    private fun clearLinePreview() {
+        val job = linePreviewJob
+        linePreviewJob = null
+        resetLinePreview()
+        job?.cancel()
+    }
+
+    /** The next departures of this line and direction, up to [LineDepartureCount]. */
+    private suspend fun departuresForLine(
+        stop: NearbyStop,
+        departure: NearbyDeparture,
+    ): List<TripDeparture> {
+        lineDepartures?.let { return it }
+        val now = Clock.System.now()
+        val fetched = try {
+            timetableProvider.getStopTimes(
+                StopTimesRequest(
+                    stopId = stop.id,
+                    numberOfEvents = LineDepartureLookupCount,
+                    time = now.toApiDateTime(),
+                ),
+            ).events
+                .asSequence()
+                .filterNot { it.cancelled }
+                .filter { it.serves(departure) }
+                .mapNotNull { event -> event.toTripDeparture(now) }
+                .distinctBy { it.tripId }
+                .sortedBy { it.time }
+                .take(LineDepartureCount)
+                .toList()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            emptyList()
+        }
+        val tapped = TripDeparture(departure.tripId, departure.time, departure.realTime)
+        val trips = (listOf(tapped) + fetched)
+            .distinctBy { it.tripId }
+            .sortedBy { it.time }
+            .take(LineDepartureCount)
+        lineDepartures = trips
+        return trips
+    }
+
+    private fun resetLinePreview() {
+        linePreviewSource = null
+        lineDepartures = null
+        _selectedDepartureId.value = null
+        _linePreview.value = null
+        _isLoadingLinePreview.value = false
+        _focusedStopIndex.value = null
+    }
 
     private fun acceptPlace(place: TripEndpoint): Pair<TripEndpoint, TripEndpoint>? {
         if (_searchTarget.value == HomeSearchTarget.Origin) {
@@ -314,6 +482,14 @@ class HomeViewModel(
         }
     }
 
+    private fun dropLinePreviewIfDepartureGone() {
+        val selectedId = _selectedDepartureId.value ?: return
+        val stillListed = _nearbyStops.value.any { stop ->
+            stop.departures.any { it.id == selectedId }
+        }
+        if (!stillListed) clearLinePreview()
+    }
+
     private fun updateMapFocus(coordinate: Coordinate, force: Boolean = false) {
         if (!force && !shouldUpdateMapFocus(_mapFocus.value, coordinate)) return
         _mapFocus.value = coordinate
@@ -380,6 +556,7 @@ class HomeViewModel(
                     maxStops = NEARBY_MAX_STOPS,
                     now = now,
                 )
+                dropLinePreviewIfDepartureGone()
                 _nearbyMessage.value = if (_nearbyStops.value.isEmpty()) {
                     "No departures within ${NEARBY_RADIUS_METERS} m of this area"
                 } else {
@@ -402,9 +579,23 @@ class HomeViewModel(
         private const val NEARBY_RADIUS_METERS = 1_500
         private const val NEARBY_MAX_STOPS = 30
         private const val NEARBY_EVENT_COUNT = 250
+        private const val LineDepartureCount = 5
+        private const val LineDepartureLookupCount = 80
         private const val NEARBY_POLL_INTERVAL_MS = 60_000L
     }
 }
 
 /** Which field the home search sheet is editing, or null when the sheet is closed. */
 enum class HomeSearchTarget { Origin, Destination }
+
+private fun StopTime.serves(departure: NearbyDeparture): Boolean {
+    val name = displayName ?: routeId ?: return false
+    return name == departure.lineName && headsign == departure.headsign
+}
+
+private fun StopTime.toTripDeparture(now: Instant): TripDeparture? {
+    val instant = time?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return null
+    if (instant < now - 1.minutes) return null
+    if (tripId.isBlank()) return null
+    return TripDeparture(tripId, instant, realTime)
+}

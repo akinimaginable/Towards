@@ -71,6 +71,7 @@ fun LocationPickerScreen(
             if (endpoint != null) onPlacePicked(endpoint)
         },
         onAddShortcut = { addShortcutOpen = true },
+        onClearHistory = viewModel::clearHistory,
     )
 
     if (addShortcutOpen) {
@@ -81,8 +82,7 @@ fun LocationPickerScreen(
                 onAddShortcut(label)
             },
             labelError = viewModel::shortcutLabelError,
-            onClearHistory = viewModel::clearHistory,
-    )
+        )
     }
 }
 
@@ -176,7 +176,7 @@ private fun LocationPickerScreenPreview() {
                 ),
             ),
             shortcuts = listOf(
-                DestinationShortcutItem(label = "Home", detail = "now", highlightDetail = true),
+                DestinationShortcutItem(label = "Home", detail = "0 min", highlightDetail = true),
                 DestinationShortcutItem(label = "Grand Place", detail = "7 min"),
             ),
             isLoading = false,
