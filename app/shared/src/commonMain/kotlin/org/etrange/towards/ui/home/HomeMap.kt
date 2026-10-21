@@ -35,6 +35,7 @@ import org.etrange.towards.domain.model.JourneyLeg
 import org.etrange.towards.ui.parseHexColor
 import org.etrange.towards.ui.trip.isStreetMode
 import org.maplibre.compose.camera.CameraAnimation
+import org.maplibre.compose.camera.CameraFit
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.asString
@@ -150,7 +151,7 @@ fun HomeMap(
     val mapState = rememberMapState(
         baseStyle = BaseStyle.Uri(styleUri),
         initialCameraPosition = CameraPosition(
-            target = Position(longitude = target.longitude, latitude = target.latitude),
+            center = Position(longitude = target.longitude, latitude = target.latitude),
             zoom = DefaultZoom,
         ),
     ) {
@@ -315,7 +316,7 @@ fun HomeMap(
         var gestureActive = false
         snapshotFlow { mapState.isCameraMoving to mapState.cameraMoveReason }
             .collect { (moving, reason) ->
-                if (moving && reason == CameraMoveReason.GESTURE) {
+                if (moving && reason == CameraMoveReason.Gesture) {
                     if (!gestureActive) {
                         gestureActive = true
                         onUserMovedCameraState.value()
@@ -324,11 +325,11 @@ fun HomeMap(
                 }
                 if (gestureActive && !moving) {
                     gestureActive = false
-                    val targetPosition = mapState.cameraPosition.target
+                    val cameraCenter = mapState.cameraPosition.center
                     onMapCameraIdleState.value(
                         Coordinate(
-                            latitude = targetPosition.latitude,
-                            longitude = targetPosition.longitude,
+                            latitude = cameraCenter.latitude,
+                            longitude = cameraCenter.longitude,
                         ),
                     )
                 }
@@ -358,12 +359,12 @@ fun HomeMap(
         if (previewTarget != null) {
             mapState.animateCamera(
                 update = CameraPosition(
-                    target = Position(longitude = previewTarget.longitude, latitude = previewTarget.latitude),
+                    center = Position(longitude = previewTarget.longitude, latitude = previewTarget.latitude),
                     zoom = if (focusStop != null) FocusStopZoom else LinePreviewZoom,
                     bearing = mapState.cameraPosition.bearing,
-                    tilt = mapState.cameraPosition.tilt,
+                    pitch = mapState.cameraPosition.pitch,
                 ).toCameraUpdate(),
-                animation = CameraAnimation.Ease(),
+                animation = CameraAnimation.Ease.Standard,
             )
             return@LaunchedEffect
         }
@@ -371,13 +372,15 @@ fun HomeMap(
         if (bounds != null) {
             mapState.animateCameraToBounds(
                 boundingBox = bounds,
-                fitPadding = DpPadding(
-                    left = 28.dp,
-                    top = cameraTopPadding + 16.dp,
-                    right = 28.dp,
-                    bottom = cameraBottomPadding + 16.dp,
+                fit = CameraFit(
+                    fitPadding = DpPadding(
+                        left = 28.dp,
+                        top = cameraTopPadding + 16.dp,
+                        right = 28.dp,
+                        bottom = cameraBottomPadding + 16.dp,
+                    ),
                 ),
-                animation = CameraAnimation.Ease(),
+                animation = CameraAnimation.Ease.Standard,
             )
             return@LaunchedEffect
         }
@@ -387,10 +390,10 @@ fun HomeMap(
             return@LaunchedEffect
         }
         val finalPosition = CameraPosition(
-            target = Position(longitude = target.longitude, latitude = target.latitude),
+            center = Position(longitude = target.longitude, latitude = target.latitude),
             zoom = DefaultZoom,
             bearing = mapState.cameraPosition.bearing,
-            tilt = mapState.cameraPosition.tilt,
+            pitch = mapState.cameraPosition.pitch,
         )
         val isFirstRealCenter = previousCenter == null && center != null
         val paddingOnlyChange = previousCenter == center && previousFollowCenter
@@ -400,12 +403,12 @@ fun HomeMap(
         if (isFirstRealCenter || (paddingOnlyChange && !resumedFollow)) {
             mapState.animateCamera(
                 update = finalPosition.toCameraUpdate(),
-                animation = CameraAnimation.Ease(duration = 0.milliseconds),
+                animation = CameraAnimation.Ease { duration = 0.milliseconds },
             )
         } else {
             mapState.animateCamera(
                 update = finalPosition.toCameraUpdate(),
-                animation = CameraAnimation.Ease(),
+                animation = CameraAnimation.Ease.Standard,
             )
         }
     }
