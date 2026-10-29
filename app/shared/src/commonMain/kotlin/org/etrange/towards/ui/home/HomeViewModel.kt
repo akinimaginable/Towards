@@ -27,11 +27,15 @@ import org.etrange.towards.data.SearchHistoryStore
 import org.etrange.towards.data.toApiDateTime
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
+import org.etrange.towards.domain.model.Place
 import org.etrange.towards.domain.model.StopTime
+import org.etrange.towards.domain.model.map.MapBounds
+import org.etrange.towards.domain.model.requests.MapStopsRequest
 import org.etrange.towards.domain.model.requests.ReverseGeocodeRequest
 import org.etrange.towards.domain.model.requests.StopTimesRequest
 import org.etrange.towards.domain.model.requests.TripLookupRequest
 import org.etrange.towards.domain.port.Geocoder
+import org.etrange.towards.domain.port.MapStopsProvider
 import org.etrange.towards.domain.port.TimetableProvider
 import org.etrange.towards.domain.port.TripInformationProvider
 import org.etrange.towards.ui.home.nearby.LinePreview
@@ -56,6 +60,7 @@ class HomeViewModel(
     private val locationProvider: LocationProvider,
     private val timetableProvider: TimetableProvider,
     private val tripInformation: TripInformationProvider,
+    private val mapStopsProvider: MapStopsProvider,
     private val locationBiasStore: LocationBiasStore = LocationBiasStore(),
     private val favoritePlacesStore: FavoritePlacesStore = FavoritePlacesStore(),
     private val searchHistoryStore: SearchHistoryStore = SearchHistoryStore(),
@@ -117,6 +122,9 @@ class HomeViewModel(
     private val _focusedStopIndex = MutableStateFlow<Int?>(null)
     val focusedStopIndex: StateFlow<Int?> = _focusedStopIndex.asStateFlow()
 
+    private val _mapStops = MutableStateFlow<List<Place>>(emptyList())
+    val mapStops: StateFlow<List<Place>> = _mapStops.asStateFlow()
+
     private val _origin = MutableStateFlow(TripEndpoint("Map center", MAP_CENTER))
     val origin: StateFlow<TripEndpoint> = _origin.asStateFlow()
 
@@ -136,6 +144,8 @@ class HomeViewModel(
     private var nearbyPollJob: Job? = null
     private var reverseGeocodeJob: Job? = null
     private var linePreviewJob: Job? = null
+    private var mapStopsJob: Job? = null
+    private var mapStopsBounds: MapBounds? = null
     private var linePreviewSource: Pair<NearbyStop, NearbyDeparture>? = null
     private var linePreviewRequest = 0
     private var lineDepartures: List<TripDeparture>? = null
@@ -398,6 +408,32 @@ class HomeViewModel(
         updateMapFocus(coordinate)
     }
 
+    /** Loads the stops around the visible map area, unless they are already loaded. */
+    fun onMapViewportChanged(bounds: MapBounds, zoom: Double) {
+        if (zoom < MapStopsMinZoom) {
+            mapStopsJob?.cancel()
+            mapStopsBounds = null
+            _mapStops.value = emptyList()
+            return
+        }
+        if (mapStopsBounds?.contains(bounds) == true) return
+        val requested = bounds.expandedBy(MAP_STOPS_PADDING)
+        mapStopsBounds = requested
+        mapStopsJob?.cancel()
+        mapStopsJob = viewModelScope.launch {
+            try {
+                _mapStops.value = mapStopsProvider.getMapStops(
+                    MapStopsRequest(bounds = requested, grouped = true),
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // Stops are decoration on the map; retry on the next camera move.
+                if (mapStopsBounds == requested) mapStopsBounds = null
+            }
+        }
+    }
+
     fun onUseCurrentLocation() {
         locateJob?.cancel()
         locateJob = viewModelScope.launch {
@@ -582,6 +618,7 @@ class HomeViewModel(
         private const val LineDepartureCount = 5
         private const val LineDepartureLookupCount = 80
         private const val NEARBY_POLL_INTERVAL_MS = 60_000L
+        private const val MAP_STOPS_PADDING = 0.5
     }
 }
 

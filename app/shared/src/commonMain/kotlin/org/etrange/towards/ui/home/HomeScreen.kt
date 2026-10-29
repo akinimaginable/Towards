@@ -63,6 +63,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.etrange.towards.data.rememberLocationPermissionLauncher
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
+import org.etrange.towards.domain.model.Place
+import org.etrange.towards.domain.model.map.MapBounds
 import org.etrange.towards.ui.icons.closeIcon
 import org.etrange.towards.ui.icons.settingsIcon
 import org.etrange.towards.ui.preview.previewLinePreview
@@ -107,6 +109,7 @@ fun HomeScreen(
     val focusedStopIndex by viewModel.focusedStopIndex.collectAsStateWithLifecycle()
     val selectedDepartureId by viewModel.selectedDepartureId.collectAsStateWithLifecycle()
     val isLoadingLinePreview by viewModel.isLoadingLinePreview.collectAsStateWithLifecycle()
+    val mapStops by viewModel.mapStops.collectAsStateWithLifecycle()
     val haptic = LocalHapticFeedback.current
     val searchTarget by viewModel.searchTarget.collectAsStateWithLifecycle()
 
@@ -158,10 +161,12 @@ fun HomeScreen(
         focusedStop = linePreview?.stops?.getOrNull(focusedStopIndex ?: -1)?.coordinate,
         selectedDepartureId = selectedDepartureId,
         isLoadingLinePreview = isLoadingLinePreview,
+        mapStops = mapStops,
         originName = origin.name,
         onDestinationChange = viewModel::onDestinationChange,
         onUserMovedCamera = viewModel::onUserMovedCamera,
         onMapCameraIdle = viewModel::onMapCameraIdle,
+        onMapViewportChanged = viewModel::onMapViewportChanged,
         onShortcutClick = { shortcut ->
             viewModel.onShortcutSelected(shortcut)?.let { (origin, destination) ->
                 onPlanTrip(origin, destination)
@@ -237,6 +242,7 @@ fun HomeScreen(
     focusedStop: Coordinate? = null,
     selectedDepartureId: String? = null,
     isLoadingLinePreview: Boolean = false,
+    mapStops: List<Place> = emptyList(),
     originName: String = "My location",
     onDestinationChange: (String) -> Unit,
     onShortcutClick: (DestinationShortcutItem) -> Unit,
@@ -252,6 +258,7 @@ fun HomeScreen(
     onLineDepartureSelected: (Int) -> Unit = {},
     onUserMovedCamera: () -> Unit = {},
     onMapCameraIdle: (Coordinate) -> Unit = {},
+    onMapViewportChanged: (MapBounds, Double) -> Unit = { _, _ -> },
     searchSheetVisible: Boolean = false,
     pickingOrigin: Boolean = false,
     onOpenSearch: () -> Unit = {},
@@ -350,8 +357,10 @@ fun HomeScreen(
                                 linePreview = linePreview,
                                 holdingLinePreview = linePreview != null || isLoadingLinePreview,
                                 focusStop = focusedStop,
+                                stops = if (linePreview == null) mapStops else emptyList(),
                                 onUserMovedCamera = onUserMovedCamera,
                                 onMapCameraIdle = onMapCameraIdle,
+                                onVisibleBoundsChanged = onMapViewportChanged,
                                 contentPadding = PaddingValues(
                                     top = topPadding,
                                     bottom = if (lineOpen) 0.dp else overlayOnMapHeight,

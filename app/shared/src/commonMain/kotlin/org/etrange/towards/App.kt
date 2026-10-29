@@ -111,6 +111,7 @@ fun App(
                             locationProvider = locationProvider,
                             timetableProvider = timetableProvider,
                             tripInformation = tripPlanner,
+                            mapStopsProvider = timetableProvider,
                             locationBiasStore = locationBiasStore,
                             favoritePlacesStore = favoritePlacesStore,
                             searchHistoryStore = searchHistoryStore,

@@ -12,10 +12,14 @@ import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import org.etrange.towards.api.dto.ErrorResponseDto
+import org.etrange.towards.api.dto.PlaceDto
 import org.etrange.towards.api.dto.StopTimesDto
 import org.etrange.towards.api.dto.toDomain
+import org.etrange.towards.domain.model.Place
 import org.etrange.towards.domain.model.StopTimes
+import org.etrange.towards.domain.model.requests.MapStopsRequest
 import org.etrange.towards.domain.model.requests.StopTimesRequest
+import org.etrange.towards.domain.port.MapStopsProvider
 import org.etrange.towards.domain.port.TimetableProvider
 
 class HttpTimetableProvider(
@@ -25,7 +29,7 @@ class HttpTimetableProvider(
         ignoreUnknownKeys = true
         isLenient = true
     },
-) : TimetableProvider {
+) : TimetableProvider, MapStopsProvider {
 
     override suspend fun getStopTimes(request: StopTimesRequest): StopTimes =
         get<StopTimesDto>("/api/v1/stop-times") {
@@ -41,6 +45,17 @@ class HttpTimetableProvider(
             request.language.takeIf { it.isNotEmpty() }
                 ?.let { parameter("language", it.joinToString(",")) }
         }.toDomain()
+
+    override suspend fun getMapStops(request: MapStopsRequest): List<Place> =
+        get<List<PlaceDto>>("/api/v1/map/stops") {
+            parameter("min", request.bounds.minimum.toQueryParameter())
+            parameter("max", request.bounds.maximum.toQueryParameter())
+            request.grouped?.let { parameter("grouped", it) }
+            request.modes.takeIf { it.isNotEmpty() }
+                ?.let { parameter("modes", it.joinToString(",") { mode -> mode.name }) }
+            request.languages.takeIf { it.isNotEmpty() }
+                ?.let { parameter("language", it.joinToString(",")) }
+        }.map { it.toDomain() }
 
     private suspend inline fun <reified T> get(
         path: String,

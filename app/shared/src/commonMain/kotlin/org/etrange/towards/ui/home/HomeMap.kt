@@ -19,10 +19,18 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
@@ -32,6 +40,9 @@ import kotlinx.serialization.json.put
 import org.etrange.towards.data.decodeCoordinates
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.JourneyLeg
+import org.etrange.towards.domain.model.Place
+import org.etrange.towards.domain.model.map.MapBounds
+import org.etrange.towards.ui.icons.trainIcon
 import org.etrange.towards.ui.parseHexColor
 import org.etrange.towards.ui.trip.isStreetMode
 import org.maplibre.compose.camera.CameraAnimation
@@ -42,6 +53,10 @@ import org.maplibre.compose.expressions.dsl.asString
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.format
+import org.maplibre.compose.expressions.dsl.image
+import org.maplibre.compose.expressions.dsl.interpolate
+import org.maplibre.compose.expressions.dsl.linear
+import org.maplibre.compose.expressions.dsl.zoom
 import org.maplibre.compose.expressions.dsl.span
 import org.maplibre.compose.expressions.dsl.textOffset
 import org.maplibre.compose.expressions.value.LineCap
@@ -65,9 +80,11 @@ import org.maplibre.spatialk.geojson.LineString
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
 import org.etrange.towards.ui.home.nearby.LinePreview
 import org.etrange.towards.ui.home.nearby.LinePreviewStop
 import org.etrange.towards.ui.home.nearby.haversineMeters
+import org.etrange.towards.ui.theme.TowardsTheme
 import towards.app.shared.generated.resources.Res
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -91,8 +108,10 @@ fun HomeMap(
     linePreview: LinePreview? = null,
     holdingLinePreview: Boolean = false,
     focusStop: Coordinate? = null,
+    stops: List<Place> = emptyList(),
     onUserMovedCamera: () -> Unit = {},
     onMapCameraIdle: (Coordinate) -> Unit = {},
+    onVisibleBoundsChanged: (bounds: MapBounds, zoom: Double) -> Unit = { _, _ -> },
 ) {
     if (LocalInspectionMode.current) {
         Box(
@@ -145,6 +164,16 @@ fun HomeMap(
     val previewColor = parseHexColor(linePreview?.routeColor) ?: transitFallbackColor
     val onUserMovedCameraState = rememberUpdatedState(onUserMovedCamera)
     val onMapCameraIdleState = rememberUpdatedState(onMapCameraIdle)
+    val onVisibleBoundsChangedState = rememberUpdatedState(onVisibleBoundsChanged)
+    val stopsData = remember(stops) { pointsGeoJson(stops.map { it.coordinate }) }
+    val trainPainter = rememberVectorPainter(trainIcon)
+    val stopBadge = remember(trainPainter, transitFallbackColor, casingColor) {
+        TrainStopBadgePainter(
+            icon = trainPainter,
+            fill = transitFallbackColor,
+            ring = casingColor,
+        )
+    }
     val followLatitude = if (followCenter) target.latitude else null
     val followLongitude = if (followCenter) target.longitude else null
 
@@ -155,6 +184,25 @@ fun HomeMap(
             zoom = DefaultZoom,
         ),
     ) {
+        if (stops.isNotEmpty()) {
+            val stopsSource = rememberGeoJsonSource(data = stopsData)
+            SymbolLayer(
+                id = "map-stops",
+                source = stopsSource,
+                minZoom = MapStopsMinZoom.toFloat(),
+                iconImage = image(stopBadge, size = DpSize(28.dp, 28.dp)),
+                iconSize = interpolate(
+                    linear(),
+                    zoom(),
+                    14 to const(0.85f),
+                    16 to const(1f),
+                    18 to const(1.25f),
+                ),
+                iconAllowOverlap = const(true),
+                iconIgnorePlacement = const(true),
+            )
+        }
+
         routeLegs.forEachIndexed { index, leg ->
             key("route-leg-$index") {
                 val positions = remember(leg) { legPositions(leg) }
@@ -333,6 +381,28 @@ fun HomeMap(
                         ),
                     )
                 }
+            }
+    }
+
+    LaunchedEffect(mapState) {
+        mapState.awaitViewport()
+        snapshotFlow { mapState.isCameraMoving }
+            .filter { moving -> !moving }
+            .collect {
+                val visible = mapState.getVisibleBounds() ?: return@collect
+                onVisibleBoundsChangedState.value(
+                    MapBounds(
+                        minimum = Coordinate(
+                            latitude = visible.southwest.latitude,
+                            longitude = visible.southwest.longitude,
+                        ),
+                        maximum = Coordinate(
+                            latitude = visible.northeast.latitude,
+                            longitude = visible.northeast.longitude,
+                        ),
+                    ),
+                    mapState.cameraPosition.zoom,
+                )
             }
     }
 
@@ -536,6 +606,30 @@ private fun pointsGeoJson(coordinates: List<Coordinate>): GeoJsonData =
             },
         ),
     )
+
+private class TrainStopBadgePainter(
+    private val icon: Painter,
+    private val fill: Color,
+    private val ring: Color,
+) : Painter() {
+    override val intrinsicSize: Size = Size.Unspecified
+
+    override fun DrawScope.onDraw() {
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val radius = size.minDimension / 2f
+        drawCircle(color = ring, radius = radius, center = center)
+        drawCircle(color = Color.White, radius = radius - 1.5.dp.toPx(), center = center)
+        val iconBox = size.minDimension * 0.68f
+        translate(
+            left = (size.width - iconBox) / 2f,
+            top = (size.height - iconBox) / 2f,
+        ) {
+            with(icon) {
+                draw(size = Size(iconBox, iconBox), colorFilter = ColorFilter.tint(Color.Blue))
+            }
+        }
+    }
+}
 
 private fun pointGeoJson(coordinate: Coordinate?): GeoJsonData =
     if (coordinate == null) {

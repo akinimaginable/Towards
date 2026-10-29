@@ -37,10 +37,12 @@ interface TimetableProvider {
     suspend fun getStopTimes(request: StopTimesRequest): StopTimes
 }
 
-interface MapDataProvider {
-    suspend fun getInitialMapView(): MapInitialView
-
+interface MapStopsProvider {
     suspend fun getMapStops(request: MapStopsRequest): List<Place>
+}
+
+interface MapDataProvider : MapStopsProvider {
+    suspend fun getInitialMapView(): MapInitialView
 
     suspend fun getMapTrips(request: MapTripsRequest): List<MapTrip>
 

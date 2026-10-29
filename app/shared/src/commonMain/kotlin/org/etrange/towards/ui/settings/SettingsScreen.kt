@@ -328,7 +328,7 @@ private fun SettingsScreenLightPreview() {
             apiEndpointError = null,
             onApiEndpointDraftChange = {},
             onApiEndpointSave = { true },
-            appVersion = "2026.9.0",
+            appVersion = "26.10.0",
             onBack = {},
         )
     }
@@ -352,7 +352,7 @@ private fun SettingsScreenDarkPreview() {
             apiEndpointError = "Enter a valid http(s) URL with a host, for example https://api.towards.etrange.org",
             onApiEndpointDraftChange = {},
             onApiEndpointSave = { true },
-            appVersion = "2026.9.0",
+            appVersion = "26.10.0",
             onBack = {},
         )
     }
