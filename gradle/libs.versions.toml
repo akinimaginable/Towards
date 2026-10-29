@@ -27,6 +27,8 @@ micrometer = "1.17.2"
 hikari = "7.1.0"
 maplibre-compose = "0.20.0"
 multiplatform-settings = "1.3.0"
+jna = "5.19.1"
+dbus-java = "5.2.2"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -85,6 +87,9 @@ maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version.r
 maplibre-compose-runtime-opengl-android = { module = "org.maplibre.compose:maplibre-compose-runtime-opengl-android", version.ref = "maplibre-compose" }
 multiplatform-settings-no-arg = { module = "com.russhwolf:multiplatform-settings-no-arg", version.ref = "multiplatform-settings" }
 multiplatform-settings-test = { module = "com.russhwolf:multiplatform-settings-test", version.ref = "multiplatform-settings" }
+jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
+dbus-java-core = { module = "com.github.hypfvieh:dbus-java-core", version.ref = "dbus-java" }
+dbus-java-transport = { module = "com.github.hypfvieh:dbus-java-transport-jnr-unixsocket", version.ref = "dbus-java" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

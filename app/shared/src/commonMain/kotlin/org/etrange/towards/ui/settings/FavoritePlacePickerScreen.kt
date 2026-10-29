@@ -22,6 +22,7 @@ import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.LocationKind
 import org.etrange.towards.ui.icons.arrow_backIcon
+import org.etrange.towards.ui.layout.ReadableContent
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
 import org.etrange.towards.ui.trip.LocationSearchField
@@ -91,11 +92,8 @@ fun FavoritePlacePickerScreen(
             )
         },
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-        ) {
+        ReadableContent(Modifier.padding(innerPadding)) {
+        Column(modifier = Modifier.fillMaxSize()) {
             LocationSearchField(
                 query = query,
                 onQueryChange = onQueryChange,
@@ -118,6 +116,7 @@ fun FavoritePlacePickerScreen(
                 onClearHistory = {},
                 modifier = Modifier.fillMaxWidth().weight(1f),
             )
+        }
         }
     }
 }

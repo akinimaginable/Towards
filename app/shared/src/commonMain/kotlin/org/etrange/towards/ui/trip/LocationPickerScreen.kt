@@ -22,6 +22,7 @@ import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.LocationKind
 import org.etrange.towards.ui.home.DestinationShortcutItem
 import org.etrange.towards.ui.icons.arrow_backIcon
+import org.etrange.towards.ui.layout.ReadableContent
 import org.etrange.towards.ui.search.PlaceSearchContent
 import org.etrange.towards.ui.settings.AddPlaceLabelDialog
 import org.etrange.towards.ui.theme.ThemeMode
@@ -130,6 +131,7 @@ fun LocationPickerScreen(
             )
         },
     ) { innerPadding ->
+        ReadableContent(Modifier.padding(innerPadding)) {
         PlaceSearchContent(
             query = query,
             originText = if (editingOrigin) "" else counterpartName,
@@ -149,10 +151,9 @@ fun LocationPickerScreen(
             onClearHistory = onClearHistory,
             originFocusRequester = originFocusRequester,
             destinationFocusRequester = destinationFocusRequester,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
+            modifier = Modifier.fillMaxSize(),
         )
+        }
     }
 }
 
