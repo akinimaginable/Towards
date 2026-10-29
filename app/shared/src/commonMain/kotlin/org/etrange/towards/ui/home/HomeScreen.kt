@@ -20,11 +20,18 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -37,6 +44,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -65,6 +73,8 @@ import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.ui.icons.closeIcon
 import org.etrange.towards.ui.icons.settingsIcon
+import org.etrange.towards.ui.layout.horizontalPanelWidth
+import org.etrange.towards.ui.layout.isHorizontalLayout
 import org.etrange.towards.ui.preview.previewLinePreview
 import org.etrange.towards.ui.search.DestinationSearchSheet
 import org.etrange.towards.ui.settings.AddPlaceLabelDialog
@@ -260,7 +270,41 @@ fun HomeScreen(
     onMyLocationAsOrigin: () -> Unit = {},
     onDismissSearch: () -> Unit = {},
 ) {
-    Box(modifier = Modifier.fillMaxSize()) {
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+    ) {
+        val horizontal = isHorizontalLayout(maxWidth, maxHeight)
+        if (horizontal) {
+            HorizontalHomeLayout(
+                panelWidth = horizontalPanelWidth(maxWidth),
+                shortcuts = shortcuts,
+                errorMessage = errorMessage,
+                mapCenter = mapCenter,
+                userLocation = userLocation,
+                followMap = followMap,
+                isLocating = isLocating,
+                focusedPlaceLabel = focusedPlaceLabel,
+                nearbyStops = nearbyStops,
+                isLoadingNearby = isLoadingNearby,
+                nearbyMessage = nearbyMessage,
+                linePreview = linePreview,
+                focusedStop = focusedStop,
+                selectedDepartureId = selectedDepartureId,
+                isLoadingLinePreview = isLoadingLinePreview,
+                onShortcutClick = onShortcutClick,
+                onUseCurrentLocation = onUseCurrentLocation,
+                onOpenSettings = onOpenSettings,
+                onAddShortcut = onAddShortcut,
+                onNearbyStopClick = onNearbyStopClick,
+                onDepartureClick = onDepartureClick,
+                onDismissLinePreview = onDismissLinePreview,
+                onLineStopSelected = onLineStopSelected,
+                onLineDepartureSelected = onLineDepartureSelected,
+                onUserMovedCamera = onUserMovedCamera,
+                onMapCameraIdle = onMapCameraIdle,
+                onOpenSearch = onOpenSearch,
+            )
+        } else {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
@@ -491,6 +535,7 @@ fun HomeScreen(
                 }
             }
         }
+        }
 
         if (searchSheetVisible) {
             DestinationSearchSheet(
@@ -512,6 +557,7 @@ fun HomeScreen(
                 onAddShortcut = onAddShortcut,
                 onSuggestionClick = onSuggestionClick,
                 onClearHistory = onClearHistory,
+                panelWidth = if (horizontal) horizontalPanelWidth(maxWidth) else null,
             )
         }
     }
@@ -519,6 +565,205 @@ fun HomeScreen(
 
 /** Share of the screen the map keeps while a line sheet is open. The sheet fills the rest. */
 private const val LineOpenMapFraction = 0.30f
+
+@Composable
+private fun HorizontalHomeLayout(
+    panelWidth: Dp,
+    shortcuts: List<DestinationShortcutItem>,
+    errorMessage: String?,
+    mapCenter: Coordinate?,
+    userLocation: Coordinate?,
+    followMap: Boolean,
+    isLocating: Boolean,
+    focusedPlaceLabel: String?,
+    nearbyStops: List<NearbyStop>,
+    isLoadingNearby: Boolean,
+    nearbyMessage: String?,
+    linePreview: LinePreview?,
+    focusedStop: Coordinate?,
+    selectedDepartureId: String?,
+    isLoadingLinePreview: Boolean,
+    onShortcutClick: (DestinationShortcutItem) -> Unit,
+    onUseCurrentLocation: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onAddShortcut: () -> Unit,
+    onNearbyStopClick: (NearbyStop) -> Unit,
+    onDepartureClick: (NearbyStop, NearbyDeparture) -> Unit,
+    onDismissLinePreview: () -> Unit,
+    onLineStopSelected: (Int) -> Unit,
+    onLineDepartureSelected: (Int) -> Unit,
+    onUserMovedCamera: () -> Unit,
+    onMapCameraIdle: (Coordinate) -> Unit,
+    onOpenSearch: () -> Unit,
+) {
+    val lineOpen = linePreview != null
+    Row(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .width(panelWidth)
+                .fillMaxHeight()
+                .background(MaterialTheme.colorScheme.background)
+                .windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(
+                        WindowInsetsSides.Start + WindowInsetsSides.Top + WindowInsetsSides.Bottom,
+                    ),
+                ),
+        ) {
+            SearchLaunchBar(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                    .padding(start = 12.dp, end = 12.dp, top = 12.dp),
+                onClick = onOpenSearch,
+                onUseCurrentLocation = onUseCurrentLocation,
+                followMap = followMap,
+                isLocating = isLocating,
+                focusedPlaceLabel = focusedPlaceLabel,
+            )
+            if (errorMessage != null) {
+                Text(
+                    text = errorMessage,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            AnimatedContent(
+                targetState = linePreview,
+                contentKey = { it != null },
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                transitionSpec = {
+                    val opening = targetState != null
+                    val enter = fadeIn(tween(280)) + slideInVertically(tween(280)) { full ->
+                        if (opening) full / 3 else -full / 5
+                    }
+                    val exit = fadeOut(tween(220)) + slideOutVertically(tween(220)) { full ->
+                        if (opening) -full / 5 else full / 3
+                    }
+                    enter togetherWith exit
+                },
+                label = "lineSheet",
+            ) { preview ->
+                if (preview != null) {
+                    LineSheet(
+                        preview = preview,
+                        loading = isLoadingLinePreview,
+                        onStopClick = onLineStopSelected,
+                        onDepartureClick = onLineDepartureSelected,
+                        draggable = false,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
+                    ) {
+                        nearbyStopsSection(
+                            nearbyStops = nearbyStops,
+                            isLoadingNearby = isLoadingNearby,
+                            nearbyMessage = nearbyMessage,
+                            onStopClick = onNearbyStopClick,
+                            selectedDepartureId = selectedDepartureId,
+                            isLoadingLinePreview = isLoadingLinePreview,
+                            onDepartureClick = onDepartureClick,
+                        )
+                    }
+                }
+            }
+        }
+        VerticalDivider(modifier = Modifier.fillMaxHeight())
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .clipToBounds()
+                .windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(
+                        WindowInsetsSides.End + WindowInsetsSides.Top + WindowInsetsSides.Bottom,
+                    ),
+                ),
+        ) {
+            HomeMap(
+                center = mapCenter,
+                userLocation = userLocation,
+                followCenter = followMap && linePreview == null && !isLoadingLinePreview,
+                linePreview = linePreview,
+                holdingLinePreview = linePreview != null || isLoadingLinePreview,
+                focusStop = focusedStop,
+                onUserMovedCamera = onUserMovedCamera,
+                onMapCameraIdle = onMapCameraIdle,
+                contentPadding = PaddingValues(top = 64.dp, start = 12.dp, end = 12.dp, bottom = 12.dp),
+                modifier = Modifier.fillMaxSize(),
+            )
+            Row(
+                modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    MapFavoriteShortcuts(
+                        visible = !lineOpen,
+                        shortcuts = shortcuts,
+                        onShortcutClick = onShortcutClick,
+                        onAddShortcut = onAddShortcut,
+                    )
+                }
+                Surface(
+                    onClick = onOpenSettings,
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tonalElevation = 3.dp,
+                    shadowElevation = 2.dp,
+                ) {
+                    Icon(
+                        imageVector = settingsIcon,
+                        contentDescription = "Settings",
+                        modifier = Modifier.padding(12.dp),
+                    )
+                }
+            }
+            LineCloseButton(
+                visible = lineOpen,
+                onClick = onDismissLinePreview,
+                modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun MapFavoriteShortcuts(
+    visible: Boolean,
+    shortcuts: List<DestinationShortcutItem>,
+    onShortcutClick: (DestinationShortcutItem) -> Unit,
+    onAddShortcut: () -> Unit,
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(220)),
+        exit = fadeOut(tween(180)),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            for (shortcut in shortcuts) {
+                DestinationShortcut(
+                    label = shortcut.label,
+                    detail = shortcut.detail,
+                    onClick = { onShortcutClick(shortcut) },
+                    highlightDetail = shortcut.highlightDetail,
+                )
+            }
+            DestinationShortcut(
+                label = "Add shortcut",
+                detail = "",
+                onClick = onAddShortcut,
+            )
+        }
+    }
+}
 
 @Composable
 private fun LineCloseButton(
@@ -633,6 +878,56 @@ private fun HomeScreenNoShortcutsLightPreview() {
             isLoading = true,
             isLocating = true,
             errorMessage = null,
+            onDestinationChange = {},
+            onShortcutClick = {},
+            onSuggestionClick = {},
+            onUseCurrentLocation = {},
+            onOpenSettings = {},
+        )
+    }
+}
+
+@Preview(name = "Home · Wide nearby", widthDp = 1200, heightDp = 800)
+@Composable
+private fun HomeScreenNearbyWidePreview() {
+    TowardsPreview(themeMode = ThemeMode.Light) {
+        HomeScreen(
+            destination = "",
+            shortcuts = listOf(
+                DestinationShortcutItem(label = "Home", detail = "0 min", highlightDetail = true),
+                DestinationShortcutItem(label = "Work", detail = "17 min"),
+            ),
+            suggestions = emptyList(),
+            isLoading = false,
+            isLocating = false,
+            errorMessage = null,
+            nearbyStops = previewNearbyStops(),
+            isLoadingNearby = false,
+            nearbyMessage = null,
+            onDestinationChange = {},
+            onShortcutClick = {},
+            onSuggestionClick = {},
+            onUseCurrentLocation = {},
+            onOpenSettings = {},
+        )
+    }
+}
+
+@Preview(name = "Home · Wide line", widthDp = 1200, heightDp = 800)
+@Composable
+private fun HomeScreenLineWidePreview() {
+    TowardsPreview(themeMode = ThemeMode.Light) {
+        HomeScreen(
+            destination = "",
+            shortcuts = listOf(
+                DestinationShortcutItem(label = "Home", detail = "0 min", highlightDetail = true),
+                DestinationShortcutItem(label = "Work", detail = "17 min"),
+            ),
+            suggestions = emptyList(),
+            isLoading = false,
+            isLocating = false,
+            errorMessage = null,
+            linePreview = previewLinePreview(),
             onDestinationChange = {},
             onShortcutClick = {},
             onSuggestionClick = {},

@@ -96,6 +96,8 @@ fun LineSheet(
     onSheetDrag: (Float) -> Unit = {},
     onSheetDragEnd: (Float) -> Unit = {},
     onDepartureClick: (Int) -> Unit = {},
+    /** Phone sheets drag to resize the map. Side-by-side layouts dismiss with the close button. */
+    draggable: Boolean = true,
 ) {
     var earlierExpanded by remember(preview) { mutableStateOf(false) }
     val accent = parseHexColor(preview.routeColor) ?: MaterialTheme.colorScheme.primary
@@ -139,19 +141,27 @@ fun LineSheet(
             }
         }
     }
+    val dragState = rememberDraggableState { delta -> onSheetDrag(delta) }
     Column(
-        modifier = modifier.fillMaxSize().nestedScroll(dismissScroll)
+        modifier = modifier.fillMaxSize()
+            .then(if (draggable) Modifier.nestedScroll(dismissScroll) else Modifier)
             .background(MaterialTheme.colorScheme.background)
             .background(accent.copy(alpha = 0.07f)),
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().draggable(
-                state = rememberDraggableState { delta -> onSheetDrag(delta) },
-                orientation = Orientation.Vertical,
-                onDragStopped = { velocity -> onSheetDragEnd(velocity) },
+            modifier = Modifier.fillMaxWidth().then(
+                if (draggable) {
+                    Modifier.draggable(
+                        state = dragState,
+                        orientation = Orientation.Vertical,
+                        onDragStopped = { velocity -> onSheetDragEnd(velocity) },
+                    )
+                } else {
+                    Modifier
+                },
             ),
         ) {
-            DragHandle()
+            if (draggable) DragHandle()
             LineTitle(preview = preview, isLoading = loading)
             if (preview.departures.isNotEmpty()) {
                 DepartureCards(

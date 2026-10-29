@@ -43,6 +43,7 @@ import org.etrange.towards.data.FavoritePlacesStore
 import org.etrange.towards.data.FavoriteRole
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.rememberAppVersion
+import org.etrange.towards.ui.layout.ReadableContent
 import org.etrange.towards.ui.icons.arrow_backIcon
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
@@ -118,9 +119,9 @@ fun SettingsScreen(
             )
         },
     ) { innerPadding ->
+        ReadableContent(Modifier.padding(innerPadding)) {
         Column(
             modifier = Modifier
-                .padding(innerPadding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 16.dp),
@@ -249,6 +250,7 @@ fun SettingsScreen(
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.titleSmall,
             )
+        }
         }
     }
 

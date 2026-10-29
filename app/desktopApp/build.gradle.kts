@@ -27,6 +27,17 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "org.etrange.towards"
             packageVersion = desktopPackageVersion(towardsVersion)
+            macOS {
+                bundleID = "org.etrange.towards"
+                infoPlist {
+                    extraKeysRawXml = """
+                        <key>NSLocationWhenInUseUsageDescription</key>
+                        <string>Towards uses your location to show nearby transit.</string>
+                        <key>NSLocationUsageDescription</key>
+                        <string>Towards uses your location to show nearby transit.</string>
+                    """.trimIndent()
+                }
+            }
             windows {
                 // WiX/MSI major must be 0–255; calendar years like 2026 are invalid.
                 val msiVersion = msiCompatibleVersion(towardsVersion)
