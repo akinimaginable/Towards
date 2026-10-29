@@ -6,7 +6,7 @@ This builds a Release archive and installs it on a paired iPhone with the free A
 
 The version users see and the build number are in [app/iosApp/Configuration/Config.xcconfig](../app/iosApp/Configuration/Config.xcconfig):
 
-- `MARKETING_VERSION` is the release version (`2026.9.0`). Keep it aligned with `towards.version` in `gradle.properties`.
+- `MARKETING_VERSION` is the release version (`26.10.0`). Keep it aligned with `towards.version` in `gradle.properties`.
 - `CURRENT_PROJECT_VERSION` is the build number. Raise it for every new install of the same marketing version.
 
 The bundle id signed by the Xcode target is `org.etrange.Towards`.

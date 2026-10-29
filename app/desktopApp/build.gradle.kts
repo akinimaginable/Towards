@@ -46,7 +46,7 @@ private fun desktopPackageVersion(version: String): String {
     }
 }
 
-/** Maps a display version such as 2026.9.0 to MAJOR.MINOR.BUILD with MAJOR ≤ 255. */
+/** Maps a display version such as 26.10.0 to MAJOR.MINOR.BUILD with MAJOR ≤ 255. */
 private fun msiCompatibleVersion(version: String): String {
     val parts = desktopPackageVersion(version).split('.')
     val major = parts[0].toInt()
