@@ -33,6 +33,7 @@ import org.etrange.towards.ui.layout.horizontalPanelWidth
 import org.etrange.towards.ui.preview.previewSuggestions
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
+import org.etrange.towards.ui.window.titleBarTopPadding
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -168,11 +169,13 @@ private fun HorizontalDestinationSearch(
                 destinationFocusRequester = destinationFocusRequester,
                 onPickOrigin = onPickOrigin,
                 onPickDestination = onSearchDestination,
-                modifier = Modifier.fillMaxSize().windowInsetsPadding(
-                    WindowInsets.safeDrawing.only(
-                        WindowInsetsSides.Start + WindowInsetsSides.Top + WindowInsetsSides.Bottom,
-                    ),
-                ),
+                modifier = Modifier.fillMaxSize()
+                    .windowInsetsPadding(
+                        WindowInsets.safeDrawing.only(
+                            WindowInsetsSides.Start + WindowInsetsSides.Top + WindowInsetsSides.Bottom,
+                        ),
+                    )
+                    .titleBarTopPadding(),
             )
         }
         BoxScrim(onDismiss = onDismiss, modifier = Modifier.weight(1f).fillMaxHeight())
@@ -247,7 +250,8 @@ private fun PhoneDestinationSearch(
             onPickOrigin = onPickOrigin,
             onPickDestination = onSearchDestination,
             modifier = Modifier.fillMaxWidth().fillMaxHeight()
-                .windowInsetsPadding(WindowInsets.safeDrawing),
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .titleBarTopPadding(),
         )
     }
 }

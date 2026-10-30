@@ -43,8 +43,9 @@ import org.etrange.towards.data.FavoritePlacesStore
 import org.etrange.towards.data.FavoriteRole
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.rememberAppVersion
-import org.etrange.towards.ui.layout.ReadableContent
 import org.etrange.towards.ui.icons.arrow_backIcon
+import org.etrange.towards.ui.layout.ReadableContent
+import org.etrange.towards.ui.window.titleBarWindowInsets
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
 
@@ -108,6 +109,7 @@ fun SettingsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
+                windowInsets = titleBarWindowInsets(),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
