@@ -126,7 +126,7 @@ fun NearbyStopHeader(stop: NearbyStop, onClick: () -> Unit = {}) {
                 onClick = onClick,
             )
             .semantics { heading() }
-            .padding(start = ListInset, end = ListInset, top = 20.dp, bottom = 4.dp),
+            .padding(start = ListInset, end = ListInset, top = 6.dp, bottom = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

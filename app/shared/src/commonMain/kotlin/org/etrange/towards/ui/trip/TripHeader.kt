@@ -33,6 +33,7 @@ import org.etrange.towards.ui.search.DestinationMarker
 import org.etrange.towards.ui.search.OriginMarker
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
+import org.etrange.towards.ui.window.titleBarTopPadding
 
 /**
  * Header of the trip results screen. It sits on a solid surface above the map (never over map
@@ -58,7 +59,9 @@ fun TripHeader(
             ),
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 4.dp)
+                    .titleBarTopPadding(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {

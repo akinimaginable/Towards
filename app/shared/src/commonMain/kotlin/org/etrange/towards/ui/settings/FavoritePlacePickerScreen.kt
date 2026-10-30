@@ -27,6 +27,7 @@ import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
 import org.etrange.towards.ui.trip.LocationSearchField
 import org.etrange.towards.ui.trip.LocationSearchPanel
+import org.etrange.towards.ui.window.titleBarWindowInsets
 
 @Composable
 fun FavoritePlacePickerScreen(
@@ -81,6 +82,7 @@ fun FavoritePlacePickerScreen(
         topBar = {
             TopAppBar(
                 title = { Text(title) },
+                windowInsets = titleBarWindowInsets(),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(

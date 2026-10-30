@@ -21,6 +21,10 @@ compose.desktop {
         mainClass = "org.etrange.towards.MainKt"
         val towardsVersion = providers.gradleProperty("towards.version").get()
         jvmArgs += "--enable-native-access=ALL-UNNAMED"
+        // The title-bar drag reads the AWT window peer. Those packages are not exported.
+        jvmArgs += "--add-opens=java.desktop/java.awt=ALL-UNNAMED"
+        jvmArgs += "--add-opens=java.desktop/sun.lwawt=ALL-UNNAMED"
+        jvmArgs += "--add-opens=java.desktop/sun.lwawt.macosx=ALL-UNNAMED"
         jvmArgs += "-Dtowards.version=$towardsVersion"
 
         nativeDistributions {

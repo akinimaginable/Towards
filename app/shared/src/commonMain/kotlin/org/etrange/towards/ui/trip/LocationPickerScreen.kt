@@ -27,6 +27,7 @@ import org.etrange.towards.ui.search.PlaceSearchContent
 import org.etrange.towards.ui.settings.AddPlaceLabelDialog
 import org.etrange.towards.ui.theme.ThemeMode
 import org.etrange.towards.ui.theme.TowardsPreview
+import org.etrange.towards.ui.window.titleBarWindowInsets
 
 @Composable
 fun LocationPickerScreen(
@@ -120,6 +121,7 @@ fun LocationPickerScreen(
                 title = {
                     Text(if (editingOrigin) "Change starting point" else "Change destination")
                 },
+                windowInsets = titleBarWindowInsets(),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
