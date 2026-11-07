@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import org.etrange.towards.data.ApiException
+import org.etrange.towards.data.userMessage
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.requests.GeocodeRequest
@@ -83,10 +84,10 @@ class PlaceSearch(
                 throw error
             } catch (error: ApiException) {
                 _suggestions.value = emptyList()
-                _errorMessage.value = error.message
-            } catch (error: Exception) {
+                _errorMessage.value = error.userMessage()
+            } catch (_: Exception) {
                 _suggestions.value = emptyList()
-                _errorMessage.value = error.message ?: "Search failed"
+                _errorMessage.value = "Search failed"
             } finally {
                 // A newer search may already be running; only the latest one owns the spinner.
                 if (searchJob == coroutineContext[Job]) {

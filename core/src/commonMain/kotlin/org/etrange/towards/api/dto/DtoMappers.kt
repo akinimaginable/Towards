@@ -11,6 +11,7 @@ import org.etrange.towards.domain.model.StopTime
 import org.etrange.towards.domain.model.StopTimes
 import org.etrange.towards.domain.model.TransportMode
 import org.etrange.towards.domain.model.TripPlan
+import org.etrange.towards.domain.model.ensureUniqueIds
 
 fun CoordinateDto.toDomain() = Coordinate(
     latitude = latitude,
@@ -49,7 +50,7 @@ fun StopTimeDto.toDomain() = StopTime(
 
 fun StopTimesDto.toDomain() = StopTimes(
     place = place.toDomain(),
-    events = events.map { it.toDomain() },
+    events = events.mapNotNull { event -> runCatching { event.toDomain() }.getOrNull() },
     previousPageCursor = previousPageCursor,
     nextPageCursor = nextPageCursor,
 )
@@ -101,9 +102,12 @@ fun TripPlanDto.toDomain() = TripPlan(
     nextPageCursor = nextPageCursor,
 )
 
+fun List<GeocodeResultDto>.toGeocodeResults(): List<GeocodeResult> =
+    mapNotNull { dto -> runCatching { dto.toDomain() }.getOrNull() }.ensureUniqueIds()
+
 fun GeocodeResultDto.toDomain() = GeocodeResult(
     id = id,
-    kind = LocationKind.valueOf(kind),
+    kind = LocationKind.entries.firstOrNull { it.name == kind } ?: LocationKind.PLACE,
     name = name,
     coordinate = coordinate.toDomain(),
     country = country,

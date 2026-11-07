@@ -19,6 +19,7 @@ import org.etrange.towards.data.SettingsStore
 import org.etrange.towards.data.HttpGeocoder
 import org.etrange.towards.data.HttpTimetableProvider
 import org.etrange.towards.data.HttpTripPlanner
+import org.etrange.towards.data.TowardsApi
 import org.etrange.towards.data.LocationBiasStore
 import org.etrange.towards.data.SearchHistoryStore
 import org.etrange.towards.data.createHttpClient
@@ -76,24 +77,10 @@ fun App(
     val navController = rememberNavController()
     val apiConfig = remember(settingsViewModel) { ApiConfig(settingsViewModel.settingsStore) }
     val httpClient = remember { createHttpClient() }
-    val geocoder = remember(apiConfig) {
-        HttpGeocoder(
-            client = httpClient,
-            config = apiConfig,
-        )
-    }
-    val timetableProvider = remember(apiConfig) {
-        HttpTimetableProvider(
-            client = httpClient,
-            config = apiConfig,
-        )
-    }
-    val tripPlanner = remember(apiConfig) {
-        HttpTripPlanner(
-            client = httpClient,
-            config = apiConfig,
-        )
-    }
+    val towardsApi = remember(apiConfig) { TowardsApi(httpClient, apiConfig) }
+    val geocoder = remember(towardsApi) { HttpGeocoder(towardsApi) }
+    val timetableProvider = remember(towardsApi) { HttpTimetableProvider(towardsApi) }
+    val tripPlanner = remember(towardsApi) { HttpTripPlanner(towardsApi) }
     val locationProvider = rememberLocationProvider()
     val locationBiasStore = remember { LocationBiasStore() }
     val searchHistoryStore = remember { SearchHistoryStore() }

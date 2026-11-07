@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.etrange.towards.data.ApiException
+import org.etrange.towards.data.userMessage
 import org.etrange.towards.data.toApiDateTime
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.Itinerary
@@ -82,11 +83,11 @@ class TripResultsViewModel(
             } catch (error: ApiException) {
                 _itineraries.value = emptyList()
                 _selectedId.value = null
-                _errorMessage.value = error.message
-            } catch (error: Exception) {
+                _errorMessage.value = error.userMessage()
+            } catch (_: Exception) {
                 _itineraries.value = emptyList()
                 _selectedId.value = null
-                _errorMessage.value = error.message ?: "Unable to plan this trip"
+                _errorMessage.value = "Unable to plan this trip"
             } finally {
                 _isLoading.value = false
             }

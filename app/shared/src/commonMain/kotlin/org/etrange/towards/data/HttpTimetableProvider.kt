@@ -1,17 +1,6 @@
 package org.etrange.towards.data
 
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.request.HttpRequestBuilder
-import io.ktor.client.request.accept
-import io.ktor.client.request.get
 import io.ktor.client.request.parameter
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
-import io.ktor.http.isSuccess
-import kotlinx.coroutines.CancellationException
-import kotlinx.serialization.json.Json
-import org.etrange.towards.api.dto.ErrorResponseDto
 import org.etrange.towards.api.dto.StopTimesDto
 import org.etrange.towards.api.dto.toDomain
 import org.etrange.towards.domain.model.StopTimes
@@ -19,16 +8,11 @@ import org.etrange.towards.domain.model.requests.StopTimesRequest
 import org.etrange.towards.domain.port.TimetableProvider
 
 class HttpTimetableProvider(
-    private val client: HttpClient,
-    private val config: ApiConfig,
-    private val json: Json = Json {
-        ignoreUnknownKeys = true
-        isLenient = true
-    },
+    private val api: TowardsApi,
 ) : TimetableProvider {
 
-    override suspend fun getStopTimes(request: StopTimesRequest): StopTimes =
-        get<StopTimesDto>("/api/v1/stop-times") {
+    override suspend fun getStopTimes(request: StopTimesRequest): StopTimes = mapDomain {
+        api.get<StopTimesDto>("/api/v1/stop-times") {
             request.stopId?.let { parameter("stopId", it) }
             request.center?.let { parameter("center", it.toQueryParameter()) }
             request.radiusMeters?.let { parameter("radius", it) }
@@ -41,36 +25,5 @@ class HttpTimetableProvider(
             request.language.takeIf { it.isNotEmpty() }
                 ?.let { parameter("language", it.joinToString(",")) }
         }.toDomain()
-
-    private suspend inline fun <reified T> get(
-        path: String,
-        noinline configure: HttpRequestBuilder.() -> Unit = {},
-    ): T {
-        val response = try {
-            client.get(config.baseUrl.trimEnd('/') + path) {
-                accept(ContentType.Application.Json)
-                configure()
-            }
-        } catch (cause: CancellationException) {
-            throw cause
-        } catch (cause: Exception) {
-            throw ApiException(
-                statusCode = 0,
-                message = "Unable to reach the Towards API",
-                cause = cause,
-            )
-        }
-
-        if (response.status.isSuccess()) {
-            return response.body()
-        }
-
-        val body = response.bodyAsText()
-        val error = runCatching { json.decodeFromString<ErrorResponseDto>(body) }.getOrNull()
-        throw ApiException(
-            statusCode = response.status.value,
-            message = error?.message ?: "The Towards API rejected the request",
-            correlationId = error?.correlationId,
-        )
     }
 }

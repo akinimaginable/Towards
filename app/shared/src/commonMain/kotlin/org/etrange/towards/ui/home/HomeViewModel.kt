@@ -21,6 +21,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.etrange.towards.data.ApiException
 import org.etrange.towards.data.FavoritePlacesStore
+import org.etrange.towards.data.userMessage
 import org.etrange.towards.data.LocationBiasStore
 import org.etrange.towards.data.LocationProvider
 import org.etrange.towards.data.SearchHistoryStore
@@ -286,12 +287,12 @@ class HomeViewModel(
             } catch (error: ApiException) {
                 if (isCurrent()) {
                     if (_linePreview.value == null) resetLinePreview()
-                    _localError.value = error.message
+                    _localError.value = error.userMessage()
                 }
-            } catch (error: Exception) {
+            } catch (_: Exception) {
                 if (isCurrent()) {
                     if (_linePreview.value == null) resetLinePreview()
-                    _localError.value = error.message ?: "Unable to load this line"
+                    _localError.value = "Unable to load this line"
                 }
             } finally {
                 if (isCurrent()) {
@@ -416,9 +417,9 @@ class HomeViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: ApiException) {
-                _localError.value = error.message
-            } catch (error: Exception) {
-                _localError.value = error.message ?: "Unable to determine your current location"
+                _localError.value = error.userMessage()
+            } catch (_: Exception) {
+                _localError.value = "Unable to determine your current location"
             } finally {
                 _isLocating.value = false
             }
@@ -565,9 +566,9 @@ class HomeViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: ApiException) {
-                _nearbyMessage.value = error.message
-            } catch (error: Exception) {
-                _nearbyMessage.value = error.message ?: "Unable to load nearby departures"
+                _nearbyMessage.value = error.userMessage()
+            } catch (_: Exception) {
+                _nearbyMessage.value = "Unable to load nearby departures"
             } finally {
                 _isLoadingNearby.value = false
             }
