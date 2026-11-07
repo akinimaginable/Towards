@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -13,18 +12,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import org.etrange.towards.data.ApiConfig
 import org.etrange.towards.data.FavoritePlacesStore
-import org.etrange.towards.data.SettingsStore
-import org.etrange.towards.data.HttpGeocoder
-import org.etrange.towards.data.HttpNearbyDepartures
-import org.etrange.towards.data.HttpTimetableProvider
-import org.etrange.towards.data.HttpTripPlanner
-import org.etrange.towards.data.TowardsApi
-import org.etrange.towards.data.LocationBiasStore
-import org.etrange.towards.data.SearchHistoryStore
-import org.etrange.towards.data.createHttpClient
-import org.etrange.towards.data.rememberLocationProvider
 import org.etrange.towards.navigation.FavoritePlacePickerRoute
 import org.etrange.towards.navigation.HomeRoute
 import org.etrange.towards.navigation.LocationPickerRoute
@@ -55,37 +43,23 @@ import org.etrange.towards.ui.trip.toResultsRoute
 import org.etrange.towards.ui.trip.tripEndpointsAfterPicking
 
 @Composable
-fun App() {
-    val endpointStore = remember { SettingsStore() }
-    val favoritePlacesStore = remember { FavoritePlacesStore() }
-    App(
-        settingsViewModel = viewModel {
-            SettingsViewModel(
-                settingsStore = endpointStore,
-                favoritePlacesStore = favoritePlacesStore,
-            )
-        },
-        favoritePlacesStore = favoritePlacesStore,
-    )
-}
-
-@Composable
-fun App(
-    settingsViewModel: SettingsViewModel,
-    favoritePlacesStore: FavoritePlacesStore,
-) {
+fun App(graph: AppGraph) {
+    val settingsViewModel = viewModel {
+        SettingsViewModel(
+            settingsStore = graph.settingsStore,
+            favoritePlacesStore = graph.favoritePlacesStore,
+        )
+    }
+    val favoritePlacesStore = graph.favoritePlacesStore
     val themeMode by settingsViewModel.themeMode.collectAsStateWithLifecycle()
     val navController = rememberNavController()
-    val apiConfig = remember(settingsViewModel) { ApiConfig(settingsViewModel.settingsStore) }
-    val httpClient = remember { createHttpClient() }
-    val towardsApi = remember(apiConfig) { TowardsApi(httpClient, apiConfig) }
-    val geocoder = remember(towardsApi) { HttpGeocoder(towardsApi) }
-    val timetableProvider = remember(towardsApi) { HttpTimetableProvider(towardsApi) }
-    val tripPlanner = remember(towardsApi) { HttpTripPlanner(towardsApi) }
-    val nearbyDepartures = remember(towardsApi) { HttpNearbyDepartures(towardsApi) }
-    val locationProvider = rememberLocationProvider()
-    val locationBiasStore = remember { LocationBiasStore() }
-    val searchHistoryStore = remember { SearchHistoryStore() }
+    val geocoder = graph.geocoder
+    val timetableProvider = graph.timetableProvider
+    val tripPlanner = graph.tripPlanner
+    val nearbyDepartures = graph.nearbyDepartures
+    val locationProvider = graph.locationProvider
+    val locationBiasStore = graph.locationBiasStore
+    val searchHistoryStore = graph.searchHistoryStore
 
     TowardsTheme(themeMode = themeMode) {
         Surface(modifier = Modifier.fillMaxSize()) {

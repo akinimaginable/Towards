@@ -13,25 +13,31 @@ import org.maplibre.compose.desktop.ProvideMapPresentationHost
 import org.maplibre.compose.desktop.rememberAwtComposeMapPresentationHost
 
 @OptIn(ExperimentalComposeUiApi::class)
-fun main() = application {
-    val windowState = rememberWindowState(width = 1200.dp, height = 900.dp)
-    val macOs = isMacOs()
-    SwingWindow(
-        onCloseRequest = ::exitApplication,
-        title = "Towards",
-        state = windowState,
-        init = { frame ->
-            if (macOs) frame.integrateMacOsTitleBar()
-        },
-    ) {
-        val titleBar = if (macOs && windowState.placement != WindowPlacement.Fullscreen) {
-            DesktopTitleBar.MacOs
-        } else {
-            DesktopTitleBar.None
-        }
-        ProvideMapPresentationHost(host = rememberAwtComposeMapPresentationHost(window)) {
-            CompositionLocalProvider(LocalDesktopTitleBar provides titleBar) {
-                App()
+fun main() {
+    val graph = createAppGraph()
+    application {
+        val windowState = rememberWindowState(width = 1200.dp, height = 900.dp)
+        val macOs = isMacOs()
+        SwingWindow(
+            onCloseRequest = {
+                graph.close()
+                exitApplication()
+            },
+            title = "Towards",
+            state = windowState,
+            init = { frame ->
+                if (macOs) frame.integrateMacOsTitleBar()
+            },
+        ) {
+            val titleBar = if (macOs && windowState.placement != WindowPlacement.Fullscreen) {
+                DesktopTitleBar.MacOs
+            } else {
+                DesktopTitleBar.None
+            }
+            ProvideMapPresentationHost(host = rememberAwtComposeMapPresentationHost(window)) {
+                CompositionLocalProvider(LocalDesktopTitleBar provides titleBar) {
+                    App(graph)
+                }
             }
         }
     }
