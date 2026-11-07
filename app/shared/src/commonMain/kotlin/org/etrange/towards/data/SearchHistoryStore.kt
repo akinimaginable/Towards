@@ -5,6 +5,7 @@ import com.russhwolf.settings.set
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -20,27 +21,33 @@ class SearchHistoryStore(
     private val settings: Settings = Settings(),
 ) {
     private val json = Json { ignoreUnknownKeys = true }
+    private val lock = Any()
 
     private val _entries = MutableStateFlow(read())
     val entries: StateFlow<List<GeocodeResult>> = _entries.asStateFlow()
 
     fun record(result: GeocodeResult) {
-        val next = buildList {
-            add(result)
-            for (existing in _entries.value) {
-                if (!samePlace(existing, result)) add(existing)
+        synchronized(lock) {
+            val next = _entries.updateAndGet { current ->
+                buildList {
+                    add(result)
+                    for (existing in current) {
+                        if (!samePlace(existing, result)) add(existing)
+                    }
+                }.take(MAX_ENTRIES)
             }
-        }.take(MAX_ENTRIES)
-        settings[KEY] = json.encodeToString(
-            ListSerializer(StoredSearchEntry.serializer()),
-            next.map { it.toStored() },
-        )
-        _entries.value = next
+            settings[KEY] = json.encodeToString(
+                ListSerializer(StoredSearchEntry.serializer()),
+                next.map { it.toStored() },
+            )
+        }
     }
 
     fun clear() {
-        settings.remove(KEY)
-        _entries.value = emptyList()
+        synchronized(lock) {
+            settings.remove(KEY)
+            _entries.value = emptyList()
+        }
     }
 
     private fun read(): List<GeocodeResult> {

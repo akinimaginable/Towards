@@ -11,15 +11,19 @@ import org.etrange.towards.domain.model.Coordinate
 class LocationBiasStore(
     private val settings: Settings = Settings(),
 ) {
-    fun load(): Coordinate? {
+    private val lock = Any()
+
+    fun load(): Coordinate? = synchronized(lock) {
         val latitude = settings.getDoubleOrNull(KEY_LATITUDE) ?: return null
         val longitude = settings.getDoubleOrNull(KEY_LONGITUDE) ?: return null
-        return runCatching { Coordinate(latitude = latitude, longitude = longitude) }.getOrNull()
+        runCatching { Coordinate(latitude = latitude, longitude = longitude) }.getOrNull()
     }
 
     fun save(coordinate: Coordinate) {
-        settings[KEY_LATITUDE] = coordinate.latitude
-        settings[KEY_LONGITUDE] = coordinate.longitude
+        synchronized(lock) {
+            settings[KEY_LATITUDE] = coordinate.latitude
+            settings[KEY_LONGITUDE] = coordinate.longitude
+        }
     }
 
     companion object {

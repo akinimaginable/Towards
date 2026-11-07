@@ -5,6 +5,7 @@ import com.russhwolf.settings.set
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.updateAndGet
 import org.etrange.towards.ui.theme.ThemeMode
 
 class SettingsStore(
@@ -17,17 +18,23 @@ class SettingsStore(
     private val _themeMode = MutableStateFlow(loadPersistedThemeModeOrDefault())
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
 
+    private val lock = Any()
+
     fun save(raw: String): Result<String> {
         val normalized = validateApiEndpoint(raw)
             ?: return Result.failure(IllegalArgumentException(INVALID_ENDPOINT_MESSAGE))
-        settings[KEY_API_ENDPOINT] = normalized
-        _endpoint.value = normalized
+        synchronized(lock) {
+            _endpoint.updateAndGet { normalized }
+            settings[KEY_API_ENDPOINT] = normalized
+        }
         return Result.success(normalized)
     }
 
     fun saveThemeMode(mode: ThemeMode) {
-        settings[KEY_THEME_MODE] = mode.name
-        _themeMode.value = mode
+        synchronized(lock) {
+            _themeMode.updateAndGet { mode }
+            settings[KEY_THEME_MODE] = mode.name
+        }
     }
 
     private fun loadPersistedEndpointOrDefault(): String {

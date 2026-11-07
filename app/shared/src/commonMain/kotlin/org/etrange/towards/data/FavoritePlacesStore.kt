@@ -5,6 +5,7 @@ import com.russhwolf.settings.set
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -47,37 +48,54 @@ class FavoritePlacesStore(
     private val _places = MutableStateFlow(read())
     val places: StateFlow<List<FavoritePlace>> = _places.asStateFlow()
 
+    private val lock = Any()
     private var sequence = 0
 
     fun setHome(location: FavoriteLocation) {
-        publish(listOf(slot(HOME_ID, HOME_LABEL, FavoriteRole.HOME, location)) + without(FavoriteRole.HOME))
+        publish { current ->
+            listOf(slot(HOME_ID, HOME_LABEL, FavoriteRole.HOME, location)) +
+                current.filter { it.role != FavoriteRole.HOME }
+        }
     }
 
     fun setWork(location: FavoriteLocation) {
-        publish(listOf(slot(WORK_ID, WORK_LABEL, FavoriteRole.WORK, location)) + without(FavoriteRole.WORK))
+        publish { current ->
+            listOf(slot(WORK_ID, WORK_LABEL, FavoriteRole.WORK, location)) +
+                current.filter { it.role != FavoriteRole.WORK }
+        }
     }
 
     fun add(label: String, location: FavoriteLocation): FavoriteSaveResult {
-        labelError(label)?.let { return FavoriteSaveResult.Failure(it) }
-        val trimmed = label.trim()
-        publish(
-            _places.value + FavoritePlace(
+        var result: FavoriteSaveResult = FavoriteSaveResult.Success
+        publish { current ->
+            labelError(label, current)?.let { message ->
+                result = FavoriteSaveResult.Failure(message)
+                return@publish current
+            }
+            val trimmed = label.trim()
+            result = FavoriteSaveResult.Success
+            current + FavoritePlace(
                 id = newId(),
                 label = trimmed,
                 role = FavoriteRole.OTHER,
                 name = location.name.ifBlank { trimmed },
                 coordinate = location.coordinate,
                 stopId = location.stopId?.takeIf { it.isNotBlank() },
-            ),
-        )
-        return FavoriteSaveResult.Success
+            )
+        }
+        return result
     }
 
     fun replace(id: String, location: FavoriteLocation): FavoriteSaveResult {
-        val existing = _places.value.find { it.id == id }
-            ?: return FavoriteSaveResult.Failure(MISSING_PLACE_MESSAGE)
-        publish(
-            _places.value.map { place ->
+        var result: FavoriteSaveResult = FavoriteSaveResult.Success
+        publish { current ->
+            val existing = current.find { it.id == id }
+            if (existing == null) {
+                result = FavoriteSaveResult.Failure(MISSING_PLACE_MESSAGE)
+                return@publish current
+            }
+            result = FavoriteSaveResult.Success
+            current.map { place ->
                 if (place.id != existing.id) {
                     place
                 } else {
@@ -87,32 +105,31 @@ class FavoritePlacesStore(
                         stopId = location.stopId?.takeIf { it.isNotBlank() },
                     )
                 }
-            },
-        )
-        return FavoriteSaveResult.Success
+            }
+        }
+        return result
     }
 
     fun remove(id: String) {
-        publish(_places.value.filter { it.id != id })
+        publish { current -> current.filter { it.id != id } }
     }
 
-    fun labelError(label: String): String? {
+    fun labelError(label: String): String? = labelError(label, _places.value)
+
+    private fun labelError(label: String, places: List<FavoritePlace>): String? {
         val trimmed = label.trim()
         if (trimmed.isEmpty()) return BLANK_LABEL_MESSAGE
         if (trimmed.equals(HOME_LABEL, ignoreCase = true) || trimmed.equals(WORK_LABEL, ignoreCase = true)) {
             return RESERVED_LABEL_MESSAGE
         }
-        if (_places.value.any { it.role == FavoriteRole.OTHER && it.label.equals(trimmed, ignoreCase = true) }) {
+        if (places.any { it.role == FavoriteRole.OTHER && it.label.equals(trimmed, ignoreCase = true) }) {
             return DUPLICATE_LABEL_MESSAGE
         }
-        if (_places.value.count { it.role == FavoriteRole.OTHER } >= MAX_OTHERS) {
+        if (places.count { it.role == FavoriteRole.OTHER } >= MAX_OTHERS) {
             return TOO_MANY_MESSAGE
         }
         return null
     }
-
-    private fun without(role: FavoriteRole): List<FavoritePlace> =
-        _places.value.filter { it.role != role }
 
     private fun slot(
         id: String,
@@ -128,13 +145,14 @@ class FavoritePlacesStore(
         stopId = location.stopId?.takeIf { it.isNotBlank() },
     )
 
-    private fun publish(places: List<FavoritePlace>) {
-        val ordered = order(places)
-        settings[KEY] = json.encodeToString(
-            ListSerializer(StoredFavorite.serializer()),
-            ordered.map { it.toStored() },
-        )
-        _places.value = ordered
+    private fun publish(transform: (List<FavoritePlace>) -> List<FavoritePlace>) {
+        synchronized(lock) {
+            val ordered = _places.updateAndGet { order(transform(it)) }
+            settings[KEY] = json.encodeToString(
+                ListSerializer(StoredFavorite.serializer()),
+                ordered.map { it.toStored() },
+            )
+        }
     }
 
     private fun newId(): String {

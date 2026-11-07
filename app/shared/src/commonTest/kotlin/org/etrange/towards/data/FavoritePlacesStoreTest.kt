@@ -1,6 +1,10 @@
 package org.etrange.towards.data
 
 import com.russhwolf.settings.MapSettings
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.ui.home.toShortcutItems
 import kotlin.test.Test
@@ -162,6 +166,22 @@ class FavoritePlacesStoreTest {
         assertEquals("Campus", shortcuts[2].detail)
         assertEquals("stop-2", shortcuts[2].stopId)
         assertTrue(shortcuts.all { it.coordinate != null })
+    }
+
+    @Test
+    fun concurrentAddsKeepEveryPlaceOnDisk() = runBlocking {
+        val settings = MapSettings()
+        val store = FavoritePlacesStore(settings = settings)
+
+        (0 until 8).map { index ->
+            async(Dispatchers.Default) {
+                store.add("Place $index", location("Place $index", 50.0 + index * 0.01, 4.3))
+            }
+        }.awaitAll()
+
+        val labels = store.places.value.map { it.label }.toSet()
+        assertEquals((0 until 8).map { "Place $it" }.toSet(), labels)
+        assertEquals(labels, FavoritePlacesStore(settings = settings).places.value.map { it.label }.toSet())
     }
 
     private fun location(

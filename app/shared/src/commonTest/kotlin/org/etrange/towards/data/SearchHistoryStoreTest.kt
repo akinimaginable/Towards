@@ -4,6 +4,10 @@ import com.russhwolf.settings.MapSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.LocationKind
@@ -119,6 +123,22 @@ class SearchHistoryStoreTest {
         assertEquals(emptyList(), store.entries.value)
         assertNull(settings.getStringOrNull(SearchHistoryStore.KEY))
         assertEquals(emptyList(), SearchHistoryStore(settings = settings).entries.value)
+    }
+
+    @Test
+    fun concurrentRecordsKeepTheNewestDistinctPlaces() = runBlocking {
+        val settings = MapSettings()
+        val store = SearchHistoryStore(settings = settings)
+
+        (0 until 6).map { index ->
+            async(Dispatchers.Default) {
+                store.record(place(id = "place:$index", name = "Place $index"))
+            }
+        }.awaitAll()
+
+        val ids = store.entries.value.map { it.id }.toSet()
+        assertEquals((0 until 6).map { "place:$it" }.toSet(), ids)
+        assertEquals(ids, SearchHistoryStore(settings = settings).entries.value.map { it.id }.toSet())
     }
 
     private fun place(
