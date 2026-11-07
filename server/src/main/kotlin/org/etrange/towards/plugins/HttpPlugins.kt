@@ -12,6 +12,9 @@ import io.ktor.server.plugins.callid.CallId
 import io.ktor.server.plugins.callid.callId
 import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.calllogging.processingTimeMillis
+import io.ktor.server.plugins.compression.Compression
+import io.ktor.server.plugins.compression.gzip
+import io.ktor.server.plugins.compression.minimumSize
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.ratelimit.RateLimit
 import io.ktor.server.plugins.ratelimit.RateLimitName
@@ -61,12 +64,17 @@ fun Application.configureHttpPlugins(
         }
     }
 
+    install(Compression) {
+        minimumSize(1_024L)
+        gzip()
+    }
+
     install(ContentNegotiation) {
         json(
             Json {
                 ignoreUnknownKeys = true
                 explicitNulls = false
-                encodeDefaults = true
+                encodeDefaults = false
             },
         )
     }

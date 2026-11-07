@@ -32,15 +32,16 @@ import org.etrange.towards.domain.model.StopTime
 import org.etrange.towards.domain.model.requests.ReverseGeocodeRequest
 import org.etrange.towards.domain.model.requests.StopTimesRequest
 import org.etrange.towards.domain.model.requests.TripLookupRequest
+import org.etrange.towards.domain.model.nearby.NearbyDeparturesLimits
+import org.etrange.towards.domain.model.nearby.NearbyDeparture
+import org.etrange.towards.domain.model.nearby.NearbyStop
+import org.etrange.towards.domain.model.nearby.TripDeparture
+import org.etrange.towards.domain.model.nearby.haversineMeters
 import org.etrange.towards.domain.port.Geocoder
+import org.etrange.towards.domain.port.NearbyDeparturesProvider
 import org.etrange.towards.domain.port.TimetableProvider
 import org.etrange.towards.domain.port.TripInformationProvider
 import org.etrange.towards.ui.home.nearby.LinePreview
-import org.etrange.towards.ui.home.nearby.NearbyDeparture
-import org.etrange.towards.ui.home.nearby.NearbyStop
-import org.etrange.towards.ui.home.nearby.TripDeparture
-import org.etrange.towards.ui.home.nearby.groupNearbyDepartures
-import org.etrange.towards.ui.home.nearby.haversineMeters
 import org.etrange.towards.ui.home.nearby.linePreviewOf
 import org.etrange.towards.ui.home.nearby.walkingMinutes
 import org.etrange.towards.ui.search.PlaceSearch
@@ -56,6 +57,7 @@ class HomeViewModel(
     private val geocoder: Geocoder,
     private val locationProvider: LocationProvider,
     private val timetableProvider: TimetableProvider,
+    private val nearbyDepartures: NearbyDeparturesProvider,
     private val tripInformation: TripInformationProvider,
     private val locationBiasStore: LocationBiasStore = LocationBiasStore(),
     private val favoritePlacesStore: FavoritePlacesStore = FavoritePlacesStore(),
@@ -542,24 +544,10 @@ class HomeViewModel(
         nearbyJob = viewModelScope.launch {
             _isLoadingNearby.value = true
             try {
-                val now = Clock.System.now()
-                val stopTimes = timetableProvider.getStopTimes(
-                    StopTimesRequest(
-                        center = coordinate,
-                        radiusMeters = NEARBY_RADIUS_METERS,
-                        numberOfEvents = NEARBY_EVENT_COUNT,
-                        time = now.toApiDateTime(),
-                    ),
-                )
-                _nearbyStops.value = groupNearbyDepartures(
-                    stopTimes,
-                    coordinate,
-                    maxStops = NEARBY_MAX_STOPS,
-                    now = now,
-                )
+                _nearbyStops.value = nearbyDepartures.nearby(coordinate)
                 dropLinePreviewIfDepartureGone()
                 _nearbyMessage.value = if (_nearbyStops.value.isEmpty()) {
-                    "No departures within ${NEARBY_RADIUS_METERS} m of this area"
+                    "No departures within ${NearbyDeparturesLimits.RADIUS_METERS} m of this area"
                 } else {
                     null
                 }
@@ -577,9 +565,6 @@ class HomeViewModel(
 
     companion object {
         private val MAP_CENTER = Coordinate(latitude = 50.8503, longitude = 4.3517)
-        private const val NEARBY_RADIUS_METERS = 1_500
-        private const val NEARBY_MAX_STOPS = 30
-        private const val NEARBY_EVENT_COUNT = 250
         private const val LineDepartureCount = 5
         private const val LineDepartureLookupCount = 80
         private const val NEARBY_POLL_INTERVAL_MS = 60_000L

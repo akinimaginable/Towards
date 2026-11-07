@@ -67,7 +67,7 @@ import org.maplibre.spatialk.geojson.Position
 import kotlinx.coroutines.delay
 import org.etrange.towards.ui.home.nearby.LinePreview
 import org.etrange.towards.ui.home.nearby.LinePreviewStop
-import org.etrange.towards.ui.home.nearby.haversineMeters
+import org.etrange.towards.domain.model.nearby.haversineMeters
 import towards.app.shared.generated.resources.Res
 import kotlin.time.Duration.Companion.milliseconds
 

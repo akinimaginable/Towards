@@ -9,9 +9,9 @@ import org.etrange.towards.domain.model.Place
 import org.etrange.towards.domain.model.TransportMode
 import org.etrange.towards.ui.home.nearby.LinePreview
 import org.etrange.towards.ui.home.nearby.LinePreviewStop
-import org.etrange.towards.ui.home.nearby.NearbyDeparture
-import org.etrange.towards.ui.home.nearby.NearbyStop
-import org.etrange.towards.ui.home.nearby.TripDeparture
+import org.etrange.towards.domain.model.nearby.NearbyDeparture
+import org.etrange.towards.domain.model.nearby.NearbyStop
+import org.etrange.towards.domain.model.nearby.TripDeparture
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 

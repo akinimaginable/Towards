@@ -17,6 +17,7 @@ import org.etrange.towards.data.ApiConfig
 import org.etrange.towards.data.FavoritePlacesStore
 import org.etrange.towards.data.SettingsStore
 import org.etrange.towards.data.HttpGeocoder
+import org.etrange.towards.data.HttpNearbyDepartures
 import org.etrange.towards.data.HttpTimetableProvider
 import org.etrange.towards.data.HttpTripPlanner
 import org.etrange.towards.data.TowardsApi
@@ -81,6 +82,7 @@ fun App(
     val geocoder = remember(towardsApi) { HttpGeocoder(towardsApi) }
     val timetableProvider = remember(towardsApi) { HttpTimetableProvider(towardsApi) }
     val tripPlanner = remember(towardsApi) { HttpTripPlanner(towardsApi) }
+    val nearbyDepartures = remember(towardsApi) { HttpNearbyDepartures(towardsApi) }
     val locationProvider = rememberLocationProvider()
     val locationBiasStore = remember { LocationBiasStore() }
     val searchHistoryStore = remember { SearchHistoryStore() }
@@ -97,6 +99,7 @@ fun App(
                             geocoder = geocoder,
                             locationProvider = locationProvider,
                             timetableProvider = timetableProvider,
+                            nearbyDepartures = nearbyDepartures,
                             tripInformation = tripPlanner,
                             locationBiasStore = locationBiasStore,
                             favoritePlacesStore = favoritePlacesStore,

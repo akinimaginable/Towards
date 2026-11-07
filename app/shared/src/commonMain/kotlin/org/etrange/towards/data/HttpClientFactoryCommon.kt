@@ -1,13 +1,17 @@
 package org.etrange.towards.data
 
 import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.engine.HttpClientEngineFactory
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 
-internal fun createHttpClient(engineFactory: HttpClientEngineFactory<*>): HttpClient =
+internal fun createHttpClient(
+    engineFactory: HttpClientEngineFactory<*>,
+    configure: HttpClientConfig<*>.() -> Unit = {},
+): HttpClient =
     HttpClient(engineFactory) {
         expectSuccess = false
         install(HttpTimeout) {
@@ -23,4 +27,5 @@ internal fun createHttpClient(engineFactory: HttpClientEngineFactory<*>): HttpCl
                 },
             )
         }
+        configure()
     }

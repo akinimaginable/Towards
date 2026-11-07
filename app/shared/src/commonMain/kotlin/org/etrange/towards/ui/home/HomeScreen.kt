@@ -73,8 +73,8 @@ import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.ui.home.nearby.LinePreview
 import org.etrange.towards.ui.home.nearby.LineSheet
-import org.etrange.towards.ui.home.nearby.NearbyDeparture
-import org.etrange.towards.ui.home.nearby.NearbyStop
+import org.etrange.towards.domain.model.nearby.NearbyDeparture
+import org.etrange.towards.domain.model.nearby.NearbyStop
 import org.etrange.towards.ui.home.nearby.nearbyStopsSection
 import org.etrange.towards.ui.icons.closeIcon
 import org.etrange.towards.ui.icons.settingsIcon

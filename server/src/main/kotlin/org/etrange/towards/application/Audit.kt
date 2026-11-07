@@ -25,6 +25,7 @@ enum class AuditAction {
     TRIP_LOOKUP,
     ITINERARY_REFRESH,
     STOP_TIMES,
+    NEARBY,
     GEOCODE,
     REVERSE_GEOCODE,
     MAP_INITIAL,

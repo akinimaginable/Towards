@@ -110,6 +110,16 @@ fun Application.configureRoutes(
                     )
                 }
 
+                get("/nearby") {
+                    call.respond(
+                        service.nearbyDepartures(
+                            call.actor(),
+                            call.correlationId(),
+                            call.requiredQuery("center").toCoordinate(),
+                        ).map { it.toDto() },
+                    )
+                }
+
                 get("/geocode") {
                     val request = GeocodeRequest(
                         text = call.requiredQuery("text"),

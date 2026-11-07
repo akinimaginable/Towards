@@ -15,6 +15,7 @@ dependencies {
     implementation(libs.logback)
     implementation(libs.ktor.serverCore)
     implementation(libs.ktor.serverNetty)
+    implementation(libs.ktor.serverCompression)
     implementation(libs.ktor.serverContentNegotiation)
     implementation(libs.ktor.serverStatusPages)
     implementation(libs.ktor.serverCallLogging)

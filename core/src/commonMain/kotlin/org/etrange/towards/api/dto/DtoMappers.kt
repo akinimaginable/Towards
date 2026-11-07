@@ -1,5 +1,6 @@
 package org.etrange.towards.api.dto
 
+import kotlin.time.Instant
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.EncodedPath
 import org.etrange.towards.domain.model.GeocodeResult
@@ -12,6 +13,9 @@ import org.etrange.towards.domain.model.StopTimes
 import org.etrange.towards.domain.model.TransportMode
 import org.etrange.towards.domain.model.TripPlan
 import org.etrange.towards.domain.model.ensureUniqueIds
+import org.etrange.towards.domain.model.nearby.NearbyDeparture
+import org.etrange.towards.domain.model.nearby.NearbyStop
+import org.etrange.towards.domain.model.nearby.TripDeparture
 
 fun CoordinateDto.toDomain() = Coordinate(
     latitude = latitude,
@@ -118,3 +122,37 @@ fun GeocodeResultDto.toDomain() = GeocodeResult(
         runCatching { TransportMode.valueOf(mode) }.getOrNull()
     }.toSet(),
 )
+
+fun NearbyStopDto.toDomain(): NearbyStop? = runCatching {
+    NearbyStop(
+        id = id,
+        name = name,
+        coordinate = coordinate.toDomain(),
+        distanceMeters = distanceMeters,
+        departures = departures.mapNotNull { it.toDomain() },
+    )
+}.getOrNull()?.takeIf { it.departures.isNotEmpty() }
+
+fun NearbyDepartureDto.toDomain(): NearbyDeparture? {
+    val instant = runCatching { Instant.parse(time) }.getOrNull() ?: return null
+    val trips = laterTrips.mapNotNull { it.toDomain() }
+    return NearbyDeparture(
+        id = id,
+        tripId = tripId,
+        lineName = lineName,
+        headsign = headsign,
+        mode = TransportMode.entries.firstOrNull { it.name == mode } ?: TransportMode.OTHER,
+        routeColor = routeColor,
+        routeTextColor = routeTextColor,
+        time = instant,
+        realTime = realTime,
+        laterTimes = trips.map { it.time },
+        laterTrips = trips,
+    )
+}
+
+private fun TripDepartureDto.toDomain(): TripDeparture? {
+    if (tripId.isBlank()) return null
+    val instant = runCatching { Instant.parse(time) }.getOrNull() ?: return null
+    return TripDeparture(tripId = tripId, time = instant, realTime = realTime)
+}

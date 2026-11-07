@@ -1,5 +1,6 @@
 package org.etrange.towards.domain.port
 
+import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.Itinerary
 import org.etrange.towards.domain.model.Place
@@ -8,6 +9,7 @@ import org.etrange.towards.domain.model.TripPlan
 import org.etrange.towards.domain.model.map.MapBounds
 import org.etrange.towards.domain.model.map.MapInitialView
 import org.etrange.towards.domain.model.map.MapTrip
+import org.etrange.towards.domain.model.nearby.NearbyStop
 import org.etrange.towards.domain.model.requests.GeocodeRequest
 import org.etrange.towards.domain.model.requests.ItineraryRefreshRequest
 import org.etrange.towards.domain.model.requests.MapStopsRequest
@@ -35,6 +37,10 @@ interface Geocoder {
 
 interface TimetableProvider {
     suspend fun getStopTimes(request: StopTimesRequest): StopTimes
+}
+
+interface NearbyDeparturesProvider {
+    suspend fun nearby(center: Coordinate): List<NearbyStop>
 }
 
 interface MapDataProvider {

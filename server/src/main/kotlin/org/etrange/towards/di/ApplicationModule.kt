@@ -11,6 +11,7 @@ import kotlinx.serialization.json.Json
 import org.etrange.towards.application.AuditRepository
 import org.etrange.towards.application.AuditService
 import org.etrange.towards.application.MobilityService
+import org.etrange.towards.application.NearbyStopTimesCache
 import org.etrange.towards.application.NoOpAuditRepository
 import org.etrange.towards.application.PassThroughTripPlanCache
 import org.etrange.towards.application.TripPlanCache
@@ -32,7 +33,7 @@ fun applicationModule(config: AppConfig) = module {
         Json {
             ignoreUnknownKeys = true
             explicitNulls = false
-            encodeDefaults = true
+            encodeDefaults = false
         }
     }
     single { PrometheusMeterRegistry(PrometheusConfig.DEFAULT) }
@@ -80,6 +81,7 @@ fun applicationModule(config: AppConfig) = module {
         )
     }
     single<TripPlanCache> { PassThroughTripPlanCache() }
+    single { NearbyStopTimesCache() }
     single {
         MobilityService(
             tripPlanner = get(),
@@ -88,6 +90,7 @@ fun applicationModule(config: AppConfig) = module {
             transitDataProvider = get(),
             auditService = get(),
             tripPlanCache = get(),
+            nearbyStopTimesCache = get(),
         )
     }
 }

@@ -72,6 +72,7 @@ kotlin {
             resources.srcDir(layout.buildDirectory.dir("generated/location-natives"))
             dependencies {
                 implementation(libs.ktor.mp.client.cio)
+                implementation(libs.ktor.client.encoding)
                 implementation(libs.jna)
                 implementation(libs.dbus.java.core)
                 implementation(libs.dbus.java.transport)

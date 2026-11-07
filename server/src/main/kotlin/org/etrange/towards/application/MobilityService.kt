@@ -4,9 +4,15 @@ import org.etrange.towards.domain.model.ActorContext
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.Itinerary
 import org.etrange.towards.domain.model.LocationReference
+import kotlin.time.Clock
+import kotlin.time.Instant
+import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.Place
 import org.etrange.towards.domain.model.StopTimes
 import org.etrange.towards.domain.model.TripPlan
+import org.etrange.towards.domain.model.nearby.NearbyDeparturesLimits
+import org.etrange.towards.domain.model.nearby.NearbyStop
+import org.etrange.towards.domain.model.nearby.groupNearbyDepartures
 import org.etrange.towards.domain.model.map.MapBounds
 import org.etrange.towards.domain.model.map.MapInitialView
 import org.etrange.towards.domain.model.map.MapTrip
@@ -42,6 +48,7 @@ class MobilityService(
     private val transitDataProvider: TransitDataProvider,
     private val auditService: AuditService,
     private val tripPlanCache: TripPlanCache,
+    private val nearbyStopTimesCache: NearbyStopTimesCache,
 ) {
     suspend fun plan(
         actor: ActorContext?,
@@ -99,6 +106,39 @@ class MobilityService(
         { "events=${it.events.size}" },
     ) {
         transitDataProvider.getStopTimes(request)
+    }
+
+    suspend fun nearbyDepartures(
+        actor: ActorContext?,
+        correlationId: String,
+        center: Coordinate,
+    ): List<NearbyStop> = audited(
+        actor,
+        correlationId,
+        AuditAction.NEARBY,
+        "radius=${NearbyDeparturesLimits.RADIUS_METERS}",
+        { "stops=${it.size}" },
+    ) {
+        val now = Clock.System.now()
+        val minute = now.epochSeconds / 60
+        val cell = center.nearbyCell()
+        val stopTimes = nearbyStopTimesCache.getOrLoad(cell, minute) {
+            transitDataProvider.getStopTimes(
+                StopTimesRequest(
+                    center = cell.center(),
+                    radiusMeters = NearbyDeparturesLimits.RADIUS_METERS,
+                    numberOfEvents = NearbyDeparturesLimits.UPSTREAM_EVENT_COUNT,
+                    time = now.toSecondPrecision(),
+                ),
+            )
+        }
+        groupNearbyDepartures(
+            stopTimes = stopTimes,
+            origin = center,
+            maxStops = NearbyDeparturesLimits.MAX_STOPS,
+            now = now,
+            laterTimesPerLine = NearbyDeparturesLimits.LATER_TIMES_PER_LINE,
+        )
     }
 
     suspend fun geocode(
@@ -227,6 +267,8 @@ class MobilityService(
 
     private fun elapsedMillis(startedAt: Long): Long = (System.nanoTime() - startedAt) / 1_000_000
 }
+
+private fun Instant.toSecondPrecision(): String = Instant.fromEpochSeconds(epochSeconds).toString()
 
 private fun LocationReference.auditKind(): String = when (this) {
     is LocationReference.Stop -> "stop"

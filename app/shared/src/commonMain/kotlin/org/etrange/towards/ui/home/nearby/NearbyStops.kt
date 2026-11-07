@@ -39,6 +39,8 @@ import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.format.char
 import kotlinx.datetime.toLocalDateTime
+import org.etrange.towards.domain.model.nearby.NearbyDeparture
+import org.etrange.towards.domain.model.nearby.NearbyStop
 import org.etrange.towards.ui.LineBadge
 import org.etrange.towards.ui.icons.liveIcon
 import org.etrange.towards.ui.preview.previewNearbyStops

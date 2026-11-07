@@ -11,11 +11,11 @@ import org.etrange.towards.domain.model.Place
 import org.etrange.towards.domain.model.StopTime
 import org.etrange.towards.domain.model.StopTimes
 import org.etrange.towards.domain.model.TransportMode
+import org.etrange.towards.domain.model.nearby.NearbyDeparture
+import org.etrange.towards.domain.model.nearby.NearbyStop
+import org.etrange.towards.domain.model.nearby.groupNearbyDepartures
 import org.etrange.towards.ui.home.nearby.ModeGroup
-import org.etrange.towards.ui.home.nearby.NearbyDeparture
-import org.etrange.towards.ui.home.nearby.NearbyStop
 import org.etrange.towards.ui.home.nearby.departuresByMode
-import org.etrange.towards.ui.home.nearby.groupNearbyDepartures
 import org.etrange.towards.ui.home.nearby.relativeLabel
 import org.etrange.towards.ui.home.nearby.toDisplayCase
 import org.etrange.towards.ui.home.nearby.upcomingTrips

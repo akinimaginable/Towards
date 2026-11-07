@@ -96,6 +96,43 @@ class ApplicationTest {
         assertTrue(limited.bodyAsText().contains("belgium-rate-limit"))
         assertNotNull(limited.headers[HttpHeaders.RetryAfter])
     }
+
+    @Test
+    fun nearbyRequiresACenter() = testApplication {
+        environment { config = testConfig() }
+        application { module() }
+
+        val response = client.get("/api/v1/nearby")
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertTrue(response.bodyAsText().contains("INVALID_REQUEST"))
+    }
+
+    @Test
+    fun nearbyUpstreamFailureStaysATypedError() = testApplication {
+        environment { config = testConfig() }
+        application { module() }
+
+        val response = client.get("/api/v1/nearby") {
+            parameter("center", "50.85,4.35")
+        }
+
+        assertEquals(HttpStatusCode.ServiceUnavailable, response.status)
+        assertTrue(response.bodyAsText().contains("PLANNER_UNAVAILABLE"))
+    }
+
+    @Test
+    fun largeResponsesAreGzippedWhenAccepted() = testApplication {
+        environment { config = testConfig() }
+        application { module() }
+
+        val metrics = client.get("/metrics") {
+            header(HttpHeaders.AcceptEncoding, "gzip")
+        }
+
+        assertEquals(HttpStatusCode.OK, metrics.status)
+        assertEquals("gzip", metrics.headers[HttpHeaders.ContentEncoding])
+    }
 }
 
 private fun testConfig(vararg overrides: Pair<String, String>) = MapApplicationConfig(

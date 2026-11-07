@@ -142,6 +142,36 @@ data class MapTripDto(
 )
 
 @Serializable
+data class TripDepartureDto(
+    val tripId: String,
+    val time: String,
+    val realTime: Boolean,
+)
+
+@Serializable
+data class NearbyDepartureDto(
+    val id: String,
+    val tripId: String,
+    val lineName: String,
+    val headsign: String? = null,
+    val mode: String,
+    val routeColor: String? = null,
+    val routeTextColor: String? = null,
+    val time: String,
+    val realTime: Boolean,
+    val laterTrips: List<TripDepartureDto> = emptyList(),
+)
+
+@Serializable
+data class NearbyStopDto(
+    val id: String,
+    val name: String,
+    val coordinate: CoordinateDto,
+    val distanceMeters: Int,
+    val departures: List<NearbyDepartureDto> = emptyList(),
+)
+
+@Serializable
 data class MapInitialViewDto(
     val center: CoordinateDto,
     val zoom: Double,

@@ -3,6 +3,8 @@ package org.etrange.towards.ui.home.nearby
 import kotlin.time.Instant
 import org.etrange.towards.data.decodeCoordinates
 import org.etrange.towards.domain.model.Coordinate
+import org.etrange.towards.domain.model.nearby.TripDeparture
+import org.etrange.towards.domain.model.nearby.haversineMeters
 import org.etrange.towards.domain.model.Itinerary
 import org.etrange.towards.domain.model.JourneyLeg
 import org.etrange.towards.domain.model.Place

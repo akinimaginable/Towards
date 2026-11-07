@@ -58,6 +58,7 @@ logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 ktor-serverCore = { module = "io.ktor:ktor-server-core-jvm", version.ref = "ktor" }
 ktor-serverNetty = { module = "io.ktor:ktor-server-netty-jvm", version.ref = "ktor" }
 ktor-serverTestHost = { module = "io.ktor:ktor-server-test-host-jvm", version.ref = "ktor" }
+ktor-serverCompression = { module = "io.ktor:ktor-server-compression-jvm", version.ref = "ktor" }
 ktor-serverContentNegotiation = { module = "io.ktor:ktor-server-content-negotiation-jvm", version.ref = "ktor" }
 ktor-serverStatusPages = { module = "io.ktor:ktor-server-status-pages-jvm", version.ref = "ktor" }
 ktor-serverCallLogging = { module = "io.ktor:ktor-server-call-logging-jvm", version.ref = "ktor" }
@@ -69,6 +70,7 @@ ktor-clientCio = { module = "io.ktor:ktor-client-cio-jvm", version.ref = "ktor" 
 ktor-clientMock = { module = "io.ktor:ktor-client-mock-jvm", version.ref = "ktor" }
 ktor-clientContentNegotiation = { module = "io.ktor:ktor-client-content-negotiation-jvm", version.ref = "ktor" }
 ktor-serializationJson = { module = "io.ktor:ktor-serialization-kotlinx-json-jvm", version.ref = "ktor" }
+ktor-client-encoding = { module = "io.ktor:ktor-client-encoding-jvm", version.ref = "ktor" }
 ktor-mp-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-mp-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-mp-client-serialization-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
