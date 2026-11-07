@@ -1,10 +1,11 @@
-TEAM_ID=
+TEAM_ID=T9MBAJS7Z9
+DEVELOPMENT_TEAM=$(TEAM_ID)
 
 PRODUCT_NAME=Towards
-PRODUCT_BUNDLE_IDENTIFIER=org.etrange.towards.Towards$(TEAM_ID)
+PRODUCT_BUNDLE_IDENTIFIER=org.etrange.Towards
 
 CURRENT_PROJECT_VERSION=1
-MARKETING_VERSION=26.10.0
+MARKETING_VERSION=26.11.0
 
 // MapLibre Native FFI needs libc++, zlib, and Apple graphics frameworks.
 // https://maplibre.org/maplibre-compose/getting-started/
