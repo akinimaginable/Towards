@@ -28,10 +28,6 @@ enum class AuditAction {
     NEARBY,
     GEOCODE,
     REVERSE_GEOCODE,
-    MAP_INITIAL,
-    MAP_STOPS,
-    MAP_TRIPS,
-    MAP_LEVELS,
     SYSTEM_ERROR,
 }
 

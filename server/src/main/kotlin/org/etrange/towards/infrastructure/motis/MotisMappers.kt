@@ -11,8 +11,6 @@ import org.etrange.towards.domain.model.StopTime
 import org.etrange.towards.domain.model.StopTimes
 import org.etrange.towards.domain.model.TransportMode
 import org.etrange.towards.domain.model.TripPlan
-import org.etrange.towards.domain.model.map.MapInitialView
-import org.etrange.towards.domain.model.map.MapTrip
 
 private fun String.isUnsupportedMotisMode(): Boolean = this == "RENTAL"
 
@@ -133,25 +131,4 @@ internal fun MotisMatch.toDomain(): GeocodeResult = GeocodeResult(
     street = street,
     houseNumber = houseNumber,
     modes = modes.toDomainModes(),
-)
-
-internal fun MotisTripSegment.toDomain(): MapTrip? {
-    val domainMode = mode.toDomainMode() ?: return null
-    return MapTrip(
-        tripIds = trips.map { it.tripId },
-        mode = domainMode,
-        from = from.toDomain(),
-        to = to.toDomain(),
-        departure = departure,
-        arrival = arrival,
-        polyline = polyline,
-        routeColor = routeColor,
-    )
-}
-
-internal fun MotisInitialResponse.toDomain(): MapInitialView = MapInitialView(
-    center = Coordinate(lat, lon),
-    zoom = zoom,
-    motisVersion = serverConfig.motisVersion,
-    streetRoutingAvailable = serverConfig.hasStreetRouting,
 )

@@ -139,6 +139,80 @@ class ApplicationTest {
         assertEquals(HttpStatusCode.OK, metrics.status)
         assertEquals("gzip", metrics.headers[HttpHeaders.ContentEncoding])
     }
+
+    @Test
+    fun oversizedFanOutIsRejected() = testApplication {
+        environment { config = testConfig() }
+        application { module() }
+
+        val events = client.get("/api/v1/stop-times") {
+            parameter("stopId", "stop-1")
+            parameter("n", "100000")
+        }
+        assertEquals(HttpStatusCode.BadRequest, events.status)
+        assertTrue(events.bodyAsText().contains("INVALID_REQUEST"))
+
+        val text = client.get("/api/v1/geocode") {
+            parameter("text", "a".repeat(121))
+        }
+        assertEquals(HttpStatusCode.BadRequest, text.status)
+
+        val time = client.get("/api/v1/stop-times") {
+            parameter("stopId", "stop-1")
+            parameter("time", "tomorrow")
+        }
+        assertEquals(HttpStatusCode.BadRequest, time.status)
+    }
+
+    @Test
+    fun opaqueTokensAllowALongTrip() = testApplication {
+        environment { config = testConfig() }
+        application { module() }
+
+        val refresh = client.post("/api/v1/itineraries/refresh") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"itineraryId":"${"a".repeat(3_000)}"}""")
+        }
+        assertEquals(HttpStatusCode.ServiceUnavailable, refresh.status)
+
+        val refreshTooLong = client.post("/api/v1/itineraries/refresh") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"itineraryId":"${"a".repeat(16 * 1_024 + 1)}"}""")
+        }
+        assertEquals(HttpStatusCode.BadRequest, refreshTooLong.status)
+        assertTrue(refreshTooLong.bodyAsText().contains("itineraryId is too long"))
+
+        val cursor = client.get("/api/v1/stop-times") {
+            parameter("stopId", "stop-1")
+            parameter("pageCursor", "c".repeat(3_000))
+        }
+        assertEquals(HttpStatusCode.ServiceUnavailable, cursor.status)
+
+        val cursorTooLong = client.get("/api/v1/trips/plan") {
+            parameter("from", "stop-1")
+            parameter("to", "stop-2")
+            parameter("pageCursor", "c".repeat(16 * 1_024 + 1))
+        }
+        assertEquals(HttpStatusCode.BadRequest, cursorTooLong.status)
+        assertTrue(cursorTooLong.bodyAsText().contains("pageCursor is too long"))
+
+        val trip = client.get("/api/v1/trips/${"t".repeat(2_049)}")
+        assertEquals(HttpStatusCode.BadRequest, trip.status)
+        assertTrue(trip.bodyAsText().contains("tripId is too long"))
+    }
+
+    @Test
+    fun mapRoutesAreNotExposed() = testApplication {
+        environment { config = testConfig() }
+        application { module() }
+
+        val response = client.get("/api/v1/map/stops") {
+            parameter("min", "50.8,4.3")
+            parameter("max", "50.9,4.4")
+        }
+
+        assertEquals(HttpStatusCode.NotFound, response.status)
+    }
 }
 
 private fun testConfig(vararg overrides: Pair<String, String>) = MapApplicationConfig(

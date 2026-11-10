@@ -20,6 +20,7 @@ import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import java.security.MessageDigest
+import kotlin.time.Instant
 import org.etrange.towards.api.dto.HealthResponseDto
 import org.etrange.towards.api.dto.RefreshItineraryRequestDto
 import org.etrange.towards.application.BadRequestException
@@ -28,11 +29,8 @@ import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.LocationKind
 import org.etrange.towards.domain.model.LocationReference
 import org.etrange.towards.domain.model.TransportMode
-import org.etrange.towards.domain.model.map.MapBounds
 import org.etrange.towards.domain.model.requests.GeocodeRequest
 import org.etrange.towards.domain.model.requests.ItineraryRefreshRequest
-import org.etrange.towards.domain.model.requests.MapStopsRequest
-import org.etrange.towards.domain.model.requests.MapTripsRequest
 import org.etrange.towards.domain.model.requests.ReverseGeocodeRequest
 import org.etrange.towards.domain.model.requests.StopTimesRequest
 import org.etrange.towards.domain.model.requests.TripLookupRequest
@@ -40,6 +38,15 @@ import org.etrange.towards.domain.model.requests.TripPlanningRequest
 import org.etrange.towards.plugins.API_RATE_LIMIT
 
 private const val METRICS_AUTH = "metrics"
+private val RadiusMeters = 50..2_000
+private val TransferLimit = 0..10
+private const val TextLimit = 120
+private const val IdentifierLimit = 2_048
+private const val OpaqueLimit = 16 * 1_024
+private const val LanguageTagLimit = 35
+private const val MaxLanguages = 8
+private const val MaxListValues = 16
+private const val CoordinateLimit = 80
 
 fun Application.configureRoutes(
     service: MobilityService,
@@ -77,13 +84,13 @@ fun Application.configureRoutes(
                     val request = TripPlanningRequest(
                         from = call.requiredQuery("from").toLocationReference(),
                         to = call.requiredQuery("to").toLocationReference(),
-                        time = call.request.queryParameters["time"],
+                        time = call.isoInstant("time"),
                         arriveBy = call.booleanQuery("arriveBy") ?: false,
                         transitModes = call.enumList("transitModes", TransportMode.TRANSIT),
                         directModes = call.enumList("directModes", TransportMode.WALK),
-                        maxTransfers = call.intQuery("maxTransfers"),
-                        pageCursor = call.request.queryParameters["pageCursor"],
-                        language = call.listQuery("language"),
+                        maxTransfers = call.boundedInt("maxTransfers", TransferLimit),
+                        pageCursor = call.optionalText("pageCursor", OpaqueLimit),
+                        language = call.languages("language"),
                     )
                     call.respond(service.plan(call.actor(), call.correlationId(), request).toDto())
                 }
@@ -91,11 +98,14 @@ fun Application.configureRoutes(
                 get("/trips/{tripId}") {
                     val tripId = call.parameters["tripId"]?.takeIf { it.isNotBlank() }
                         ?: throw BadRequestException("tripId is required")
+                    if (tripId.length > IdentifierLimit) {
+                        throw BadRequestException("tripId is too long")
+                    }
                     val request = TripLookupRequest(
                         tripId = tripId,
                         includeScheduledSkippedStops = call.booleanQuery("withScheduledSkippedStops")
                             ?: false,
-                        language = call.listQuery("language"),
+                        language = call.languages("language"),
                     )
                     call.respond(
                         service.getTrip(call.actor(), call.correlationId(), request).toDto()
@@ -107,7 +117,13 @@ fun Application.configureRoutes(
                     if (body.itineraryId.isBlank()) {
                         throw BadRequestException("itineraryId must not be blank")
                     }
-                    val request = ItineraryRefreshRequest(body.itineraryId, body.language)
+                    if (body.itineraryId.length > OpaqueLimit) {
+                        throw BadRequestException("itineraryId is too long")
+                    }
+                    val request = ItineraryRefreshRequest(
+                        itineraryId = body.itineraryId,
+                        language = body.language.boundedLanguages(),
+                    )
                     call.respond(
                         service.refreshItinerary(
                             call.actor(), call.correlationId(), request
@@ -118,15 +134,16 @@ fun Application.configureRoutes(
                 get("/stop-times") {
                     val center = call.request.queryParameters["center"]?.toCoordinate()
                     val request = StopTimesRequest(
-                        stopId = call.request.queryParameters["stopId"],
+                        stopId = call.optionalText("stopId", IdentifierLimit),
                         center = center,
-                        radiusMeters = call.intQuery("radius"),
-                        time = call.request.queryParameters["time"],
+                        radiusMeters = call.boundedInt("radius", RadiusMeters),
+                        time = call.isoInstant("time"),
                         arriveBy = call.booleanQuery("arriveBy") ?: false,
-                        numberOfEvents = call.intQuery("n"),
+                        numberOfEvents = call.boundedInt("n", StopTimesRequest.EVENT_COUNT)
+                            ?: StopTimesRequest.DEFAULT_EVENT_COUNT,
                         transportModes = call.enumList("modes", TransportMode.TRANSIT),
-                        pageCursor = call.request.queryParameters["pageCursor"],
-                        language = call.listQuery("language"),
+                        pageCursor = call.optionalText("pageCursor", OpaqueLimit),
+                        language = call.languages("language"),
                     )
                     call.respond(
                         service.getStopTimes(call.actor(), call.correlationId(), request).toDto()
@@ -145,12 +162,13 @@ fun Application.configureRoutes(
 
                 get("/geocode") {
                     val request = GeocodeRequest(
-                        text = call.requiredQuery("text"),
-                        languages = call.listQuery("language"),
+                        text = call.boundedText("text", TextLimit),
+                        languages = call.languages("language"),
                         kinds = call.locationKinds("types"),
                         modes = call.enumList("modes"),
                         bias = call.request.queryParameters["bias"]?.toCoordinate(),
-                        numberOfResults = call.intQuery("limit"),
+                        numberOfResults = call.boundedInt("limit", GeocodeRequest.RESULT_COUNT)
+                            ?: GeocodeRequest.DEFAULT_RESULT_COUNT,
                     )
                     call.respond(
                         service.geocode(call.actor(), call.correlationId(), request)
@@ -161,58 +179,14 @@ fun Application.configureRoutes(
                     val request = ReverseGeocodeRequest(
                         coordinate = call.requiredQuery("place").toCoordinate(),
                         kinds = call.locationKinds("types"),
-                        numberOfResults = call.intQuery("limit"),
+                        numberOfResults = call.boundedInt("limit", GeocodeRequest.RESULT_COUNT)
+                            ?: GeocodeRequest.DEFAULT_RESULT_COUNT,
                     )
                     call.respond(
                         service.reverseGeocode(call.actor(), call.correlationId(), request)
                             .map { it.toDto() })
                 }
 
-                route("/map") {
-                    get("/initial") {
-                        call.respond(
-                            service.getInitialMapView(call.actor(), call.correlationId()).toDto()
-                        )
-                    }
-                    get("/stops") {
-                        val request = MapStopsRequest(
-                            bounds = call.mapBounds(),
-                            grouped = call.booleanQuery("grouped"),
-                            modes = call.enumList("modes"),
-                            languages = call.listQuery("language"),
-                        )
-                        call.respond(
-                            service.getMapStops(
-                                call.actor(), call.correlationId(), request
-                            ).map { it.toDto() })
-                    }
-                    get("/trips") {
-                        val precision = call.intQuery("precision") ?: 5
-                        if (precision !in 0..6) {
-                            throw BadRequestException("precision must be between 0 and 6")
-                        }
-                        val request = MapTripsRequest(
-                            bounds = call.mapBounds(),
-                            zoom = call.doubleQuery("zoom")
-                                ?: throw BadRequestException("zoom is required"),
-                            startTime = call.requiredQuery("startTime"),
-                            endTime = call.requiredQuery("endTime"),
-                            precision = precision,
-                            languages = call.listQuery("language"),
-                        )
-                        call.respond(
-                            service.getMapTrips(
-                                call.actor(), call.correlationId(), request
-                            ).map { it.toDto() })
-                    }
-                    get("/levels") {
-                        call.respond(
-                            service.getMapLevels(
-                                call.actor(), call.correlationId(), call.mapBounds()
-                            )
-                        )
-                    }
-                }
             }
         }
     }
@@ -230,12 +204,46 @@ private fun ApplicationCall.listQuery(name: String): List<String> =
     request.queryParameters.getAll(name).orEmpty().flatMap { value -> value.split(',') }
         .map { it.trim() }.filter { it.isNotEmpty() }
 
+private fun ApplicationCall.boundedText(name: String, max: Int): String {
+    val value = requiredQuery(name)
+    if (value.length > max) throw BadRequestException("$name is too long")
+    return value
+}
+
+private fun ApplicationCall.optionalText(name: String, max: Int): String? {
+    val value = request.queryParameters[name] ?: return null
+    if (value.length > max) throw BadRequestException("$name is too long")
+    return value.takeIf { it.isNotBlank() }
+}
+
+private fun ApplicationCall.boundedInt(name: String, range: IntRange): Int? =
+    intQuery(name)?.also { value ->
+        if (value !in range) throw BadRequestException("$name must be within $range")
+    }
+
+private fun ApplicationCall.isoInstant(name: String): String? =
+    optionalText(name, 40)?.also { value ->
+        runCatching { Instant.parse(value) }.getOrElse {
+            throw BadRequestException("$name must be ISO-8601")
+        }
+    }
+
+private fun ApplicationCall.languages(name: String): List<String> =
+    listQuery(name).boundedLanguages()
+
+private fun List<String>.boundedLanguages(): List<String> {
+    if (size > MaxLanguages) throw BadRequestException("language has too many values")
+    if (any { it.length > LanguageTagLimit }) throw BadRequestException("language is too long")
+    return this
+}
+
 private fun ApplicationCall.enumList(
     name: String,
     vararg defaults: TransportMode,
 ): Set<TransportMode> {
     val values = listQuery(name)
     if (values.isEmpty()) return defaults.toSet()
+    if (values.size > MaxListValues) throw BadRequestException("$name has too many values")
     return values.mapTo(linkedSetOf()) { value ->
         runCatching { TransportMode.valueOf(value.uppercase()) }.getOrElse {
             throw BadRequestException(
@@ -246,8 +254,10 @@ private fun ApplicationCall.enumList(
     }
 }
 
-private fun ApplicationCall.locationKinds(name: String): Set<LocationKind> =
-    listQuery(name).mapTo(linkedSetOf()) { value ->
+private fun ApplicationCall.locationKinds(name: String): Set<LocationKind> {
+    val values = listQuery(name)
+    if (values.size > MaxListValues) throw BadRequestException("$name has too many values")
+    return values.mapTo(linkedSetOf()) { value ->
         runCatching { LocationKind.valueOf(value.uppercase()) }.getOrElse {
             throw BadRequestException(
                 "Unsupported location type",
@@ -255,6 +265,7 @@ private fun ApplicationCall.locationKinds(name: String): Set<LocationKind> =
             )
         }
     }
+}
 
 private fun ApplicationCall.booleanQuery(name: String): Boolean? =
     request.queryParameters[name]?.let { value ->
@@ -266,20 +277,13 @@ private fun ApplicationCall.intQuery(name: String): Int? =
         value.toIntOrNull() ?: throw BadRequestException("$name must be an integer")
     }
 
-private fun ApplicationCall.doubleQuery(name: String): Double? =
-    request.queryParameters[name]?.let { value ->
-        value.toDoubleOrNull() ?: throw BadRequestException("$name must be a number")
-    }
-
-private fun ApplicationCall.mapBounds() = MapBounds(
-    minimum = requiredQuery("min").toCoordinate(),
-    maximum = requiredQuery("max").toCoordinate(),
-)
-
-private fun String.toLocationReference(): LocationReference =
-    if (contains(',')) LocationReference.Position(toCoordinate()) else LocationReference.Stop(this)
+private fun String.toLocationReference(): LocationReference {
+    if (length > IdentifierLimit) throw BadRequestException("A location is too long")
+    return if (contains(',')) LocationReference.Position(toCoordinate()) else LocationReference.Stop(this)
+}
 
 private fun String.toCoordinate(): Coordinate {
+    if (length > CoordinateLimit) throw BadRequestException("A coordinate is too long")
     val parts = split(',').map { it.trim() }
     if (parts.size !in 2..3) {
         throw BadRequestException("A coordinate must use latitude,longitude[,level] format")

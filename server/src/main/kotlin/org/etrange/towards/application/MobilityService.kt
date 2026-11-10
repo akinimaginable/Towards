@@ -7,25 +7,19 @@ import org.etrange.towards.domain.model.LocationReference
 import kotlin.time.Clock
 import kotlin.time.Instant
 import org.etrange.towards.domain.model.Coordinate
-import org.etrange.towards.domain.model.Place
 import org.etrange.towards.domain.model.StopTimes
 import org.etrange.towards.domain.model.TripPlan
 import org.etrange.towards.domain.model.nearby.NearbyDeparturesLimits
 import org.etrange.towards.domain.model.nearby.NearbyStop
 import org.etrange.towards.domain.model.nearby.groupNearbyDepartures
-import org.etrange.towards.domain.model.map.MapBounds
-import org.etrange.towards.domain.model.map.MapInitialView
-import org.etrange.towards.domain.model.map.MapTrip
 import org.etrange.towards.domain.model.requests.GeocodeRequest
 import org.etrange.towards.domain.model.requests.ItineraryRefreshRequest
-import org.etrange.towards.domain.model.requests.MapStopsRequest
-import org.etrange.towards.domain.model.requests.MapTripsRequest
 import org.etrange.towards.domain.model.requests.ReverseGeocodeRequest
 import org.etrange.towards.domain.model.requests.StopTimesRequest
 import org.etrange.towards.domain.model.requests.TripLookupRequest
 import org.etrange.towards.domain.model.requests.TripPlanningRequest
 import org.etrange.towards.domain.port.Geocoder
-import org.etrange.towards.domain.port.TransitDataProvider
+import org.etrange.towards.domain.port.TimetableProvider
 import org.etrange.towards.domain.port.TripInformationProvider
 import org.etrange.towards.domain.port.TripPlanner
 
@@ -45,7 +39,7 @@ class MobilityService(
     private val tripPlanner: TripPlanner,
     private val tripInformationProvider: TripInformationProvider,
     private val geocoder: Geocoder,
-    private val transitDataProvider: TransitDataProvider,
+    private val timetableProvider: TimetableProvider,
     private val auditService: AuditService,
     private val tripPlanCache: TripPlanCache,
     private val nearbyStopTimesCache: NearbyStopTimesCache,
@@ -105,7 +99,7 @@ class MobilityService(
         request.toAuditSummary(),
         { "events=${it.events.size}" },
     ) {
-        transitDataProvider.getStopTimes(request)
+        timetableProvider.getStopTimes(request)
     }
 
     suspend fun nearbyDepartures(
@@ -123,7 +117,7 @@ class MobilityService(
         val minute = now.epochSeconds / 60
         val cell = center.nearbyCell()
         val stopTimes = nearbyStopTimesCache.getOrLoad(cell, minute) {
-            transitDataProvider.getStopTimes(
+            timetableProvider.getStopTimes(
                 StopTimesRequest(
                     center = cell.center(),
                     radiusMeters = NearbyDeparturesLimits.RADIUS_METERS,
@@ -167,61 +161,6 @@ class MobilityService(
         { "results=${it.size}" },
     ) {
         geocoder.reverseGeocode(request)
-    }
-
-    suspend fun getInitialMapView(
-        actor: ActorContext?,
-        correlationId: String,
-    ): MapInitialView = audited(
-        actor,
-        correlationId,
-        AuditAction.MAP_INITIAL,
-        null,
-        { "zoom=${it.zoom}" },
-    ) {
-        transitDataProvider.getInitialMapView()
-    }
-
-    suspend fun getMapStops(
-        actor: ActorContext?,
-        correlationId: String,
-        request: MapStopsRequest,
-    ): List<Place> = audited(
-        actor,
-        correlationId,
-        AuditAction.MAP_STOPS,
-        request.toAuditSummary(),
-        { "stops=${it.size}" },
-    ) {
-        transitDataProvider.getMapStops(request)
-    }
-
-    suspend fun getMapTrips(
-        actor: ActorContext?,
-        correlationId: String,
-        request: MapTripsRequest,
-    ): List<MapTrip> = audited(
-        actor,
-        correlationId,
-        AuditAction.MAP_TRIPS,
-        request.toAuditSummary(),
-        { "trips=${it.size}" },
-    ) {
-        transitDataProvider.getMapTrips(request)
-    }
-
-    suspend fun getMapLevels(
-        actor: ActorContext?,
-        correlationId: String,
-        bounds: MapBounds,
-    ): List<Double> = audited(
-        actor,
-        correlationId,
-        AuditAction.MAP_LEVELS,
-        "boundsPresent=true",
-        { "levels=${it.size}" },
-    ) {
-        transitDataProvider.getMapLevels(bounds)
     }
 
     private suspend fun <T> audited(
@@ -283,18 +222,12 @@ internal fun TripPlanningRequest.toAuditSummary(): String =
 
 internal fun StopTimesRequest.toAuditSummary(): String =
     "source=${if (stopId != null) "stop" else "area"},radiusSet=${radiusMeters != null}," +
-        "eventsSet=${numberOfEvents != null},arriveBy=$arriveBy,modes=${transportModes.size}," +
+        "events=$numberOfEvents,arriveBy=$arriveBy,modes=${transportModes.size}," +
         "hasTime=${time != null},hasPageCursor=${pageCursor != null},languageCount=${language.size}"
 
 internal fun GeocodeRequest.toAuditSummary(): String =
     "queryLength=${text.length},hasBias=${bias != null},kinds=${kinds.size}," +
-        "modes=${modes.size},limitSet=${numberOfResults != null},languageCount=${languages.size}"
+        "modes=${modes.size},limit=$numberOfResults,languageCount=${languages.size}"
 
 internal fun ReverseGeocodeRequest.toAuditSummary(): String =
-    "kinds=${kinds.size},limitSet=${numberOfResults != null}"
-
-internal fun MapStopsRequest.toAuditSummary(): String =
-    "groupedSet=${grouped != null},modes=${modes.size},languageCount=${languages.size}"
-
-internal fun MapTripsRequest.toAuditSummary(): String =
-    "zoom=$zoom,precision=$precision,languageCount=${languages.size}"
+    "kinds=${kinds.size},limit=$numberOfResults"

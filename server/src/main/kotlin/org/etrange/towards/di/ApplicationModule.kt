@@ -1,10 +1,6 @@
 package org.etrange.towards.di
 
-import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.serialization.kotlinx.json.json
 import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import kotlinx.serialization.json.Json
@@ -18,13 +14,14 @@ import org.etrange.towards.application.TripPlanCache
 import org.etrange.towards.config.AppConfig
 import org.etrange.towards.config.DatabaseConfig
 import org.etrange.towards.domain.port.Geocoder
-import org.etrange.towards.domain.port.TransitDataProvider
+import org.etrange.towards.domain.port.TimetableProvider
 import org.etrange.towards.domain.port.TripInformationProvider
 import org.etrange.towards.domain.port.TripPlanner
 import org.etrange.towards.infrastructure.database.DatabaseFactorySupport
 import org.etrange.towards.infrastructure.database.DatabaseResources
 import org.etrange.towards.infrastructure.database.ExposedAuditRepository
 import org.etrange.towards.infrastructure.motis.MotisClient
+import org.etrange.towards.infrastructure.motis.createMotisHttpClient
 import org.koin.dsl.module
 
 fun applicationModule(config: AppConfig) = module {
@@ -38,16 +35,11 @@ fun applicationModule(config: AppConfig) = module {
     }
     single { PrometheusMeterRegistry(PrometheusConfig.DEFAULT) }
     single {
-        HttpClient(CIO) {
-            install(ContentNegotiation) {
-                json(get())
-            }
-            install(HttpTimeout) {
-                requestTimeoutMillis = config.motis.requestTimeoutMillis
-                connectTimeoutMillis = config.motis.requestTimeoutMillis
-                socketTimeoutMillis = config.motis.requestTimeoutMillis
-            }
-        }
+        createMotisHttpClient(
+            engineFactory = CIO,
+            json = get(),
+            requestTimeoutMillis = config.motis.requestTimeoutMillis,
+        )
     }
     single {
         MotisClient(
@@ -59,7 +51,7 @@ fun applicationModule(config: AppConfig) = module {
     single<TripPlanner> { get<MotisClient>() }
     single<TripInformationProvider> { get<MotisClient>() }
     single<Geocoder> { get<MotisClient>() }
-    single<TransitDataProvider> { get<MotisClient>() }
+    single<TimetableProvider> { get<MotisClient>() }
 
     when (val database = config.database) {
         is DatabaseConfig.Enabled -> single { DatabaseFactorySupport.initialize(database) }
@@ -87,7 +79,7 @@ fun applicationModule(config: AppConfig) = module {
             tripPlanner = get(),
             tripInformationProvider = get(),
             geocoder = get(),
-            transitDataProvider = get(),
+            timetableProvider = get(),
             auditService = get(),
             tripPlanCache = get(),
             nearbyStopTimesCache = get(),

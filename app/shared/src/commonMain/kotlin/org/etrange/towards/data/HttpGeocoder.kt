@@ -22,7 +22,7 @@ class HttpGeocoder(
             request.modes.takeIf { it.isNotEmpty() }
                 ?.let { parameter("modes", it.joinToString(",") { mode -> mode.name }) }
             request.bias?.let { parameter("bias", it.toQueryParameter()) }
-            request.numberOfResults?.let { parameter("limit", it) }
+            parameter("limit", request.numberOfResults)
         }.toDecodedResults()
     }
 
@@ -31,7 +31,7 @@ class HttpGeocoder(
             parameter("place", request.coordinate.toQueryParameter())
             request.kinds.takeIf { it.isNotEmpty() }
                 ?.let { parameter("types", it.joinToString(",") { kind -> kind.name }) }
-            request.numberOfResults?.let { parameter("limit", it) }
+            parameter("limit", request.numberOfResults)
         }.toDecodedResults()
     }
 }

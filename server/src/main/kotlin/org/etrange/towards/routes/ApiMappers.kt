@@ -5,11 +5,9 @@ import org.etrange.towards.api.dto.EncodedPathDto
 import org.etrange.towards.api.dto.GeocodeResultDto
 import org.etrange.towards.api.dto.ItineraryDto
 import org.etrange.towards.api.dto.JourneyLegDto
-import org.etrange.towards.api.dto.MapInitialViewDto
 import org.etrange.towards.api.dto.NearbyDepartureDto
 import org.etrange.towards.api.dto.NearbyStopDto
 import org.etrange.towards.api.dto.TripDepartureDto
-import org.etrange.towards.api.dto.MapTripDto
 import org.etrange.towards.api.dto.PlaceDto
 import org.etrange.towards.api.dto.StopTimeDto
 import org.etrange.towards.api.dto.StopTimesDto
@@ -23,8 +21,6 @@ import org.etrange.towards.domain.model.Place
 import org.etrange.towards.domain.model.StopTime
 import org.etrange.towards.domain.model.StopTimes
 import org.etrange.towards.domain.model.TripPlan
-import org.etrange.towards.domain.model.map.MapInitialView
-import org.etrange.towards.domain.model.map.MapTrip
 import org.etrange.towards.domain.model.nearby.NearbyDeparture
 import org.etrange.towards.domain.model.nearby.NearbyStop
 import org.etrange.towards.domain.model.nearby.TripDeparture
@@ -120,17 +116,6 @@ fun GeocodeResult.toDto() = GeocodeResultDto(
     modes = modes.map { it.name },
 )
 
-fun MapTrip.toDto() = MapTripDto(
-    tripIds = tripIds,
-    mode = mode.name,
-    from = from.toDto(),
-    to = to.toDto(),
-    departure = departure,
-    arrival = arrival,
-    polyline = polyline,
-    routeColor = routeColor,
-)
-
 fun TripDeparture.toDto() = TripDepartureDto(
     tripId = tripId,
     time = time.toString(),
@@ -156,11 +141,4 @@ fun NearbyStop.toDto() = NearbyStopDto(
     coordinate = coordinate.toDto(),
     distanceMeters = distanceMeters,
     departures = departures.map { it.toDto() },
-)
-
-fun MapInitialView.toDto() = MapInitialViewDto(
-    center = center.toDto(),
-    zoom = zoom,
-    motisVersion = motisVersion,
-    streetRoutingAvailable = streetRoutingAvailable,
 )

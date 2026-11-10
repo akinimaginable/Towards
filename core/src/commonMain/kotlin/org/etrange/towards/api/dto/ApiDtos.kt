@@ -130,18 +130,6 @@ data class GeocodeResultDto(
 )
 
 @Serializable
-data class MapTripDto(
-    val tripIds: List<String>,
-    val mode: String,
-    val from: PlaceDto,
-    val to: PlaceDto,
-    val departure: String,
-    val arrival: String,
-    val polyline: String,
-    val routeColor: String? = null,
-)
-
-@Serializable
 data class TripDepartureDto(
     val tripId: String,
     val time: String,
@@ -169,12 +157,4 @@ data class NearbyStopDto(
     val coordinate: CoordinateDto,
     val distanceMeters: Int,
     val departures: List<NearbyDepartureDto> = emptyList(),
-)
-
-@Serializable
-data class MapInitialViewDto(
-    val center: CoordinateDto,
-    val zoom: Double,
-    val motisVersion: String,
-    val streetRoutingAvailable: Boolean,
 )

@@ -18,7 +18,7 @@ class HttpTimetableProvider(
             request.radiusMeters?.let { parameter("radius", it) }
             request.time?.let { parameter("time", it) }
             if (request.arriveBy) parameter("arriveBy", true)
-            request.numberOfEvents?.let { parameter("n", it) }
+            parameter("n", request.numberOfEvents)
             request.transportModes.takeIf { it.isNotEmpty() }
                 ?.let { parameter("modes", it.joinToString(",") { mode -> mode.name }) }
             request.pageCursor?.let { parameter("pageCursor", it) }

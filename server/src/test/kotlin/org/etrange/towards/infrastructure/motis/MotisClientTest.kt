@@ -14,6 +14,9 @@ import org.etrange.towards.config.MotisConfig
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.LocationReference
 import org.etrange.towards.domain.model.TransportMode
+import org.etrange.towards.domain.model.requests.GeocodeRequest
+import org.etrange.towards.domain.model.requests.ReverseGeocodeRequest
+import org.etrange.towards.domain.model.requests.StopTimesRequest
 import org.etrange.towards.domain.model.requests.TripPlanningRequest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -55,6 +58,37 @@ class MotisClientTest {
         assertEquals("Antwerpen-Centraal", result.to.name)
         assertEquals(1, result.itineraries.size)
         assertEquals("IC 2031", result.itineraries.single().legs.single().displayName)
+        httpClient.close()
+    }
+
+    @Test
+    fun omittedCountsAreSentAsDefaults() = runBlocking {
+        val json = Json { ignoreUnknownKeys = true }
+        val engine = MockEngine { request ->
+            val body = if (request.url.encodedPath == "/api/v6/stoptimes") "{}" else "[]"
+            respond(
+                content = body,
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+        val httpClient = HttpClient(engine) {
+            install(ContentNegotiation) { json(json) }
+        }
+        val client = MotisClient(
+            client = httpClient,
+            config = MotisConfig("https://motis.test", 1_000),
+            json = json,
+        )
+
+        client.getStopTimes(StopTimesRequest(stopId = "stop-1"))
+        client.geocode(GeocodeRequest(text = "Central"))
+        client.reverseGeocode(ReverseGeocodeRequest(Coordinate(50.85, 4.35)))
+
+        val requests = engine.requestHistory
+        assertEquals(StopTimesRequest.DEFAULT_EVENT_COUNT.toString(), requests[0].url.parameters["n"])
+        assertEquals(GeocodeRequest.DEFAULT_RESULT_COUNT.toString(), requests[1].url.parameters["numResults"])
+        assertEquals(GeocodeRequest.DEFAULT_RESULT_COUNT.toString(), requests[2].url.parameters["numResults"])
         httpClient.close()
     }
 }

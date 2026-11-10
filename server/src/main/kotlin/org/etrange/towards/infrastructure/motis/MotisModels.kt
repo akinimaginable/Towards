@@ -114,33 +114,3 @@ internal data class MotisMatch(
     val modes: List<String> = emptyList(),
 )
 
-@Serializable
-internal data class MotisTripInfo(
-    val tripId: String,
-)
-
-@Serializable
-internal data class MotisTripSegment(
-    val trips: List<MotisTripInfo> = emptyList(),
-    val mode: String,
-    val from: MotisPlace,
-    val to: MotisPlace,
-    val departure: String,
-    val arrival: String,
-    val polyline: String,
-    val routeColor: String? = null,
-)
-
-@Serializable
-internal data class MotisServerConfig(
-    val motisVersion: String = "unknown",
-    val hasStreetRouting: Boolean = false,
-)
-
-@Serializable
-internal data class MotisInitialResponse(
-    val lat: Double,
-    val lon: Double,
-    val zoom: Double,
-    val serverConfig: MotisServerConfig,
-)

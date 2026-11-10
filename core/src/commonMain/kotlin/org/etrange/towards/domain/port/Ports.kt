@@ -3,17 +3,11 @@ package org.etrange.towards.domain.port
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.Itinerary
-import org.etrange.towards.domain.model.Place
 import org.etrange.towards.domain.model.StopTimes
 import org.etrange.towards.domain.model.TripPlan
-import org.etrange.towards.domain.model.map.MapBounds
-import org.etrange.towards.domain.model.map.MapInitialView
-import org.etrange.towards.domain.model.map.MapTrip
 import org.etrange.towards.domain.model.nearby.NearbyStop
 import org.etrange.towards.domain.model.requests.GeocodeRequest
 import org.etrange.towards.domain.model.requests.ItineraryRefreshRequest
-import org.etrange.towards.domain.model.requests.MapStopsRequest
-import org.etrange.towards.domain.model.requests.MapTripsRequest
 import org.etrange.towards.domain.model.requests.ReverseGeocodeRequest
 import org.etrange.towards.domain.model.requests.StopTimesRequest
 import org.etrange.towards.domain.model.requests.TripLookupRequest
@@ -42,15 +36,3 @@ interface TimetableProvider {
 interface NearbyDeparturesProvider {
     suspend fun nearby(center: Coordinate): List<NearbyStop>
 }
-
-interface MapDataProvider {
-    suspend fun getInitialMapView(): MapInitialView
-
-    suspend fun getMapStops(request: MapStopsRequest): List<Place>
-
-    suspend fun getMapTrips(request: MapTripsRequest): List<MapTrip>
-
-    suspend fun getMapLevels(bounds: MapBounds): List<Double>
-}
-
-interface TransitDataProvider : TimetableProvider, MapDataProvider

@@ -20,23 +20,17 @@ import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.GeocodeResult
 import org.etrange.towards.domain.model.Itinerary
 import org.etrange.towards.domain.model.LocationReference
-import org.etrange.towards.domain.model.Place
 import org.etrange.towards.domain.model.StopTimes
 import org.etrange.towards.domain.model.TripPlan
 import org.etrange.towards.domain.model.ensureUniqueIds
-import org.etrange.towards.domain.model.map.MapBounds
-import org.etrange.towards.domain.model.map.MapInitialView
-import org.etrange.towards.domain.model.map.MapTrip
 import org.etrange.towards.domain.model.requests.GeocodeRequest
 import org.etrange.towards.domain.model.requests.ItineraryRefreshRequest
-import org.etrange.towards.domain.model.requests.MapStopsRequest
-import org.etrange.towards.domain.model.requests.MapTripsRequest
 import org.etrange.towards.domain.model.requests.ReverseGeocodeRequest
 import org.etrange.towards.domain.model.requests.StopTimesRequest
 import org.etrange.towards.domain.model.requests.TripLookupRequest
 import org.etrange.towards.domain.model.requests.TripPlanningRequest
 import org.etrange.towards.domain.port.Geocoder
-import org.etrange.towards.domain.port.TransitDataProvider
+import org.etrange.towards.domain.port.TimetableProvider
 import org.etrange.towards.domain.port.TripInformationProvider
 import org.etrange.towards.domain.port.TripPlanner
 
@@ -44,7 +38,7 @@ class MotisClient(
     private val client: HttpClient,
     private val config: MotisConfig,
     private val json: Json,
-) : TripPlanner, TripInformationProvider, Geocoder, TransitDataProvider {
+) : TripPlanner, TripInformationProvider, Geocoder, TimetableProvider {
 
     override suspend fun plan(request: TripPlanningRequest): TripPlan =
         get<MotisPlanResponse>("/api/v6/plan") {
@@ -90,7 +84,7 @@ class MotisClient(
             request.radiusMeters?.let { parameter("radius", it) }
             request.time?.let { parameter("time", it) }
             parameter("arriveBy", request.arriveBy)
-            request.numberOfEvents?.let { parameter("n", it) }
+            parameter("n", request.numberOfEvents)
             parameter("mode", request.transportModes.joinToString(",") { it.name })
             request.pageCursor?.let { parameter("pageCursor", it) }
             request.language.takeIf { it.isNotEmpty() }?.let { parameter("language", it.joinToString(",")) }
@@ -104,44 +98,15 @@ class MotisClient(
             request.kinds.takeIf { it.isNotEmpty() }?.let { parameter("type", it.joinToString(",") { kind -> kind.name }) }
             request.modes.takeIf { it.isNotEmpty() }?.let { parameter("mode", it.joinToString(",") { mode -> mode.name }) }
             request.bias?.let { parameter("place", it.toMotisParameter()) }
-            request.numberOfResults?.let { parameter("numResults", it) }
+            parameter("numResults", request.numberOfResults)
         }.map { it.toDomain() }.ensureUniqueIds()
 
     override suspend fun reverseGeocode(request: ReverseGeocodeRequest): List<GeocodeResult> =
         get<List<MotisMatch>>("/api/v1/reverse-geocode") {
             parameter("place", request.coordinate.toMotisParameter())
             request.kinds.takeIf { it.isNotEmpty() }?.let { parameter("type", it.joinToString(",") { kind -> kind.name }) }
-            request.numberOfResults?.let { parameter("numResults", it) }
+            parameter("numResults", request.numberOfResults)
         }.map { it.toDomain() }.ensureUniqueIds()
-
-    override suspend fun getInitialMapView(): MapInitialView =
-        get<MotisInitialResponse>("/api/v1/map/initial").toDomain()
-
-    override suspend fun getMapStops(request: MapStopsRequest): List<Place> =
-        get<List<MotisPlace>>("/api/v6/map/stops") {
-            parameter("min", request.bounds.minimum.toMotisParameter())
-            parameter("max", request.bounds.maximum.toMotisParameter())
-            request.grouped?.let { parameter("grouped", it) }
-            request.modes.takeIf { it.isNotEmpty() }?.let { parameter("modes", it.joinToString(",") { mode -> mode.name }) }
-            request.languages.takeIf { it.isNotEmpty() }?.let { parameter("language", it.joinToString(",")) }
-        }.map { it.toDomain() }
-
-    override suspend fun getMapTrips(request: MapTripsRequest): List<MapTrip> =
-        get<List<MotisTripSegment>>("/api/v6/map/trips") {
-            parameter("zoom", request.zoom)
-            parameter("min", request.bounds.minimum.toMotisParameter())
-            parameter("max", request.bounds.maximum.toMotisParameter())
-            parameter("startTime", request.startTime)
-            parameter("endTime", request.endTime)
-            parameter("precision", request.precision)
-            request.languages.takeIf { it.isNotEmpty() }?.let { parameter("language", it.joinToString(",")) }
-        }.mapNotNull { it.toDomain() }
-
-    override suspend fun getMapLevels(bounds: MapBounds): List<Double> =
-        get("/api/v1/map/levels") {
-            parameter("min", bounds.minimum.toMotisParameter())
-            parameter("max", bounds.maximum.toMotisParameter())
-        }
 
     private suspend inline fun <reified T> get(
         path: String,
