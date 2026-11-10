@@ -63,11 +63,16 @@ data class AuditConfig(
     val retentionDays: Int,
 )
 
+data class MetricsConfig(
+    val token: String,
+)
+
 data class AppConfig(
     val motis: MotisConfig,
     val database: DatabaseConfig,
     val rateLimit: RateLimitConfig,
     val audit: AuditConfig,
+    val metrics: MetricsConfig,
 ) {
     companion object {
         fun from(config: ApplicationConfig): AppConfig {
@@ -75,6 +80,7 @@ data class AppConfig(
             val motis = root.config("motis")
             val rateLimit = root.config("rateLimit")
             val audit = root.config("audit")
+            val metrics = root.config("metrics")
             val database = if (root.keys().any { it == "database" || it.startsWith("database.") }) {
                 DatabaseConfig.from(root.config("database"))
             } else {
@@ -94,6 +100,12 @@ data class AppConfig(
                 audit = AuditConfig(
                     retentionDays = audit.property("retentionDays").getString().toInt()
                         .also { require(it > 0) { "audit retentionDays must be positive" } },
+                ),
+                metrics = MetricsConfig(
+                    token = metrics.property("token").getString().trim().also { token ->
+                        require(token.length >= 16) { "metrics token must be at least 16 characters" }
+                        require(token.none { it.isWhitespace() }) { "metrics token must not contain whitespace" }
+                    },
                 ),
             )
         }

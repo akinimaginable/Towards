@@ -7,7 +7,11 @@ meta {
 get {
   url: {{baseUrl}}/metrics
   body: none
-  auth: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{metricsToken}}
 }
 
 headers {
@@ -20,6 +24,7 @@ docs {
   Prometheus metrics
   
   Exposes request and latency metrics in Prometheus exposition format.
+  Requires `Authorization: Bearer {{metricsToken}}`.
   
   operationId: metrics
 }

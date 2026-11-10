@@ -3,6 +3,11 @@ package org.etrange.towards.routes
 import io.ktor.http.ContentType
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.application.install
+import io.ktor.server.auth.Authentication
+import io.ktor.server.auth.UserIdPrincipal
+import io.ktor.server.auth.authenticate
+import io.ktor.server.auth.bearer
 import io.ktor.server.plugins.callid.callId
 import io.ktor.server.plugins.ratelimit.RateLimitName
 import io.ktor.server.plugins.ratelimit.rateLimit
@@ -14,6 +19,7 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
+import java.security.MessageDigest
 import org.etrange.towards.api.dto.HealthResponseDto
 import org.etrange.towards.api.dto.RefreshItineraryRequestDto
 import org.etrange.towards.application.BadRequestException
@@ -33,19 +39,36 @@ import org.etrange.towards.domain.model.requests.TripLookupRequest
 import org.etrange.towards.domain.model.requests.TripPlanningRequest
 import org.etrange.towards.plugins.API_RATE_LIMIT
 
+private const val METRICS_AUTH = "metrics"
+
 fun Application.configureRoutes(
     service: MobilityService,
     prometheusRegistry: PrometheusMeterRegistry,
+    metricsToken: String,
 ) {
+    install(Authentication) {
+        bearer(METRICS_AUTH) {
+            authenticate { credential ->
+                if (credential.token.matchesSecret(metricsToken)) {
+                    UserIdPrincipal("prometheus")
+                } else {
+                    null
+                }
+            }
+        }
+    }
+
     routing {
         get("/health") {
             call.respond(HealthResponseDto(status = "UP"))
         }
-        get("/metrics") {
-            call.respondText(
-                text = prometheusRegistry.scrape(),
-                contentType = ContentType.parse("text/plain; version=0.0.4; charset=utf-8"),
-            )
+        authenticate(METRICS_AUTH) {
+            get("/metrics") {
+                call.respondText(
+                    text = prometheusRegistry.scrape(),
+                    contentType = ContentType.parse("text/plain; version=0.0.4; charset=utf-8"),
+                )
+            }
         }
 
         rateLimit(RateLimitName(API_RATE_LIMIT)) {
@@ -269,3 +292,6 @@ private fun String.toCoordinate(): Coordinate {
         ?: if (parts.size == 3) throw BadRequestException("Coordinate level must be a number") else null
     return Coordinate(latitude, longitude, level)
 }
+
+private fun String.matchesSecret(expected: String): Boolean =
+    MessageDigest.isEqual(encodeToByteArray(), expected.encodeToByteArray())

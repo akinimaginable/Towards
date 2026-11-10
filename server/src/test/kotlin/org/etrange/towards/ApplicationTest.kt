@@ -20,7 +20,12 @@ class ApplicationTest {
         assertEquals(HttpStatusCode.OK, health.status)
         assertEquals("""{"status":"UP"}""", health.bodyAsText())
 
-        val metrics = client.get("/metrics")
+        val anonymous = client.get("/metrics")
+        assertEquals(HttpStatusCode.Unauthorized, anonymous.status)
+
+        val metrics = client.get("/metrics") {
+            header(HttpHeaders.Authorization, "Bearer $TestMetricsToken")
+        }
         assertEquals(HttpStatusCode.OK, metrics.status)
         assertTrue(metrics.bodyAsText().contains("# HELP"))
     }
@@ -127,6 +132,7 @@ class ApplicationTest {
         application { module() }
 
         val metrics = client.get("/metrics") {
+            header(HttpHeaders.Authorization, "Bearer $TestMetricsToken")
             header(HttpHeaders.AcceptEncoding, "gzip")
         }
 
@@ -150,5 +156,8 @@ private fun testConfig(vararg overrides: Pair<String, String>) = MapApplicationC
     "towards.rateLimit.requests" to "120",
     "towards.rateLimit.periodSeconds" to "60",
     "towards.audit.retentionDays" to "30",
+    "towards.metrics.token" to TestMetricsToken,
     *overrides,
 )
+
+private const val TestMetricsToken = "test-metrics-token"

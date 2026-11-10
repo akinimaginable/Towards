@@ -37,7 +37,11 @@ fun Application.module() {
         auditService = { getKoin().get<AuditService>() },
     )
     val mobilityService = getKoin().get<MobilityService>()
-    configureRoutes(mobilityService, prometheusRegistry)
+    configureRoutes(
+        service = mobilityService,
+        prometheusRegistry = prometheusRegistry,
+        metricsToken = config.metrics.token,
+    )
 
     monitor.subscribe(ApplicationStopped) {
         getKoin().get<HttpClient>().close()
