@@ -713,12 +713,7 @@ private fun HorizontalHomeLayout(
                 modifier = Modifier.fillMaxSize(),
             )
             Row(
-                modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(
-                    start = 12.dp,
-                    end = 12.dp,
-                    top = titleBarTop,
-                    bottom = 12.dp,
-                ),
+                modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -747,8 +742,7 @@ private fun HorizontalHomeLayout(
             LineCloseButton(
                 visible = lineOpen,
                 onClick = onDismissLinePreview,
-                modifier = Modifier.align(Alignment.TopStart)
-                    .padding(start = 12.dp, top = titleBarTop),
+                modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
             )
         }
     }
