@@ -32,15 +32,15 @@ import org.etrange.towards.ui.theme.TowardsPreview
 import org.etrange.towards.ui.theme.TowardsTheme
 import org.etrange.towards.ui.trip.LocationPickerScreen
 import org.etrange.towards.ui.trip.LocationPickerViewModel
-import org.etrange.towards.ui.trip.TripEndpoint
 import org.etrange.towards.ui.trip.TripResultsScreen
 import org.etrange.towards.ui.trip.TripResultsViewModel
 import org.etrange.towards.ui.trip.counterpart
 import org.etrange.towards.ui.trip.destination
 import org.etrange.towards.ui.trip.origin
+import org.etrange.towards.ui.trip.resultsRouteAfterPicking
 import org.etrange.towards.ui.trip.toPickerRoute
 import org.etrange.towards.ui.trip.toResultsRoute
-import org.etrange.towards.ui.trip.tripEndpointsAfterPicking
+import org.etrange.towards.ui.trip.tripTime
 
 @Composable
 fun App(graph: AppGraph) {
@@ -100,7 +100,8 @@ fun App(graph: AppGraph) {
                     val route = entry.toRoute<TripResultsRoute>()
                     val tripViewModel: TripResultsViewModel = viewModel(
                         key = "${route.fromLatitude},${route.fromLongitude}:" +
-                            "${route.toLatitude},${route.toLongitude}",
+                            "${route.toLatitude},${route.toLongitude}:" +
+                            "${route.timeEpochSeconds}:${route.arriveBy}",
                     ) {
                         TripResultsViewModel(
                             tripPlanner = tripPlanner,
@@ -111,6 +112,7 @@ fun App(graph: AppGraph) {
                             } else {
                                 null
                             },
+                            tripTime = route.tripTime(),
                         )
                     }
                     TripResultsScreen(
@@ -121,6 +123,7 @@ fun App(graph: AppGraph) {
                                 tripViewModel.origin.value.toPickerRoute(
                                     editingOrigin = true,
                                     counterpart = tripViewModel.destination.value,
+                                    time = tripViewModel.tripTime,
                                 ),
                             )
                         },
@@ -129,8 +132,19 @@ fun App(graph: AppGraph) {
                                 tripViewModel.destination.value.toPickerRoute(
                                     editingOrigin = false,
                                     counterpart = tripViewModel.origin.value,
+                                    time = tripViewModel.tripTime,
                                 ),
                             )
+                        },
+                        onTripTimeChange = { time ->
+                            navController.navigate(
+                                tripViewModel.origin.value.toResultsRoute(
+                                    destination = tripViewModel.destination.value,
+                                    time = time,
+                                ),
+                            ) {
+                                popUpTo<TripResultsRoute> { inclusive = true }
+                            }
                         },
                     )
                 }
@@ -162,12 +176,14 @@ fun App(graph: AppGraph) {
                             )
                         },
                         onPlacePicked = { picked ->
-                            val (origin, destination) = tripEndpointsAfterPicking(
-                                editingOrigin = route.editingOrigin,
-                                picked = picked,
-                                counterpart = route.counterpart(),
-                            )
-                            navController.navigate(origin.toResultsRoute(destination)) {
+                            navController.navigate(
+                                resultsRouteAfterPicking(
+                                    editingOrigin = route.editingOrigin,
+                                    picked = picked,
+                                    counterpart = route.counterpart(),
+                                    time = route.tripTime(),
+                                ),
+                            ) {
                                 popUpTo<TripResultsRoute> { inclusive = true }
                             }
                         },

@@ -2,6 +2,8 @@ package org.etrange.towards.data
 
 import com.russhwolf.settings.Settings
 import com.russhwolf.settings.set
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import org.etrange.towards.domain.model.Coordinate
 
 /**
@@ -11,7 +13,7 @@ import org.etrange.towards.domain.model.Coordinate
 class LocationBiasStore(
     private val settings: Settings = Settings(),
 ) {
-    private val lock = Any()
+    private val lock = SynchronizedObject()
 
     fun load(): Coordinate? = synchronized(lock) {
         val latitude = settings.getDoubleOrNull(KEY_LATITUDE) ?: return null

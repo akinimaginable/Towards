@@ -2,6 +2,8 @@ package org.etrange.towards.data
 
 import com.russhwolf.settings.Settings
 import com.russhwolf.settings.set
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,7 +50,7 @@ class FavoritePlacesStore(
     private val _places = MutableStateFlow(read())
     val places: StateFlow<List<FavoritePlace>> = _places.asStateFlow()
 
-    private val lock = Any()
+    private val lock = SynchronizedObject()
     private var sequence = 0
 
     fun setHome(location: FavoriteLocation) {

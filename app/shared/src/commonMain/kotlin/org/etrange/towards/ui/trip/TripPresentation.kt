@@ -1,6 +1,8 @@
 package org.etrange.towards.ui.trip
 
+import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalTime
+import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.format.char
 import kotlinx.datetime.toLocalDateTime
@@ -8,6 +10,7 @@ import org.etrange.towards.domain.model.Itinerary
 import org.etrange.towards.domain.model.JourneyLeg
 import org.etrange.towards.domain.model.TransportMode
 import org.etrange.towards.domain.model.TripPlan
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 private val clock24HourFormat = LocalTime.Format {
@@ -40,7 +43,62 @@ fun formatClock(
     timeZone: TimeZone = TimeZone.currentSystemDefault(),
 ): String {
     val instant = runCatching { Instant.parse(isoDateTime) }.getOrNull() ?: return isoDateTime
-    return clock24HourFormat.format(instant.toLocalDateTime(timeZone).time)
+    return formatTripClock(instant, timeZone)
+}
+
+fun TripTime.headerLabel(
+    now: Instant = Clock.System.now(),
+    timeZone: TimeZone = TimeZone.currentSystemDefault(),
+): String = when (this) {
+    TripTime.LeaveNow -> "Leave now"
+    is TripTime.DepartAt -> "Depart at ${formatTripMoment(instant, now, timeZone)}"
+    is TripTime.ArriveBy -> "Arrive by ${formatTripMoment(instant, now, timeZone)}"
+}
+
+internal fun formatTripClock(instant: Instant, timeZone: TimeZone): String =
+    clock24HourFormat.format(instant.toLocalDateTime(timeZone).time)
+
+internal fun formatTripDate(
+    instant: Instant,
+    timeZone: TimeZone,
+    now: Instant = Clock.System.now(),
+): String {
+    val date = instant.toLocalDateTime(timeZone).date
+    val label = "${weekdayLabel(date.dayOfWeek)} ${date.day} ${monthLabel(date.month)}"
+    val currentYear = now.toLocalDateTime(timeZone).year
+    return if (date.year == currentYear) label else "$label ${date.year}"
+}
+
+private fun formatTripMoment(instant: Instant, now: Instant, timeZone: TimeZone): String {
+    val local = instant.toLocalDateTime(timeZone)
+    val clock = formatTripClock(instant, timeZone)
+    if (local.date == now.toLocalDateTime(timeZone).date) return clock
+    return "${formatTripDate(instant, timeZone, now)}, $clock"
+}
+
+private fun weekdayLabel(day: DayOfWeek): String = when (day) {
+    DayOfWeek.MONDAY -> "Mon"
+    DayOfWeek.TUESDAY -> "Tue"
+    DayOfWeek.WEDNESDAY -> "Wed"
+    DayOfWeek.THURSDAY -> "Thu"
+    DayOfWeek.FRIDAY -> "Fri"
+    DayOfWeek.SATURDAY -> "Sat"
+    DayOfWeek.SUNDAY -> "Sun"
+}
+
+private fun monthLabel(month: Month): String = when (month) {
+    Month.JANUARY -> "Jan"
+    Month.FEBRUARY -> "Feb"
+    Month.MARCH -> "Mar"
+    Month.APRIL -> "Apr"
+    Month.MAY -> "May"
+    Month.JUNE -> "Jun"
+    Month.JULY -> "Jul"
+    Month.AUGUST -> "Aug"
+    Month.SEPTEMBER -> "Sep"
+    Month.OCTOBER -> "Oct"
+    Month.NOVEMBER -> "Nov"
+    Month.DECEMBER -> "Dec"
 }
 
 fun Itinerary.walkSeconds(): Int =

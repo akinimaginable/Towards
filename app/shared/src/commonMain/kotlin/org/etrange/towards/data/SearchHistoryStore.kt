@@ -2,6 +2,8 @@ package org.etrange.towards.data
 
 import com.russhwolf.settings.Settings
 import com.russhwolf.settings.set
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,7 +23,7 @@ class SearchHistoryStore(
     private val settings: Settings = Settings(),
 ) {
     private val json = Json { ignoreUnknownKeys = true }
-    private val lock = Any()
+    private val lock = SynchronizedObject()
 
     private val _entries = MutableStateFlow(read())
     val entries: StateFlow<List<GeocodeResult>> = _entries.asStateFlow()

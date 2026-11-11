@@ -2,6 +2,8 @@ package org.etrange.towards.data
 
 import com.russhwolf.settings.Settings
 import com.russhwolf.settings.set
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,7 +20,7 @@ class SettingsStore(
     private val _themeMode = MutableStateFlow(loadPersistedThemeModeOrDefault())
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
 
-    private val lock = Any()
+    private val lock = SynchronizedObject()
 
     fun save(raw: String): Result<String> {
         val normalized = validateApiEndpoint(raw)

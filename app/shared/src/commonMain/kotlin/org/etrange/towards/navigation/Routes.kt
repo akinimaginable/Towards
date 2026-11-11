@@ -24,6 +24,9 @@ data class TripResultsRoute(
     val toLongitude: Double,
     val toName: String,
     val toStopId: String = "",
+    /** Epoch seconds of the search time. Null means leave now. */
+    val timeEpochSeconds: Long? = null,
+    val arriveBy: Boolean = false,
 )
 
 @Serializable
@@ -33,4 +36,7 @@ data class LocationPickerRoute(
     val counterpartLongitude: Double,
     val counterpartName: String,
     val counterpartStopId: String = "",
+    /** Epoch seconds of the search time. Null means leave now. */
+    val timeEpochSeconds: Long? = null,
+    val arriveBy: Boolean = false,
 )

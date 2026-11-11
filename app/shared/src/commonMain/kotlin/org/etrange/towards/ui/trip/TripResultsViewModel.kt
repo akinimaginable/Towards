@@ -10,12 +10,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.etrange.towards.data.ApiException
 import org.etrange.towards.data.userMessage
-import org.etrange.towards.data.toApiDateTime
 import org.etrange.towards.domain.model.Coordinate
 import org.etrange.towards.domain.model.Itinerary
 import org.etrange.towards.domain.model.requests.TripPlanningRequest
 import org.etrange.towards.domain.port.TripPlanner
-import kotlin.time.Clock
 
 class TripResultsViewModel(
     private val tripPlanner: TripPlanner,
@@ -23,6 +21,8 @@ class TripResultsViewModel(
     destination: TripEndpoint,
     /** The device's last known position, shown as the "you are here" marker; null when unknown. */
     val userLocation: Coordinate? = null,
+    /** Fixed for this screen. A new time replaces the route and creates a new view model. */
+    val tripTime: TripTime = TripTime.LeaveNow,
 ) : ViewModel() {
     private val _origin = MutableStateFlow(origin)
     val origin: StateFlow<TripEndpoint> = _origin.asStateFlow()
@@ -65,11 +65,13 @@ class TripResultsViewModel(
             _isLoading.value = true
             _errorMessage.value = null
             try {
+                val (time, arriveBy) = tripTime.toRequestTime()
                 val plan = tripPlanner.plan(
                     TripPlanningRequest(
                         from = _origin.value.toLocationReference(),
                         to = _destination.value.toLocationReference(),
-                        time = Clock.System.now().toApiDateTime(),
+                        time = time,
+                        arriveBy = arriveBy,
                     ),
                 )
                 val options = combineTripOptions(plan)

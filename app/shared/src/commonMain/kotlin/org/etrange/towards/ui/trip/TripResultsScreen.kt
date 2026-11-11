@@ -32,6 +32,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -57,9 +60,11 @@ fun TripResultsScreen(
     onBack: () -> Unit,
     onChangeOrigin: () -> Unit,
     onChangeDestination: () -> Unit,
+    onTripTimeChange: (TripTime) -> Unit,
 ) {
     val origin by viewModel.origin.collectAsStateWithLifecycle()
     val destination by viewModel.destination.collectAsStateWithLifecycle()
+    val tripTime = viewModel.tripTime
     val itineraries by viewModel.itineraries.collectAsStateWithLifecycle()
     val selectedId by viewModel.selectedId.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
@@ -82,6 +87,9 @@ fun TripResultsScreen(
         onItineraryClick = viewModel::onItineraryClick,
         onChangeOrigin = onChangeOrigin,
         onChangeDestination = onChangeDestination,
+        timeLabel = tripTime.headerLabel(),
+        tripTime = tripTime,
+        onTripTimeChange = onTripTimeChange,
         userLocation = viewModel.userLocation,
     )
 }
@@ -104,11 +112,17 @@ fun TripResultsScreen(
     onItineraryClick: (String) -> Unit,
     onChangeOrigin: () -> Unit = {},
     onChangeDestination: () -> Unit = {},
+    timeLabel: String = "Leave now",
+    tripTime: TripTime = TripTime.LeaveNow,
+    onTripTimeChange: (TripTime) -> Unit = {},
     /** The device's own position; distinct from [origin], which may be any searched place. */
     userLocation: Coordinate? = null,
 ) {
+    var showTime by remember { mutableStateOf(false) }
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        if (isHorizontalLayout(maxWidth, maxHeight)) {
+        val wide = isHorizontalLayout(maxWidth, maxHeight)
+        val openTime = { showTime = true }
+        if (wide) {
             HorizontalTripResults(
                 panelWidth = horizontalPanelWidth(maxWidth),
                 originName = originName,
@@ -126,6 +140,8 @@ fun TripResultsScreen(
                 onItineraryClick = onItineraryClick,
                 onChangeOrigin = onChangeOrigin,
                 onChangeDestination = onChangeDestination,
+                timeLabel = timeLabel,
+                onTimeClick = openTime,
                 userLocation = userLocation,
             )
         } else {
@@ -145,7 +161,20 @@ fun TripResultsScreen(
                 onItineraryClick = onItineraryClick,
                 onChangeOrigin = onChangeOrigin,
                 onChangeDestination = onChangeDestination,
+                timeLabel = timeLabel,
+                onTimeClick = openTime,
                 userLocation = userLocation,
+            )
+        }
+        if (showTime) {
+            TripTimeSheet(
+                time = tripTime,
+                wide = wide,
+                onDismiss = { showTime = false },
+                onConfirm = { chosen ->
+                    showTime = false
+                    if (chosen != tripTime) onTripTimeChange(chosen)
+                },
             )
         }
     }
@@ -169,6 +198,8 @@ private fun NarrowTripResults(
     onItineraryClick: (String) -> Unit,
     onChangeOrigin: () -> Unit,
     onChangeDestination: () -> Unit,
+    timeLabel: String,
+    onTimeClick: () -> Unit,
     userLocation: Coordinate?,
 ) {
     Scaffold(
@@ -181,6 +212,8 @@ private fun NarrowTripResults(
                 onSwap = onSwap,
                 onChangeOrigin = onChangeOrigin,
                 onChangeDestination = onChangeDestination,
+                timeLabel = timeLabel,
+                onTimeClick = onTimeClick,
             )
         },
     ) { innerPadding ->
@@ -249,6 +282,8 @@ private fun HorizontalTripResults(
     onItineraryClick: (String) -> Unit,
     onChangeOrigin: () -> Unit,
     onChangeDestination: () -> Unit,
+    timeLabel: String,
+    onTimeClick: () -> Unit,
     userLocation: Coordinate?,
 ) {
     Row(modifier = Modifier.fillMaxSize()) {
@@ -270,6 +305,8 @@ private fun HorizontalTripResults(
                 onSwap = onSwap,
                 onChangeOrigin = onChangeOrigin,
                 onChangeDestination = onChangeDestination,
+                timeLabel = timeLabel,
+                onTimeClick = onTimeClick,
             )
             TripItineraryList(
                 itineraries = itineraries,

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
@@ -13,12 +14,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +50,8 @@ fun TripHeader(
     onSwap: () -> Unit,
     onChangeOrigin: () -> Unit,
     onChangeDestination: () -> Unit,
+    timeLabel: String,
+    onTimeClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -103,12 +108,19 @@ fun TripHeader(
                     )
                 }
             }
-            Text(
-                text = "Leaving now",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 68.dp, bottom = 8.dp),
-            )
+            TextButton(
+                onClick = onTimeClick,
+                modifier = Modifier.padding(start = 56.dp, bottom = 4.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+            ) {
+                Text(
+                    text = timeLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
@@ -158,6 +170,8 @@ private fun TripHeaderPreview() {
             onSwap = {},
             onChangeOrigin = {},
             onChangeDestination = {},
+            timeLabel = "Leave now",
+            onTimeClick = {},
         )
     }
 }
@@ -173,6 +187,8 @@ private fun TripHeaderDarkPreview() {
             onSwap = {},
             onChangeOrigin = {},
             onChangeDestination = {},
+            timeLabel = "Arrive by Tue 10 Nov, 18:30",
+            onTimeClick = {},
         )
     }
 }

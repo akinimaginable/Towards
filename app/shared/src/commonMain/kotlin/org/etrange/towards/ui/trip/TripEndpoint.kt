@@ -43,7 +43,10 @@ fun NearbyStop.toTripEndpoint(): TripEndpoint = TripEndpoint(
     stopId = id.takeIf { isUsableStopId(it) },
 )
 
-fun TripEndpoint.toResultsRoute(destination: TripEndpoint) = TripResultsRoute(
+fun TripEndpoint.toResultsRoute(
+    destination: TripEndpoint,
+    time: TripTime = TripTime.LeaveNow,
+) = TripResultsRoute(
     fromLatitude = coordinate.latitude,
     fromLongitude = coordinate.longitude,
     fromName = name,
@@ -52,7 +55,11 @@ fun TripEndpoint.toResultsRoute(destination: TripEndpoint) = TripResultsRoute(
     toLongitude = destination.coordinate.longitude,
     toName = destination.name,
     toStopId = destination.stopId.orEmpty(),
+    timeEpochSeconds = time.epochSeconds(),
+    arriveBy = time.arrivesBy(),
 )
+
+fun TripResultsRoute.tripTime(): TripTime = tripTimeOf(timeEpochSeconds, arriveBy)
 
 fun TripResultsRoute.origin(): TripEndpoint = TripEndpoint(
     name = fromName,
@@ -69,13 +76,18 @@ fun TripResultsRoute.destination(): TripEndpoint = TripEndpoint(
 fun TripEndpoint.toPickerRoute(
     editingOrigin: Boolean,
     counterpart: TripEndpoint,
+    time: TripTime = TripTime.LeaveNow,
 ) = LocationPickerRoute(
     editingOrigin = editingOrigin,
     counterpartLatitude = counterpart.coordinate.latitude,
     counterpartLongitude = counterpart.coordinate.longitude,
     counterpartName = counterpart.name,
     counterpartStopId = counterpart.stopId.orEmpty(),
+    timeEpochSeconds = time.epochSeconds(),
+    arriveBy = time.arrivesBy(),
 )
+
+fun LocationPickerRoute.tripTime(): TripTime = tripTimeOf(timeEpochSeconds, arriveBy)
 
 fun LocationPickerRoute.counterpart(): TripEndpoint = TripEndpoint(
     name = counterpartName,
@@ -89,6 +101,17 @@ fun tripEndpointsAfterPicking(
     counterpart: TripEndpoint,
 ): Pair<TripEndpoint, TripEndpoint> =
     if (editingOrigin) picked to counterpart else counterpart to picked
+
+/** Builds the replacement results route from the places currently on screen, keeping [time]. */
+fun resultsRouteAfterPicking(
+    editingOrigin: Boolean,
+    picked: TripEndpoint,
+    counterpart: TripEndpoint,
+    time: TripTime = TripTime.LeaveNow,
+): TripResultsRoute {
+    val (origin, destination) = tripEndpointsAfterPicking(editingOrigin, picked, counterpart)
+    return origin.toResultsRoute(destination, time)
+}
 
 private fun isUsableStopId(id: String): Boolean =
     id.isNotBlank() &&
