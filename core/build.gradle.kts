@@ -7,10 +7,16 @@ plugins {
 }
 
 kotlin {
+    jvmToolchain(25)
+
     iosArm64()
     iosSimulatorArm64()
-    
-    jvm()
+
+    jvm {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_25)
+        }
+    }
     
     android {
        namespace = "org.etrange.towards.core"
