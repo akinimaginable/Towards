@@ -6,8 +6,9 @@ plugins {
 }
 
 kotlin {
+    jvmToolchain(25)
     compilerOptions {
-        jvmTarget = JvmTarget.JVM_11
+        jvmTarget.set(JvmTarget.JVM_11)
     }
 }
 dependencies {

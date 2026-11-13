@@ -18,6 +18,8 @@ plugins {
 }
 
 kotlin {
+    jvmToolchain(25)
+
     listOf(
         iosArm64(),
         iosSimulatorArm64()
@@ -33,8 +35,12 @@ kotlin {
         iosMinimumDeploymentTarget.set("15.5")
     }
     
-    jvm()
-    
+    jvm {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_25)
+        }
+    }
+
     android {
        namespace = "org.etrange.towards.app.shared"
        compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -107,6 +113,10 @@ kotlin {
             implementation(libs.multiplatform.settings.test)
         }
     }
+}
+
+composeCompiler {
+    stabilityConfigurationFiles.add(layout.projectDirectory.file("compose-stability.conf"))
 }
 
 dependencies {
