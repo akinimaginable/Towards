@@ -41,6 +41,7 @@ const val API_RATE_LIMIT = "api"
 
 fun Application.configureHttpPlugins(
     config: AppConfig,
+    json: Json,
     prometheusRegistry: PrometheusMeterRegistry,
     auditService: () -> AuditService,
 ) {
@@ -70,13 +71,7 @@ fun Application.configureHttpPlugins(
     }
 
     install(ContentNegotiation) {
-        json(
-            Json {
-                ignoreUnknownKeys = true
-                explicitNulls = false
-                encodeDefaults = false
-            },
-        )
+        json(json)
     }
 
     install(RateLimit) {

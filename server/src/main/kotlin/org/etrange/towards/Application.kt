@@ -3,6 +3,7 @@ package org.etrange.towards
 import io.ktor.client.HttpClient
 import io.ktor.server.application.*
 import io.ktor.server.netty.*
+import kotlinx.serialization.json.Json
 import org.etrange.towards.application.AuditService
 import org.etrange.towards.application.MobilityService
 import org.etrange.towards.config.AppConfig
@@ -33,6 +34,7 @@ fun Application.module() {
 
     configureHttpPlugins(
         config = config,
+        json = getKoin().get<Json>(),
         prometheusRegistry = prometheusRegistry,
         auditService = { getKoin().get<AuditService>() },
     )
