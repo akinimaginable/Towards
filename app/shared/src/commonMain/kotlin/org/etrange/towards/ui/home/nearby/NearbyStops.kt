@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -170,15 +171,22 @@ fun NearbyDepartureRow(
     loading: Boolean = false,
     onClick: () -> Unit = {},
 ) {
-    val now by produceState(initialValue = Clock.System.now(), key1 = departure.id) {
+    val headsign = remember(departure.headsign) {
+        departure.headsign.orEmpty().toDisplayCase()
+    }
+    val timing by produceState(
+        initialValue = departureTiming(departure.time, departure.laterTimes),
+        departure.time,
+        departure.laterTimes,
+    ) {
         while (isActive) {
-            value = Clock.System.now()
+            val next = departureTiming(departure.time, departure.laterTimes)
+            if (next != value) value = next
             delay(30.seconds)
         }
     }
-    val headsign = departure.headsign.orEmpty().toDisplayCase()
-    val countdown = countdownOf(departure.time, now)
-    val laterLabel = laterTimesLabel(departure.laterTimes, now)
+    val countdown = timing.countdown
+    val laterLabel = timing.laterLabel
     val description = buildString {
         append("Line ${departure.lineName}")
         if (headsign.isNotBlank()) append(" to $headsign")
@@ -283,6 +291,16 @@ private fun DepartureCountdown(countdown: Countdown, realTime: Boolean, laterLab
 }
 
 internal data class Countdown(val value: String, val unit: String?, val spoken: String)
+
+private data class DepartureTiming(val countdown: Countdown, val laterLabel: String?)
+
+private fun departureTiming(time: Instant, laterTimes: List<Instant>): DepartureTiming {
+    val now = Clock.System.now()
+    return DepartureTiming(
+        countdown = countdownOf(time, now),
+        laterLabel = laterTimesLabel(laterTimes, now),
+    )
+}
 
 private val clockFormat = LocalTime.Format {
     hour()

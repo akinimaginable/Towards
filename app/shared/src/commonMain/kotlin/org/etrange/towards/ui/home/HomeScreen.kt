@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
@@ -45,6 +44,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.FloatState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -59,14 +59,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import org.etrange.towards.data.rememberLocationPermissionLauncher
 import org.etrange.towards.domain.model.Coordinate
@@ -346,48 +349,67 @@ fun HomeScreen(
                     val restingMapHeight =
                         (topPadding + mapPeekHeight + overlayHeight).coerceAtMost(maxHeight * 0.58f)
                     val scope = rememberCoroutineScope()
-                    var sheetDragPx by remember { mutableFloatStateOf(0f) }
-                    var sheetDragGeneration by remember { mutableIntStateOf(0) }
+                    // Read only from the map's layout pass and the sheet's gesture callbacks.
+                    val sheetDragPx = remember { mutableFloatStateOf(0f) }
+                    val sheetDragGeneration = remember { mutableIntStateOf(0) }
                     val dismissDistancePx = with(density) { 120.dp.toPx() }
-                    if (!lineOpen && sheetDragPx != 0f) sheetDragPx = 0f
-                    val onSheetDrag: (Float) -> Unit = { delta ->
-                        sheetDragGeneration += 1
-                        sheetDragPx = (sheetDragPx + delta).coerceAtLeast(0f)
+                    LaunchedEffect(lineOpen) {
+                        if (!lineOpen) {
+                            sheetDragGeneration.intValue += 1
+                            sheetDragPx.floatValue = 0f
+                        }
                     }
-                    val onSheetDragEnd: (Float) -> Unit = { velocity ->
-                        val generation = sheetDragGeneration
-                        val dragged = sheetDragPx
-                        val dismiss =
-                            dragged > dismissDistancePx || (dragged > 0f && velocity > 1_400f)
-                        if (dismiss) {
-                            sheetDragPx = 0f
-                            onDismissLinePreview()
-                        } else {
-                            scope.launch {
-                                animate(dragged, 0f, animationSpec = tween(220)) { value, _ ->
-                                    if (sheetDragGeneration == generation) sheetDragPx = value
+                    val onSheetDrag: (Float) -> Unit = remember {
+                        { delta ->
+                            sheetDragGeneration.intValue += 1
+                            sheetDragPx.floatValue =
+                                (sheetDragPx.floatValue + delta).coerceAtLeast(0f)
+                        }
+                    }
+                    val onSheetDragEnd: (Float) -> Unit =
+                        remember(scope, dismissDistancePx, onDismissLinePreview) {
+                            { velocity ->
+                                val generation = sheetDragGeneration.intValue
+                                val dragged = sheetDragPx.floatValue
+                                val dismiss =
+                                    dragged > dismissDistancePx || (dragged > 0f && velocity > 1_400f)
+                                if (dismiss) {
+                                    sheetDragPx.floatValue = 0f
+                                    onDismissLinePreview()
+                                } else {
+                                    scope.launch {
+                                        animate(dragged, 0f, animationSpec = tween(220)) { value, _ ->
+                                            if (sheetDragGeneration.intValue == generation) {
+                                                sheetDragPx.floatValue = value
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
                     val mapHeight by animateDpAsState(
                         targetValue = if (lineOpen) maxHeight * LineOpenMapFraction else restingMapHeight,
                         animationSpec = tween(320),
                         label = "mapHeight",
                     )
-                    val sheetDrag = with(density) { sheetDragPx.toDp() }
-                    val mapBodyHeight = if (lineOpen) {
-                        (mapHeight + sheetDrag).coerceAtMost(maxHeight - 72.dp)
-                    } else {
-                        (mapHeight - searchListOverlap).coerceAtLeast(0.dp)
-                    }
+                    val mapHeightPx = with(density) { mapHeight.roundToPx() }
+                    val overlapPx = with(density) { searchListOverlap.roundToPx() }
+                    val minSheetPx = with(density) { 72.dp.roundToPx() }
                     val overlayOnMapHeight = (overlayHeight - searchListOverlap).coerceAtLeast(0.dp)
                     val horizontalPadding = innerPadding.calculateStartPadding(layoutDirection)
 
                     Box(modifier = Modifier.fillMaxSize()) {
                         Column(modifier = Modifier.fillMaxSize()) {
                             Box(
-                                modifier = Modifier.fillMaxWidth().height(mapBodyHeight)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .draggingMapHeight(
+                                        sheetDragPx = sheetDragPx,
+                                        lineOpen = lineOpen,
+                                        mapHeightPx = mapHeightPx,
+                                        overlapPx = overlapPx,
+                                        minSheetPx = minSheetPx,
+                                    )
                                     .clipToBounds(),
                             ) {
                                 HomeMap(
@@ -450,7 +472,7 @@ fun HomeScreen(
                                             loading = isLoadingLinePreview,
                                             onStopClick = onLineStopSelected,
                                             onDepartureClick = onLineDepartureSelected,
-                                            sheetDragPx = sheetDragPx,
+                                            sheetDrag = sheetDragPx,
                                             onSheetDrag = onSheetDrag,
                                             onSheetDragEnd = onSheetDragEnd,
                                             contentPadding = PaddingValues(
@@ -576,6 +598,34 @@ fun HomeScreen(
 
 /** Share of the screen the map keeps while a line sheet is open. The sheet fills the rest. */
 private const val LineOpenMapFraction = 0.30f
+
+/**
+ * Adds the sheet drag to [mapHeightPx] while measuring, so the drag offset does not recompose Home.
+ * A closed line uses [mapHeightPx] minus [overlapPx]. An open line keeps at least [minSheetPx]
+ * for the sheet.
+ */
+private fun Modifier.draggingMapHeight(
+    sheetDragPx: FloatState,
+    lineOpen: Boolean,
+    mapHeightPx: Int,
+    overlapPx: Int,
+    minSheetPx: Int,
+): Modifier = layout { measurable, constraints ->
+    val maxHeight = constraints.maxHeight
+    val dragPx = if (lineOpen) sheetDragPx.floatValue.roundToInt() else 0
+    val height = if (!lineOpen) {
+        (mapHeightPx - overlapPx).coerceIn(0, maxHeight)
+    } else if (maxHeight == Constraints.Infinity) {
+        (mapHeightPx + dragPx).coerceAtLeast(0)
+    } else {
+        val ceiling = (maxHeight - minSheetPx).coerceAtLeast(0)
+        (mapHeightPx + dragPx).coerceIn(0, ceiling)
+    }
+    val placeable = measurable.measure(
+        constraints.copy(minHeight = height, maxHeight = height),
+    )
+    layout(placeable.width, height) { placeable.place(0, 0) }
+}
 
 @Composable
 private fun HorizontalHomeLayout(

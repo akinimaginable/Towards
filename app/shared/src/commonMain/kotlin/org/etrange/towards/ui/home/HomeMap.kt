@@ -110,19 +110,29 @@ fun HomeMap(
 
     val target = center ?: DefaultMapCenter
     val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val styleUri = if (darkTheme) {
-        Res.getUri("files/towards_map_dark.json")
-    } else {
-        Res.getUri("files/towards_map_light.json")
+    val styleUri = remember(darkTheme) {
+        Res.getUri(
+            if (darkTheme) "files/towards_map_dark.json" else "files/towards_map_light.json",
+        )
     }
     var previousCenter by remember { mutableStateOf(center) }
     var previousFollowCenter by remember { mutableStateOf(followCenter) }
     val cameraTopPadding = contentPadding.calculateTopPadding()
     val cameraBottomPadding = contentPadding.calculateBottomPadding()
     var viewportHeightPx by remember { mutableIntStateOf(0) }
-    val routeSignature = routeLegs.joinToString("|") { leg ->
-        "${leg.startTime}:${leg.to.name}:${leg.geometry?.points.orEmpty().take(24)}"
+    val routeSignature = remember(routeLegs) {
+        routeLegs.joinToString("|") { leg ->
+            "${leg.startTime}:${leg.to.name}:${leg.geometry?.points.orEmpty().take(24)}"
+        }
     }
+    val previewLayers = remember(linePreview) { linePreview?.toPreviewLayers() }
+    val cameraTarget = focusStop ?: linePreview?.stop
+    val previewZoom = when {
+        focusStop != null -> FocusStopZoom
+        linePreview != null -> LinePreviewZoom
+        else -> null
+    }
+    val previewShape = linePreview?.let { it.passed.size to it.ahead.size }
 
     val originDotColor = MaterialTheme.colorScheme.primary
     val originData = remember(origin?.latitude, origin?.longitude) {
@@ -198,45 +208,38 @@ fun HomeMap(
             }
         }
 
-        if (linePreview != null) {
+        if (previewLayers != null) {
             key("line-preview") {
-                if (linePreview.passed.size >= 2) {
+                val passedLine = previewLayers.passedLine
+                if (passedLine != null) {
                     PreviewLine(
                         id = "line-preview-passed",
-                        coordinates = linePreview.passed,
+                        data = passedLine,
                         color = passedColor.copy(alpha = 0.5f),
                         casingColor = casingColor.copy(alpha = 0.5f),
                         width = 4.dp,
                         casingWidth = 6.dp,
                     )
                 }
-                if (linePreview.ahead.size >= 2) {
+                val aheadLine = previewLayers.aheadLine
+                if (aheadLine != null) {
                     PreviewLine(
                         id = "line-preview-ahead",
-                        coordinates = linePreview.ahead,
+                        data = aheadLine,
                         color = previewColor,
                         casingColor = casingColor,
                         width = 6.dp,
                         casingWidth = 9.dp,
                     )
                 }
-                val passedStops = linePreview.stops.filterNot { it.upcoming }
-                val upcomingStops = linePreview.stops.filter { it.upcoming && !it.current && !it.terminus }
-                val terminusStops = linePreview.stops.filter { it.terminus && !it.current }
-                val boarding = linePreview.stops.firstOrNull { it.current }?.coordinate ?: linePreview.stop
-                val labelStops = linePreview.stops.filter { it.upcoming }
-                val passedStopsSource = rememberGeoJsonSource(
-                    data = pointsGeoJson(passedStops.map { it.coordinate }),
-                )
+                val passedStopsSource = rememberGeoJsonSource(data = previewLayers.passedStops)
                 CircleLayer(
                     id = "line-preview-passed-stops",
                     source = passedStopsSource,
                     color = const(passedColor),
                     radius = const(3.5.dp),
                 )
-                val upcomingSource = rememberGeoJsonSource(
-                    data = pointsGeoJson(upcomingStops.map { it.coordinate }),
-                )
+                val upcomingSource = rememberGeoJsonSource(data = previewLayers.upcomingStops)
                 CircleLayer(
                     id = "line-preview-stops",
                     source = upcomingSource,
@@ -245,9 +248,7 @@ fun HomeMap(
                     strokeColor = const(previewColor),
                     strokeWidth = const(2.dp),
                 )
-                val terminusSource = rememberGeoJsonSource(
-                    data = pointsGeoJson(terminusStops.map { it.coordinate }),
-                )
+                val terminusSource = rememberGeoJsonSource(data = previewLayers.terminusStops)
                 CircleLayer(
                     id = "line-preview-terminus",
                     source = terminusSource,
@@ -256,7 +257,7 @@ fun HomeMap(
                     strokeColor = const(Color.White),
                     strokeWidth = const(1.5.dp),
                 )
-                val stopSource = rememberGeoJsonSource(data = pointGeoJson(boarding))
+                val stopSource = rememberGeoJsonSource(data = previewLayers.boarding)
                 CircleLayer(
                     id = "line-preview-stop-halo",
                     source = stopSource,
@@ -271,7 +272,7 @@ fun HomeMap(
                     strokeColor = const(Color.White),
                     strokeWidth = const(2.dp),
                 )
-                val labelSource = rememberGeoJsonSource(data = namedPointsGeoJson(labelStops))
+                val labelSource = rememberGeoJsonSource(data = previewLayers.labels)
                 SymbolLayer(
                     id = "line-preview-labels",
                     source = labelSource,
@@ -344,23 +345,26 @@ fun HomeMap(
         routeSignature,
         fitRoute,
         followCenter,
-        linePreview,
-        focusStop,
+        cameraTarget?.latitude,
+        cameraTarget?.longitude,
+        previewZoom,
+        previewShape,
         viewportHeightPx,
     ) {
         mapState.awaitViewport()
         // The sheet changes the map's height after this effect starts. Wait until that height
         // settles so the stop is framed in the map you actually see.
-        if (linePreview != null || focusStop != null) {
+        val framed = cameraTarget
+        val framedZoom = previewZoom
+        if (framedZoom != null) {
             if (viewportHeightPx == 0) return@LaunchedEffect
             delay(80.milliseconds)
         }
-        val previewTarget = focusStop ?: linePreview?.stop
-        if (previewTarget != null) {
+        if (framed != null && framedZoom != null) {
             mapState.animateCamera(
                 update = CameraPosition(
-                    center = Position(longitude = previewTarget.longitude, latitude = previewTarget.latitude),
-                    zoom = if (focusStop != null) FocusStopZoom else LinePreviewZoom,
+                    center = Position(longitude = framed.longitude, latitude = framed.latitude),
+                    zoom = framedZoom,
                     bearing = mapState.cameraPosition.bearing,
                     pitch = mapState.cameraPosition.pitch,
                 ).toCameraUpdate(),
@@ -460,17 +464,43 @@ private fun List<Coordinate>.toPositions(): List<Position> =
         Position(longitude = coordinate.longitude, latitude = coordinate.latitude)
     }
 
+private class PreviewLayers(
+    val passedLine: GeoJsonData?,
+    val aheadLine: GeoJsonData?,
+    val passedStops: GeoJsonData,
+    val upcomingStops: GeoJsonData,
+    val terminusStops: GeoJsonData,
+    val boarding: GeoJsonData,
+    val labels: GeoJsonData,
+)
+
+private fun LinePreview.toPreviewLayers(): PreviewLayers {
+    val passedStops = stops.filterNot { it.upcoming }
+    val upcomingStops = stops.filter { it.upcoming && !it.current && !it.terminus }
+    val terminusStops = stops.filter { it.terminus && !it.current }
+    val boarding = stops.firstOrNull { it.current }?.coordinate ?: stop
+    val labelStops = stops.filter { it.upcoming }
+    return PreviewLayers(
+        passedLine = passed.takeIf { it.size >= 2 }?.let { lineGeoJson(it.toPositions()) },
+        aheadLine = ahead.takeIf { it.size >= 2 }?.let { lineGeoJson(it.toPositions()) },
+        passedStops = pointsGeoJson(passedStops.map { it.coordinate }),
+        upcomingStops = pointsGeoJson(upcomingStops.map { it.coordinate }),
+        terminusStops = pointsGeoJson(terminusStops.map { it.coordinate }),
+        boarding = pointGeoJson(boarding),
+        labels = namedPointsGeoJson(labelStops),
+    )
+}
+
 @Composable
 private fun PreviewLine(
     id: String,
-    coordinates: List<Coordinate>,
+    data: GeoJsonData,
     color: Color,
     casingColor: Color,
     width: Dp,
     casingWidth: Dp,
 ) {
-    val positions = remember(coordinates) { coordinates.toPositions() }
-    val source = rememberGeoJsonSource(data = lineGeoJson(positions))
+    val source = rememberGeoJsonSource(data = data)
     LineLayer(
         id = "$id-casing",
         source = source,

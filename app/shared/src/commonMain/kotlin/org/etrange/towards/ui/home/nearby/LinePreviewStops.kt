@@ -1,10 +1,5 @@
 package org.etrange.towards.ui.home.nearby
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
@@ -28,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.FloatState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -68,6 +65,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import org.etrange.towards.ui.LineBadge
 import org.etrange.towards.ui.icons.liveIcon
 import org.etrange.towards.ui.icons.walkIcon
@@ -92,10 +90,11 @@ fun LineSheet(
     modifier: Modifier = Modifier,
     loading: Boolean = false,
     contentPadding: PaddingValues = PaddingValues(),
-    sheetDragPx: Float = 0f,
     onSheetDrag: (Float) -> Unit = {},
     onSheetDragEnd: (Float) -> Unit = {},
     onDepartureClick: (Int) -> Unit = {},
+    /** Current drag in pixels. Gesture callbacks read it; the map applies it during layout. */
+    sheetDrag: FloatState? = null,
     /** Phone sheets drag to resize the map. Side-by-side layouts dismiss with the close button. */
     draggable: Boolean = true,
 ) {
@@ -105,13 +104,12 @@ fun LineSheet(
     val deepAccent = if (darkTheme) accent else lerp(accent, Color.Black, 0.3f)
     val passed = preview.stops.withIndex().filter { !it.value.upcoming }
     val ahead = preview.stops.withIndex().filter { it.value.upcoming }
-    val dragPx = rememberUpdatedState(sheetDragPx)
     val onDrag = rememberUpdatedState(onSheetDrag)
     val onDragEnd = rememberUpdatedState(onSheetDragEnd)
-    val dismissScroll = remember {
+    val dismissScroll = remember(sheetDrag) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                val current = dragPx.value
+                val current = sheetDrag?.floatValue ?: 0f
                 if (available.y < 0f && current > 0f) {
                     val consumed = -minOf(-available.y, current)
                     onDrag.value(consumed)
@@ -133,7 +131,7 @@ fun LineSheet(
             }
 
             override suspend fun onPreFling(available: Velocity): Velocity {
-                if (dragPx.value > 0f) {
+                if ((sheetDrag?.floatValue ?: 0f) > 0f) {
                     onDragEnd.value(available.y)
                     return available
                 }
@@ -184,33 +182,30 @@ fun LineSheet(
         ) {
             if (passed.isNotEmpty()) {
                 item(key = "earlier-stops") {
-                    Column {
-                        EarlierStopsRow(
-                            count = passed.size,
-                            expanded = earlierExpanded,
+                    EarlierStopsRow(
+                        count = passed.size,
+                        expanded = earlierExpanded,
+                        accent = accent,
+                        onClick = { earlierExpanded = !earlierExpanded },
+                    )
+                }
+                if (earlierExpanded) {
+                    items(
+                        count = passed.size,
+                        key = { position -> "passed-${passed[position].index}" },
+                    ) { position ->
+                        val indexed = passed[position]
+                        StopRow(
+                            stop = indexed.value,
                             accent = accent,
-                            onClick = { earlierExpanded = !earlierExpanded },
+                            deepAccent = deepAccent,
+                            above = Rail.Thin,
+                            below = Rail.Thin,
+                            walkMinutes = null,
+                            showDivider = true,
+                            onClick = { onStopClick(indexed.index) },
+                            modifier = Modifier.animateItem(),
                         )
-                        AnimatedVisibility(
-                            visible = earlierExpanded,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut(),
-                        ) {
-                            Column {
-                                passed.forEach { indexed ->
-                                    StopRow(
-                                        stop = indexed.value,
-                                        accent = accent,
-                                        deepAccent = deepAccent,
-                                        above = Rail.Thin,
-                                        below = Rail.Thin,
-                                        walkMinutes = null,
-                                        showDivider = true,
-                                        onClick = { onStopClick(indexed.index) },
-                                    )
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -295,20 +290,24 @@ private fun DepartureCards(
     enabled: Boolean,
     onDepartureClick: (Int) -> Unit,
 ) {
-    val now by produceState(initialValue = Clock.System.now(), key1 = preview.departures) {
-        while (true) {
-            value = Clock.System.now()
-            delay(30.seconds)
-        }
-    }
     LazyRow(
         contentPadding = PaddingValues(horizontal = SheetInset, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         itemsIndexed(preview.departures, key = { _, trip -> trip.tripId }) { index, trip ->
+            val countdown by produceState(
+                initialValue = countdownOf(trip.time, Clock.System.now()),
+                key1 = trip.time,
+            ) {
+                while (isActive) {
+                    val next = countdownOf(trip.time, Clock.System.now())
+                    if (next != value) value = next
+                    delay(30.seconds)
+                }
+            }
             val selected = index == preview.selectedDeparture
             DepartureCard(
-                countdown = countdownOf(trip.time, now),
+                countdown = countdown,
                 realTime = trip.realTime,
                 selected = selected,
                 container = when {
@@ -337,15 +336,6 @@ private fun DepartureCard(
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(22.dp)
-    var numberSize by remember(countdown.value) {
-        mutableStateOf(
-            when {
-                countdown.value.length <= 2 -> 46.sp
-                countdown.value.length <= 3 -> 36.sp
-                else -> 26.sp
-            },
-        )
-    }
     Box(modifier = Modifier.width(108.dp).height(CardHeight)) {
         Box(
             modifier = Modifier.fillMaxWidth().height(CardHeight).shadow(
@@ -368,17 +358,12 @@ private fun DepartureCard(
                 Text(
                     text = countdown.value,
                     color = content,
-                    fontSize = numberSize,
                     fontWeight = FontWeight.ExtraBold,
                     style = MaterialTheme.typography.displaySmall.copy(fontFeatureSettings = "tnum"),
                     maxLines = 1,
                     softWrap = false,
                     textAlign = TextAlign.Center,
-                    onTextLayout = { layout ->
-                        if (layout.hasVisualOverflow && numberSize > 16.sp) {
-                            numberSize *= 0.9f
-                        }
-                    },
+                    autoSize = TextAutoSize.StepBased(minFontSize = 16.sp, maxFontSize = 46.sp),
                 )
                 if (countdown.unit != null) {
                     Text(
@@ -448,13 +433,16 @@ private fun StopRow(
     walkMinutes: Int?,
     showDivider: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val textColor = if (stop.upcoming) {
         MaterialTheme.colorScheme.onSurface
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
     }
-    Column(modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick)) {
+    Column(
+        modifier = modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick),
+    ) {
         RailLine(top = above, bottom = above, accent = accent) {
             Spacer(modifier = Modifier.height(if (walkMinutes != null) 12.dp else 16.dp))
             if (walkMinutes != null) {

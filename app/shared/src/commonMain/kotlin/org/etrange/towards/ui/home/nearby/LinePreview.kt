@@ -1,5 +1,6 @@
 package org.etrange.towards.ui.home.nearby
 
+import androidx.compose.runtime.Immutable
 import kotlin.time.Instant
 import org.etrange.towards.data.decodeCoordinates
 import org.etrange.towards.domain.model.Coordinate
@@ -10,6 +11,7 @@ import org.etrange.towards.domain.model.JourneyLeg
 import org.etrange.towards.domain.model.Place
 
 /** One stop of the selected direction, in travel order from the start of the trip. */
+@Immutable
 data class LinePreviewStop(
     val name: String,
     val coordinate: Coordinate,
@@ -22,6 +24,7 @@ data class LinePreviewStop(
 )
 
 /** A trip drawn from the tapped stop: [passed] is behind, [ahead] continues toward the headsign. */
+@Immutable
 data class LinePreview(
     val stop: Coordinate,
     val routeColor: String?,

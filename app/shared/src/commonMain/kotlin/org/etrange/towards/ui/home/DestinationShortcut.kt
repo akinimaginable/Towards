@@ -41,9 +41,20 @@ fun DestinationShortcut(
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(label)
+            if (detail.isNotEmpty()) {
+                Text(
+                    text = detail,
+                    color = if (highlightDetail) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
         }
     }
 }
