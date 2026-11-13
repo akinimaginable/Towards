@@ -38,33 +38,51 @@ fun NearbyCell.center(meters: Int = NEARBY_CELL_METERS): Coordinate {
 class NearbyStopTimesCache(
     private val maxEntries: Int = 128,
 ) {
+    init {
+        require(maxEntries > 0) { "maxEntries must be positive" }
+    }
+
     private val entries = ConcurrentHashMap<Key, StopTimes>()
-    private val locks = ConcurrentHashMap<Key, Mutex>()
+    private val locks = ConcurrentHashMap<Key, LoadLock>()
 
     suspend fun getOrLoad(cell: NearbyCell, minute: Long, load: suspend () -> StopTimes): StopTimes {
         val key = Key(cell, minute)
         entries[key]?.let { return it }
-        val mutex = locks.computeIfAbsent(key) { Mutex() }
-        return mutex.withLock {
-            entries[key]?.let { return@withLock it }
-            val loaded = load()
-            entries[key] = loaded
-            evict(keeping = key)
-            loaded
+        val lock = locks.compute(key) { _, existing ->
+            (existing ?: LoadLock()).also { it.users += 1 }
+        }!!
+        try {
+            return lock.mutex.withLock {
+                entries[key] ?: load().also { loaded ->
+                    entries[key] = loaded
+                    evict(keeping = key)
+                }
+            }
+        } finally {
+            // Registration and release are atomic per key, including waiting callers.
+            locks.compute(key) { _, current ->
+                check(current === lock)
+                lock.users -= 1
+                lock.takeIf { it.users > 0 }
+            }
         }
     }
+
+    internal fun retainedEntryCount(): Int = entries.size
+
+    internal fun retainedLockCount(): Int = locks.size
 
     private fun evict(keeping: Key) {
         entries.keys.filter { it.minute != keeping.minute }.forEach { expired ->
             entries.remove(expired)
-            locks.remove(expired)
         }
         while (entries.size > maxEntries) {
             val extra = entries.keys.firstOrNull { it != keeping } ?: break
             entries.remove(extra)
-            locks.remove(extra)
         }
     }
+
+    private class LoadLock(val mutex: Mutex = Mutex(), var users: Int = 0)
 
     private data class Key(val cell: NearbyCell, val minute: Long)
 }
